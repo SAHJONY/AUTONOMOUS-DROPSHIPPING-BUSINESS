@@ -12,6 +12,9 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./commerce_os.db"
 
+    # Comma-separated origins; "*" is safe here because auth uses Bearer tokens, not cookies.
+    cors_origins: str = "*"
+
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-opus-4-8"
     agent_max_iterations: int = 12

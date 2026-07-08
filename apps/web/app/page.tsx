@@ -41,11 +41,30 @@ type Approval = {
   result: string;
 };
 
+const FEATURES = [
+  {
+    title: "CEO Agent",
+    body: "Reviews the business snapshot, coordinates seven specialist agents, and files a structured daily report — revenue, top products, next actions.",
+  },
+  {
+    title: "Product Intelligence",
+    body: "Every opportunity is scored deterministically — demand, competition, margin, trend, risk. Only 85+ reaches the launch queue.",
+  },
+  {
+    title: "Human Command",
+    body: "Refunds, ad budgets, store creation, killing products — high-risk actions halt for your approval. Nothing irreversible happens without you.",
+  },
+  {
+    title: "Total Recall",
+    body: "Agents write every learning, quote, and report to business memory and recall it in future runs. The operation compounds.",
+  },
+];
+
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [mode, setMode] = useState<"login" | "register">("register");
+  const [view, setView] = useState<"hero" | "register" | "login">("hero");
 
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [agents, setAgents] = useState<AgentInfo[]>([]);
@@ -104,6 +123,7 @@ export default function Home() {
     const form = new FormData(e.currentTarget);
     const email = form.get("email") as string;
     const password = form.get("password") as string;
+    const mode = view === "register" ? "register" : "login";
     try {
       const body =
         mode === "register"
@@ -127,6 +147,15 @@ export default function Home() {
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
+  }
+
+  function signOut() {
+    setToken(null);
+    setOrgId(null);
+    setDashboard(null);
+    setRuns([]);
+    setApprovals([]);
+    setView("hero");
   }
 
   async function runAgent() {
@@ -160,166 +189,242 @@ export default function Home() {
     }
   }
 
+  /* ---------- Signed out: hero + auth ---------- */
+
   if (!authed) {
-    return (
-      <main>
-        <h1>Claude Commerce OS</h1>
-        <p className="subtitle">
-          Autonomous AI dropshipping operator — multi-agent, human-approved.
-        </p>
-        <form className="auth" onSubmit={handleAuth}>
-          <div className="row">
-            <button
-              type="button"
-              className={mode === "register" ? "" : "secondary"}
-              onClick={() => setMode("register")}
-            >
-              Register
-            </button>
-            <button
-              type="button"
-              className={mode === "login" ? "" : "secondary"}
-              onClick={() => setMode("login")}
-            >
-              Login
-            </button>
+    if (view === "hero") {
+      return (
+        <>
+          <nav className="nav">
+            <div className="wordmark">
+              Commerce <span>OS</span>
+            </div>
+            <div className="nav-right">
+              <button onClick={() => setView("login")}>Sign in</button>
+            </div>
+          </nav>
+          <div className="hero">
+            <div className="hero-backdrop" />
+            <div className="hero-glow" />
+            <div className="hero-horizon" />
+            <div className="eyebrow">The Autonomous Commerce Operator</div>
+            <h1 className="display">Commerce, on Autopilot</h1>
+            <p className="lede">
+              A Claude CEO agent and seven specialists discover products, validate demand, and
+              run your stores around the clock. You approve only what matters.
+            </p>
+            <div className="hero-ctas">
+              <button className="btn btn-primary" onClick={() => setView("register")}>
+                Start Operating
+              </button>
+              <button className="btn btn-ghost" onClick={() => setView("login")}>
+                Sign In
+              </button>
+            </div>
           </div>
-          <input name="email" type="email" placeholder="Email" required />
-          <input
-            name="password"
-            type="password"
-            placeholder="Password (8+ characters)"
-            minLength={8}
-            required
-          />
-          {mode === "register" && <input name="org" placeholder="Business name" />}
-          <button type="submit">{mode === "register" ? "Create account" : "Sign in"}</button>
+          <div className="features">
+            {FEATURES.map((f) => (
+              <div className="feature" key={f.title}>
+                <h3>{f.title}</h3>
+                <p>{f.body}</p>
+              </div>
+            ))}
+          </div>
+          <div className="footer">Claude Commerce OS — Autonomy with a human hand on the wheel</div>
+        </>
+      );
+    }
+
+    return (
+      <div className="auth-wrap">
+        <div className="auth-card">
+          <div className="eyebrow">Commerce OS</div>
+          <h1>{view === "register" ? "Create Account" : "Sign In"}</h1>
           {error && <p className="error">{error}</p>}
-        </form>
-      </main>
+          <form onSubmit={handleAuth}>
+            <div className="field">
+              <label htmlFor="email">Email address</label>
+              <input id="email" name="email" type="email" required autoFocus />
+            </div>
+            <div className="field">
+              <label htmlFor="password">Password</label>
+              <input id="password" name="password" type="password" minLength={8} required />
+            </div>
+            {view === "register" && (
+              <div className="field">
+                <label htmlFor="org">Business name</label>
+                <input id="org" name="org" placeholder="My Business" />
+              </div>
+            )}
+            <button className="btn btn-primary" type="submit" style={{ width: "100%" }}>
+              {view === "register" ? "Create Account" : "Sign In"}
+            </button>
+          </form>
+          <p className="auth-switch" style={{ marginTop: 28 }}>
+            {view === "register" ? (
+              <>
+                Already operating?{" "}
+                <button onClick={() => setView("login")}>Sign in</button>
+              </>
+            ) : (
+              <>
+                New here?{" "}
+                <button onClick={() => setView("register")}>Create an account</button>
+              </>
+            )}
+          </p>
+        </div>
+      </div>
     );
   }
 
+  /* ---------- Signed in: command deck ---------- */
+
   const pending = approvals.filter((a) => a.status === "pending");
+  const currentAgent = agents.find((a) => a.name === selectedAgent);
 
   return (
-    <main>
-      <h1>Claude Commerce OS</h1>
-      <p className="subtitle">Your AI operating team, reporting for duty.</p>
-      {error && <p className="error">{error}</p>}
-
-      {dashboard && (
-        <div className="grid">
-          <div className="card">
-            <div className="value">{dashboard.products_total}</div>
-            <div className="label">Products</div>
-          </div>
-          <div className="card">
-            <div className="value">{dashboard.stores_total}</div>
-            <div className="label">Stores</div>
-          </div>
-          <div className="card">
-            <div className="value">{dashboard.runs_total}</div>
-            <div className="label">Agent runs</div>
-          </div>
-          <div className="card">
-            <div className="value">{dashboard.pending_approvals}</div>
-            <div className="label">Pending approvals</div>
-          </div>
-          <div className="card">
-            <div className="value">{dashboard.total_tokens_used.toLocaleString()}</div>
-            <div className="label">Tokens used</div>
-          </div>
+    <>
+      <nav className="nav">
+        <div className="wordmark">
+          Commerce <span>OS</span>
         </div>
-      )}
+        <div className="nav-right">
+          <span>{pending.length > 0 ? `${pending.length} approvals waiting` : "All clear"}</span>
+          <button onClick={signOut}>Sign out</button>
+        </div>
+      </nav>
 
-      <h2>Run an agent</h2>
-      <div className="row">
-        <select value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)} style={{ maxWidth: 220 }}>
-          {agents.map((a) => (
-            <option key={a.name} value={a.name}>
-              {a.name}
-            </option>
-          ))}
-        </select>
-        <input
-          value={task}
-          onChange={(e) => setTask(e.target.value)}
-          placeholder="Task, e.g. 'Review the business and write today's report'"
-          style={{ flex: 1, minWidth: 260 }}
-        />
-        <button onClick={runAgent} disabled={busy || !task.trim()}>
-          {busy ? "Running…" : "Run"}
-        </button>
-      </div>
-      <p className="muted" style={{ marginTop: "0.5rem", fontSize: "0.85rem" }}>
-        {agents.find((a) => a.name === selectedAgent)?.description}
-      </p>
+      <main className="app">
+        {error && <p className="error">{error}</p>}
 
-      {pending.length > 0 && (
-        <>
-          <h2>Approvals needed</h2>
-          <table>
-            <thead>
-              <tr>
-                <th>Agent</th>
-                <th>Action</th>
-                <th>Details</th>
-                <th>Risk</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {pending.map((a) => (
-                <tr key={a.id}>
-                  <td>{a.agent_name}</td>
-                  <td>{a.action}</td>
-                  <td>
-                    <code>{JSON.stringify(a.payload)}</code>
-                  </td>
-                  <td>
-                    <span className="status pending">{a.risk_level}</span>
-                  </td>
-                  <td className="row">
-                    <button onClick={() => decide(a.id, "approve")}>Approve</button>
-                    <button className="secondary" onClick={() => decide(a.id, "reject")}>
-                      Reject
-                    </button>
-                  </td>
-                </tr>
+        {dashboard && (
+          <section>
+            <div className="metrics">
+              <div className="metric">
+                <div className="value">{dashboard.products_total}</div>
+                <div className="label">Products</div>
+              </div>
+              <div className="metric">
+                <div className="value">{dashboard.stores_total}</div>
+                <div className="label">Stores</div>
+              </div>
+              <div className="metric">
+                <div className="value">{dashboard.runs_total}</div>
+                <div className="label">Agent Runs</div>
+              </div>
+              <div className="metric">
+                <div className="value">{dashboard.pending_approvals}</div>
+                <div className="label">Approvals</div>
+              </div>
+              <div className="metric">
+                <div className="value">{dashboard.total_tokens_used.toLocaleString()}</div>
+                <div className="label">Tokens</div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        <section>
+          <div className="section-head">
+            <h2>Command</h2>
+            <span className="hint">Dispatch an agent</span>
+          </div>
+          <div className="console">
+            <select value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)}>
+              {agents.map((a) => (
+                <option key={a.name} value={a.name}>
+                  {a.name.replace(/_/g, " ").toUpperCase()}
+                </option>
               ))}
-            </tbody>
-          </table>
-        </>
-      )}
+            </select>
+            <input
+              value={task}
+              onChange={(e) => setTask(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && runAgent()}
+              placeholder="Review the business and write today's report"
+            />
+            <button className="btn btn-primary" onClick={runAgent} disabled={busy || !task.trim()}>
+              {busy ? "Running" : "Run"}
+            </button>
+          </div>
+          {currentAgent && (
+            <p className="agent-desc">
+              {currentAgent.description}
+              {currentAgent.high_risk_tools.length > 0 && (
+                <> Requires approval for: {currentAgent.high_risk_tools.join(", ")}.</>
+              )}
+            </p>
+          )}
+        </section>
 
-      <h2>Recent runs</h2>
-      {runs.length === 0 ? (
-        <p className="muted">No agent runs yet. Dispatch one above.</p>
-      ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Agent</th>
-              <th>Task</th>
-              <th>Status</th>
-              <th>Output</th>
-            </tr>
-          </thead>
-          <tbody>
-            {runs.slice(0, 20).map((r) => (
-              <tr key={r.id}>
-                <td>{r.agent_name}</td>
-                <td>{r.task.slice(0, 80)}</td>
-                <td>
-                  <span className={`status ${r.status}`}>{r.status}</span>
-                </td>
-                <td className="muted">{(r.output || r.error).slice(0, 160)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </main>
+        <section>
+          <div className="section-head">
+            <h2>Approvals</h2>
+            <span className="hint">High-risk actions halt here</span>
+          </div>
+          {pending.length === 0 ? (
+            <p className="empty">Nothing awaiting your decision.</p>
+          ) : (
+            pending.map((a) => (
+              <div className="approval" key={a.id}>
+                <div className="approval-info">
+                  <h4>
+                    {a.action.replace(/_/g, " ")}{" "}
+                    <span className={`status ${a.risk_level}`}>{a.risk_level} risk</span>
+                  </h4>
+                  <p>
+                    Requested by the {a.agent_name.replace(/_/g, " ")} agent —{" "}
+                    <code>{JSON.stringify(a.payload)}</code>
+                  </p>
+                </div>
+                <div className="approval-actions">
+                  <button className="btn btn-primary btn-small" onClick={() => decide(a.id, "approve")}>
+                    Approve
+                  </button>
+                  <button className="btn btn-ghost btn-small" onClick={() => decide(a.id, "reject")}>
+                    Reject
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </section>
+
+        <section>
+          <div className="section-head">
+            <h2>Operations Log</h2>
+            <span className="hint">Latest 20 runs</span>
+          </div>
+          {runs.length === 0 ? (
+            <p className="empty">No agent runs yet. Dispatch one from the command console.</p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th>Task</th>
+                  <th>Status</th>
+                  <th>Output</th>
+                </tr>
+              </thead>
+              <tbody>
+                {runs.slice(0, 20).map((r) => (
+                  <tr key={r.id}>
+                    <td>{r.agent_name.replace(/_/g, " ")}</td>
+                    <td>{r.task.slice(0, 70)}</td>
+                    <td>
+                      <span className={`status ${r.status}`}>{r.status.replace(/_/g, " ")}</span>
+                    </td>
+                    <td>{(r.output || r.error).slice(0, 140)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      </main>
+      <div className="footer">Claude Commerce OS — Autonomy with a human hand on the wheel</div>
+    </>
   );
 }
