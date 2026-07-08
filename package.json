@@ -1,0 +1,8 @@
+{
+  "name": "autonomous-dropshipping-business",
+  "private": true,
+  "description": "Monorepo shim so Vercel's Next.js detection works from the repository root; the real app lives in apps/web (see vercel.json). Set the Vercel project's Root Directory to apps/web to make this file unnecessary.",
+  "dependencies": {
+    "next": "^15.3.0"
+  }
+}
