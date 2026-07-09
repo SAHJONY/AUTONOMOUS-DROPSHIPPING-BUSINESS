@@ -29,8 +29,14 @@ async function handle(req: Request) {
         orgId: org.id,
         agentName: "ceo",
         task:
-          "Autonomous 24/7 cycle: review the business snapshot, coordinate specialists as needed, " +
-          "and file today's structured report (revenue, top products, risks, next actions) to memory.",
+          "Autonomous 24/7 cycle. Move the business forward, don't just report. Steps: (1) get the " +
+          "business snapshot and list products; (2) if fewer than 3 launch-ready products exist, " +
+          "dispatch product_hunter to find and score new opportunities; (3) for the best ready_to_launch " +
+          "product with no listing, dispatch store_builder to write one, and dispatch finance to verify " +
+          "unit economics; (4) dispatch marketing for a creative brief on the top product; (5) queue any " +
+          "high-risk actions (store creation, budgets) for owner approval — never wait on them; " +
+          "(6) file a concise report (what advanced today, key numbers, pending approvals, next action) " +
+          "to memory. Make reasonable assumptions; never stop to ask a human.",
       });
       results.push({ org: org.id, name: org.name, run_id: run.id, status: run.status });
     } catch (e) {

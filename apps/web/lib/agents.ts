@@ -44,6 +44,20 @@ export interface Agent {
   tools(): ToolDef[];
 }
 
+/**
+ * Prepended to every agent's system prompt (see brain.ts). Turns the fleet
+ * fully autonomous and efficient: agents gather their own context and act
+ * instead of asking the operator for details.
+ */
+export const OPERATING_DIRECTIVE = `You are a fully autonomous operator inside Claude Commerce OS, an AI-run dropshipping business. Operating principles for EVERY task:
+
+- BE AUTONOMOUS. Never ask the human for information you can obtain with your tools or infer from reasonable industry defaults. Use list_products, recall_memory, and (if available) get_business_snapshot to gather context yourself, then act. Do not end your turn with a question — end it with completed work.
+- SELF-SERVE TARGETS. If a product or target isn't named, pick the most relevant one from the catalog yourself (prefer the newest 'ready_to_launch', else the highest-scored) and proceed. State the assumption in one line.
+- BE EFFICIENT. Gather what you need in as few tool calls as possible. Never repeat a lookup you already did. Make well-reasoned assumptions rather than stalling. Finish in a single pass.
+- HUMAN GATE ONLY FOR RISK. The ONLY time you pause for a human is an approval-gated tool: call it, note it was queued, and continue with everything else in the task.
+- ALWAYS PERSIST. Save meaningful decisions, quotes, and reports with remember so the operation compounds.
+- REPORT TIGHT. End with a short, skimmable summary: what you did, the key numbers, and the single most important next action.`;
+
 const SCORE_FACTORS = {
   demand: { type: "number", description: "Market demand, 0-100 (higher is better)" },
   competition: { type: "number", description: "Competition, 0-100 (higher = worse)" },
@@ -90,6 +104,31 @@ const recallTool: ToolDef = {
       .join("\n");
   },
 };
+
+/** Read-only catalog access shared by every agent, so none needs to ask the human. */
+const listProductsTool: ToolDef = {
+  name: "list_products",
+  description:
+    "List the organization's product catalog with IDs, so you can act on a product without asking the human.",
+  input_schema: { type: "object", properties: {} },
+  handler: async (ctx) => {
+    const products = (await listProducts(ctx.orgId)).slice(0, 40);
+    if (!products.length) return "No products in the catalog yet.";
+    return products
+      .map(
+        (p) =>
+          `id=${p.id} | ${p.title} — status=${p.status}, cost=${p.cost}, price=${p.price}, score=${p.score ?? "n/a"}`,
+      )
+      .join("\n");
+  },
+};
+
+/** Standard toolset every specialist gets: catalog + memory. */
+const commonTools = (agentName: string): ToolDef[] => [
+  listProductsTool,
+  rememberTool(agentName),
+  recallTool,
+];
 
 /* ---------- product hunter ---------- */
 
@@ -162,20 +201,7 @@ const productHunter: Agent = {
         return `Saved product '${product.title}' (id ${product.id}) score ${result.total_score} verdict '${result.verdict}'.`;
       },
     },
-    {
-      name: "list_products",
-      description: "List the organization's current product catalog.",
-      input_schema: { type: "object", properties: {} },
-      handler: async (ctx) => {
-        const products = (await listProducts(ctx.orgId)).slice(0, 25);
-        if (!products.length) return "No products in the catalog yet.";
-        return products
-          .map((p) => `${p.title} — status=${p.status}, cost=${p.cost}, price=${p.price}, score=${p.score ?? "n/a"}`)
-          .join("\n");
-      },
-    },
-    rememberTool("product_hunter"),
-    recallTool,
+    ...commonTools("product_hunter"),
   ],
 };
 
@@ -188,7 +214,7 @@ const supplier: Agent = {
     "You are the Supplier agent of Claude Commerce OS. You evaluate sourcing across CJ Dropshipping, " +
     "AliExpress, Spocket, and Zendrop, compare landed costs and shipping times, and record supplier " +
     "quotes and issues in business memory.",
-  tools: () => [rememberTool("supplier"), recallTool],
+  tools: () => commonTools("supplier"),
 };
 
 /* ---------- store builder ---------- */
@@ -248,8 +274,7 @@ const storeBuilder: Agent = {
         return updated ? `Listing updated for product ${a.product_id}.` : "Error: product not found.";
       },
     },
-    rememberTool("store_builder"),
-    recallTool,
+    ...commonTools("store_builder"),
   ],
 };
 
@@ -262,7 +287,7 @@ const marketing: Agent = {
     "You are the Creative Marketing agent of Claude Commerce OS. You design ad angles, hooks, and " +
     "creative briefs for TikTok, Meta, and email. Record every campaign plan and brief in business " +
     "memory so results can be compared.",
-  tools: () => [rememberTool("marketing"), recallTool],
+  tools: () => commonTools("marketing"),
 };
 
 /* ---------- advertising ---------- */
@@ -299,8 +324,7 @@ const advertising: Agent = {
         return `Ad budget for ${a.channel} set to $${Number(a.daily_budget).toFixed(2)}/day and recorded.`;
       },
     },
-    rememberTool("advertising"),
-    recallTool,
+    ...commonTools("advertising"),
   ],
 };
 
@@ -345,8 +369,7 @@ const finance: Agent = {
         });
       },
     },
-    rememberTool("finance"),
-    recallTool,
+    ...commonTools("finance"),
   ],
 };
 
@@ -383,8 +406,7 @@ const support: Agent = {
         return `Refund of $${Number(a.amount).toFixed(2)} recorded for order ${a.order_id}.`;
       },
     },
-    rememberTool("support"),
-    recallTool,
+    ...commonTools("support"),
   ],
 };
 
@@ -466,8 +488,7 @@ const ceo: Agent = {
         return updated ? `Product '${updated.title}' has been killed.` : "Error: product not found.";
       },
     },
-    rememberTool("ceo"),
-    recallTool,
+    ...commonTools("ceo"),
   ],
 };
 

@@ -17,7 +17,7 @@ import {
   ANTHROPIC_API_KEY,
   BRAIN_MODEL,
 } from "./config";
-import { getAgent, type Agent, type AgentContext, type ToolDef } from "./agents";
+import { getAgent, OPERATING_DIRECTIVE, type Agent, type AgentContext, type ToolDef } from "./agents";
 import {
   getApproval,
   newId,
@@ -145,7 +145,7 @@ async function runLive(agent: Agent, task: string, ctx: AgentContext): Promise<L
     const response = await client().messages.create({
       model: BRAIN_MODEL,
       max_tokens: AGENT_MAX_TOKENS,
-      system: agent.system_prompt,
+      system: `${OPERATING_DIRECTIVE}\n\n${agent.system_prompt}`,
       tools: apiTools,
       messages,
     });
