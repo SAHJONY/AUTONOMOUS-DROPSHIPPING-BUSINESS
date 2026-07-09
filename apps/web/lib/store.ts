@@ -2,8 +2,8 @@
  * Domain data access over the KV layer. All persistence for orgs, users,
  * products, agent runs, approvals, and business memory lives here.
  */
-import { kv, listGet, listPush, listReplace, STORAGE_MODE } from "./kv";
-import { BRAIN_MODEL, isOwnerEmail, OWNER_EMAIL, OWNER_PASSWORD } from "./config";
+import { kv, listGet, listPush, listReplace } from "./kv";
+import { ENGINE_NAME, isOwnerEmail, OWNER_EMAIL, OWNER_PASSWORD } from "./config";
 import { ANTHROPIC_API_KEY } from "./config";
 import { hashPassword, verifyPassword } from "./auth";
 import type {
@@ -278,8 +278,7 @@ export async function buildDashboard(orgId: string): Promise<Dashboard> {
     total_tokens_used: tokens,
     memory_entries: memory.length,
     revenue_estimate: Math.round(revenue * 100) / 100,
-    brain_model: BRAIN_MODEL,
-    brain_live: !!ANTHROPIC_API_KEY,
-    storage_mode: STORAGE_MODE,
+    engine: ENGINE_NAME,
+    engine_online: !!ANTHROPIC_API_KEY,
   };
 }

@@ -112,7 +112,6 @@ export interface Dashboard {
   total_tokens_used: number;
   memory_entries: number;
   revenue_estimate: number;
-  brain_model: string;
-  brain_live: boolean;
-  storage_mode: string;
+  engine: string;
+  engine_online: boolean;
 }

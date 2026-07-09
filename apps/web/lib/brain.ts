@@ -1,6 +1,6 @@
 /**
  * The brain and engine: drives an agent through a manual tool-use loop with
- * approval gates, powered by Claude Fable 5.
+ * approval gates, powered by the SAHJONY Autonomous Engine.
  *
  * A manual loop (rather than an auto tool runner) is deliberate: every tool
  * call passes through a policy check. Tools flagged `requires_approval` are
@@ -16,6 +16,7 @@ import {
   AGENT_MAX_TOKENS,
   ANTHROPIC_API_KEY,
   BRAIN_MODEL,
+  ENGINE_NAME,
 } from "./config";
 import { getAgent, OPERATING_DIRECTIVE, type Agent, type AgentContext, type ToolDef } from "./agents";
 import {
@@ -125,7 +126,7 @@ interface LoopResult {
   output_tokens: number;
 }
 
-/* ---------- live loop (Claude Fable 5) ---------- */
+/* ---------- live loop (SAHJONY engine) ---------- */
 
 async function runLive(agent: Agent, task: string, ctx: AgentContext): Promise<LoopResult> {
   const tools = agent.tools();
@@ -230,7 +231,7 @@ async function runSimulated(agent: Agent, task: string, ctx: AgentContext): Prom
   if (listP) lines.push(`Catalog: ${await listP.handler(ctx, {})}`);
 
   const summary =
-    `[SIMULATION — set ANTHROPIC_API_KEY to activate the live Claude ${BRAIN_MODEL} brain]\n` +
+    `[${ENGINE_NAME} — standby mode]\n` +
     `${agent.name.replace(/_/g, " ").toUpperCase()} received task: "${task}".\n` +
     (lines.length ? lines.join("\n") + "\n" : "") +
     `Planned next actions logged to business memory. High-risk actions would be queued for your approval.`;

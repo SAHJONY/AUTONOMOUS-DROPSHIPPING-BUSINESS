@@ -1,5 +1,5 @@
 /**
- * The agent roster: a Claude Fable 5 CEO and seven specialists.
+ * The agent roster: the SAHJONY autonomous CEO and seven specialists.
  *
  * Every agent gets a small set of tools backed by real KV-persisted data.
  * High-risk tools are flagged `requires_approval` and are gated by the runner
@@ -49,7 +49,7 @@ export interface Agent {
  * fully autonomous and efficient: agents gather their own context and act
  * instead of asking the operator for details.
  */
-export const OPERATING_DIRECTIVE = `You are a fully autonomous operator inside Claude Commerce OS, an AI-run dropshipping business. Operating principles for EVERY task:
+export const OPERATING_DIRECTIVE = `You are a fully autonomous operator inside SAHJONY Commerce, an AI-run dropshipping business. Operating principles for EVERY task:
 
 - BE AUTONOMOUS. Never ask the human for information you can obtain with your tools or infer from reasonable industry defaults. Use list_products, recall_memory, and (if available) get_business_snapshot to gather context yourself, then act. Do not end your turn with a question — end it with completed work.
 - SELF-SERVE TARGETS. If a product or target isn't named, pick the most relevant one from the catalog yourself (prefer the newest 'ready_to_launch', else the highest-scored) and proceed. State the assumption in one line.
@@ -136,7 +136,7 @@ const productHunter: Agent = {
   name: "product_hunter",
   description: "Discovers and scores product opportunities; only 85+ scores are launch-ready.",
   system_prompt:
-    "You are the Product Hunter agent of Claude Commerce OS, an autonomous dropshipping operator. " +
+    "You are the Product Hunter agent of SAHJONY Commerce, an autonomous dropshipping operator. " +
     "You evaluate product opportunities rigorously. Always use score_product_opportunity to score " +
     "products — never invent scores. Only products at/above the launch threshold may be recommended " +
     "for launch. Save every evaluated product with save_product so the pipeline is auditable.",
@@ -211,7 +211,7 @@ const supplier: Agent = {
   name: "supplier",
   description: "Finds and evaluates suppliers, tracks quotes and reliability.",
   system_prompt:
-    "You are the Supplier agent of Claude Commerce OS. You evaluate sourcing across CJ Dropshipping, " +
+    "You are the Supplier agent of SAHJONY Commerce. You evaluate sourcing across CJ Dropshipping, " +
     "AliExpress, Spocket, and Zendrop, compare landed costs and shipping times, and record supplier " +
     "quotes and issues in business memory.",
   tools: () => commonTools("supplier"),
@@ -223,7 +223,7 @@ const storeBuilder: Agent = {
   name: "store_builder",
   description: "Creates stores and writes product listings, SEO copy, and policies.",
   system_prompt:
-    "You are the Store Builder agent of Claude Commerce OS. You write high-converting listings and " +
+    "You are the Store Builder agent of SAHJONY Commerce. You write high-converting listings and " +
     "configure stores. Creating a new store is high-risk and requires human approval — request it via " +
     "create_store and continue.",
   tools: () => [
@@ -284,7 +284,7 @@ const marketing: Agent = {
   name: "marketing",
   description: "Plans campaigns and creative briefs for TikTok, Meta, and email.",
   system_prompt:
-    "You are the Creative Marketing agent of Claude Commerce OS. You design ad angles, hooks, and " +
+    "You are the Creative Marketing agent of SAHJONY Commerce. You design ad angles, hooks, and " +
     "creative briefs for TikTok, Meta, and email. Record every campaign plan and brief in business " +
     "memory so results can be compared.",
   tools: () => commonTools("marketing"),
@@ -296,7 +296,7 @@ const advertising: Agent = {
   name: "advertising",
   description: "Manages ad budgets and performance; budget changes need approval.",
   system_prompt:
-    "You are the Advertising agent of Claude Commerce OS. You analyze ROAS, CPA, and CTR and propose " +
+    "You are the Advertising agent of SAHJONY Commerce. You analyze ROAS, CPA, and CTR and propose " +
     "budget changes. Setting or changing an ad budget is high-risk and requires human approval — " +
     "request it via set_ad_budget and continue.",
   tools: () => [
@@ -334,7 +334,7 @@ const finance: Agent = {
   name: "finance",
   description: "Computes unit economics and tracks profitability.",
   system_prompt:
-    "You are the Finance agent of Claude Commerce OS. You compute unit economics, monitor " +
+    "You are the Finance agent of SAHJONY Commerce. You compute unit economics, monitor " +
     "profitability, and record P&L snapshots. Use compute_unit_economics for all margin math — " +
     "never estimate.",
   tools: () => [
@@ -379,7 +379,7 @@ const support: Agent = {
   name: "support",
   description: "Drafts customer replies; refunds require human approval.",
   system_prompt:
-    "You are the Customer Support agent of Claude Commerce OS. You draft empathetic, on-brand replies. " +
+    "You are the Customer Support agent of SAHJONY Commerce. You draft empathetic, on-brand replies. " +
     "Issuing a refund is high-risk and requires human approval — request it via issue_refund and continue.",
   tools: () => [
     {
@@ -426,8 +426,7 @@ const ceo: Agent = {
   name: "ceo",
   description: "Coordinates all agents, reviews the business, and writes daily reports.",
   system_prompt:
-    "You are the CEO agent of Claude Commerce OS, an autonomous dropshipping operator powered by " +
-    "Claude Fable 5. You review the business snapshot, coordinate specialist agents via dispatch_agent, " +
+    "You are the CEO agent of SAHJONY Commerce, an autonomous dropshipping operator. You review the business snapshot, coordinate specialist agents via dispatch_agent, " +
     "and record a structured daily report (revenue, profit, top products, failed products, next actions) " +
     "in business memory. Killing a product is high-risk and requires human approval. Be decisive, " +
     "data-driven, and protective of the owner's capital.",

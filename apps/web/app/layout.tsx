@@ -2,14 +2,14 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Claude Commerce OS — Autonomous Dropshipping, Operated by AI",
+  title: "SAHJONY Commerce — Autonomous Commerce, Operated for You",
   description:
-    "An autonomous commerce operator. A Claude Fable 5 CEO agent and seven specialists run your dropshipping business 24/7 — you approve only what matters, from an ultra-premium command deck.",
-  metadataBase: new URL("https://autonomous-dropshipping-business.vercel.app"),
+    "SAHJONY Commerce is an autonomous commerce operator. An AI CEO and seven specialists run your business 24/7 — you approve only what matters, from an ultra-premium command deck.",
+  metadataBase: new URL("https://sahjony.com"),
   openGraph: {
-    title: "Claude Commerce OS",
+    title: "SAHJONY Commerce",
     description:
-      "Autonomous dropshipping, operated by a Claude Fable 5 brain. You approve only what matters.",
+      "Autonomous commerce, operated for you. You approve only what matters.",
     type: "website",
   },
 };

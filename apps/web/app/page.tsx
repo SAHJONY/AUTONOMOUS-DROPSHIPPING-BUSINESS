@@ -14,9 +14,8 @@ type Dashboard = {
   total_tokens_used: number;
   memory_entries: number;
   revenue_estimate: number;
-  brain_model: string;
-  brain_live: boolean;
-  storage_mode: string;
+  engine: string;
+  engine_online: boolean;
 };
 type AgentInfo = { name: string; description: string; tools: string[]; high_risk_tools: string[] };
 type AgentRun = {
@@ -35,7 +34,7 @@ type AdminOverview = {
 };
 
 const FEATURES = [
-  { icon: "◇", title: "Fable 5 CEO", body: "A Claude Fable 5 CEO agent reviews the business, coordinates seven specialists, and files a structured report — revenue, top products, next actions." },
+  { icon: "◇", title: "Autonomous CEO", body: "The SAHJONY CEO reviews the business, coordinates seven specialists, and files a structured report — revenue, top products, next actions." },
   { icon: "◈", title: "Product Intelligence", body: "Every opportunity is scored deterministically — demand, competition, margin, trend, risk. Only 85+ reaches the launch queue." },
   { icon: "⬡", title: "Human Command", body: "Refunds, ad budgets, store creation, killing products — high-risk actions halt for your approval. Nothing irreversible happens without you." },
   { icon: "❖", title: "Total Recall", body: "Agents write every learning, quote, and report to business memory and recall it in future runs. The operation compounds." },
@@ -243,9 +242,9 @@ export default function Home() {
       return (
         <>
           <nav className="nav">
-            <div className="wordmark"><span className="dot" /> Commerce <span>OS</span></div>
+            <div className="wordmark"><span className="dot" /> SAHJONY <span>Commerce</span></div>
             <div className="nav-right">
-              <span className="hide-sm">Powered by Claude Fable 5</span>
+              <span className="hide-sm">sahjony.com</span>
               <button onClick={() => setView("login")}>Sign in</button>
             </div>
           </nav>
@@ -256,7 +255,7 @@ export default function Home() {
             <div className="eyebrow">The Autonomous Commerce Operator</div>
             <h1 className="display">Commerce, run by a <span className="gradient-text">mind</span>.</h1>
             <p className="lede">
-              A Claude Fable 5 CEO agent and seven specialists discover products, validate demand, and
+              The SAHJONY autonomous CEO and seven specialists discover products, validate demand, and
               run your stores around the clock. You approve only what matters — from an ultra-premium command deck.
             </p>
             <div className="hero-ctas">
@@ -294,7 +293,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="footer">Claude Commerce OS — Autonomy with a human hand on the wheel</div>
+          <div className="footer">SAHJONY Commerce — Autonomy with a human hand on the wheel · sahjony.com</div>
         </>
       );
     }
@@ -302,7 +301,7 @@ export default function Home() {
     return (
       <div className="auth-wrap">
         <div className="auth-card">
-          <div className="eyebrow">Commerce OS</div>
+          <div className="eyebrow">SAHJONY Commerce</div>
           <h1>{view === "register" ? "Create your operation" : "Welcome back"}</h1>
           {error && <p className="error">{error}</p>}
           <form onSubmit={handleAuth}>
@@ -343,12 +342,12 @@ export default function Home() {
   return (
     <>
       <nav className="nav">
-        <div className="wordmark"><span className="dot" /> Commerce <span>OS</span></div>
+        <div className="wordmark"><span className="dot" /> SAHJONY <span>Commerce</span></div>
         <div className="nav-right">
           {dashboard && (
-            <span className={`pill-live ${dashboard.brain_live ? "" : "sim"}`}>
+            <span className={`pill-live ${dashboard.engine_online ? "" : "sim"}`}>
               <span className="live-dot" />
-              {dashboard.brain_live ? `${dashboard.brain_model} live` : "Simulation"}
+              {dashboard.engine_online ? "Engine · Online" : "Engine · Standby"}
             </span>
           )}
           <span className="hide-sm">{pending.length > 0 ? `${pending.length} approvals waiting` : "All clear"}</span>
@@ -363,7 +362,7 @@ export default function Home() {
           <div className="eyebrow">Command Deck</div>
           <h1>Good day{me?.is_owner ? ", Owner" : ""}.</h1>
           <p>
-            Your autonomous operation is {dashboard?.brain_live ? "live" : "in simulation mode"}. Dispatch an agent,
+            Your autonomous operation is {dashboard?.engine_online ? "online" : "on standby"}. Dispatch an agent,
             review pending decisions, and watch the fleet compound.
           </p>
         </div>
@@ -482,7 +481,7 @@ export default function Home() {
                 <tbody>
                   {runs.slice(0, 20).map((r) => (
                     <tr key={r.id}>
-                      <td>{r.agent_name.replace(/_/g, " ")}{r.simulated && <> <span className="tag-sim">SIM</span></>}</td>
+                      <td>{r.agent_name.replace(/_/g, " ")}</td>
                       <td>{r.task.slice(0, 70)}</td>
                       <td><span className={`status ${r.status}`}>{r.status.replace(/_/g, " ")}</span></td>
                       <td>{(r.output || r.error).slice(0, 140)}</td>
@@ -509,7 +508,7 @@ export default function Home() {
           )}
         </section>
       </main>
-      <div className="footer">Claude Commerce OS — Autonomy with a human hand on the wheel</div>
+      <div className="footer">SAHJONY Commerce — Autonomy with a human hand on the wheel · sahjony.com</div>
     </>
   );
 }
