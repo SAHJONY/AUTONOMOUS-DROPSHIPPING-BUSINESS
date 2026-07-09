@@ -612,6 +612,37 @@ code { color: var(--grey); font-size: 0.78rem; word-break: break-word; font-fami
 .approval-info p { color: var(--grey-dim); font-size: 0.82rem; line-height: 1.55; max-width: 680px; }
 .approval-actions { display: flex; gap: 10px; }
 
+/* ---------- Autopilot bar ---------- */
+
+.auto-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  margin-bottom: 30px;
+  background: linear-gradient(120deg, rgba(70, 209, 158, 0.12), rgba(91, 140, 255, 0.08));
+  box-shadow: inset 0 0 0 1px rgba(70, 209, 158, 0.32);
+  flex-wrap: wrap;
+}
+.auto-bar.off {
+  background: linear-gradient(120deg, rgba(240, 182, 74, 0.12), rgba(255, 107, 107, 0.06));
+  box-shadow: inset 0 0 0 1px rgba(240, 182, 74, 0.32);
+}
+.ab-left { display: flex; align-items: center; gap: 18px; }
+.ab-pct {
+  font-size: 2.4rem;
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--green);
+  line-height: 1;
+}
+.auto-bar.off .ab-pct { color: var(--amber); }
+.ab-left b { display: block; font-size: 0.98rem; font-weight: 600; letter-spacing: 0.02em; margin-bottom: 4px; }
+.ab-left p { color: var(--grey); font-size: 0.82rem; line-height: 1.5; max-width: 560px; }
+
 /* ---------- Admin god-mode ---------- */
 
 .god-banner {

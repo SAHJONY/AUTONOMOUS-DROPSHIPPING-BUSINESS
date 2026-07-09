@@ -138,6 +138,7 @@ export default function Manual({ onBack }: { onBack: () => void }) {
           going; it parks anything risky in your Approvals queue and files a report to memory.
         </p>
         <p>These operating prompts are for when you want to drive manually. The autonomous cycle handles the rest.</p>
+        <div className="doc-note"><b>Autopilot (98% autonomous).</b> With Autopilot engaged (the bar at the top of your deck), the engine auto-approves routine gated actions within safe limits — creating stores, killing products, ad budgets up to $50/day, and refunds up to $50. Only larger budgets and refunds escalate to you. Switch to Manual anytime to gate everything again.</div>
       </section>
 
       <section id="prompts" className="doc-section">

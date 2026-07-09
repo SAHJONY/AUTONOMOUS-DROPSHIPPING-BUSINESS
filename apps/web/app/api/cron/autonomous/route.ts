@@ -1,6 +1,6 @@
 import { json, error } from "@/lib/api";
 import { CRON_SECRET } from "@/lib/config";
-import { runAgent } from "@/lib/brain";
+import { autoApprovePending, runAgent } from "@/lib/brain";
 import { listAllOrgs } from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -38,7 +38,8 @@ async function handle(req: Request) {
           "(6) file a concise report (what advanced today, key numbers, pending approvals, next action) " +
           "to memory. Make reasonable assumptions; never stop to ask a human.",
       });
-      results.push({ org: org.id, name: org.name, run_id: run.id, status: run.status });
+      const autoApproved = await autoApprovePending(org.id);
+      results.push({ org: org.id, name: org.name, run_id: run.id, status: run.status, auto_approved: autoApproved });
     } catch (e) {
       results.push({ org: org.id, name: org.name, error: (e as Error).message });
     }

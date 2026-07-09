@@ -21,6 +21,9 @@ import {
 import { getAgent, OPERATING_DIRECTIVE, type Agent, type AgentContext, type ToolDef } from "./agents";
 import {
   getApproval,
+  getOrgSettings,
+  isAutoApprovable,
+  listApprovals,
   newId,
   nowISO,
   remember,
@@ -141,6 +144,7 @@ async function runLive(agent: Agent, task: string, ctx: AgentContext): Promise<L
   let inputTokens = 0;
   let outputTokens = 0;
   const pendingApprovals: string[] = [];
+  const settings = await getOrgSettings(ctx.orgId);
 
   for (let iteration = 1; iteration <= AGENT_MAX_ITERATIONS; iteration++) {
     const response = await client().messages.create({
@@ -183,12 +187,40 @@ async function runLive(agent: Agent, task: string, ctx: AgentContext): Promise<L
         content = `Error: unknown tool '${block.name}'.`;
         isError = true;
       } else if (tool.requires_approval) {
-        const approval = await queueApproval(agent, tool, block.input as Record<string, unknown>, ctx);
-        pendingApprovals.push(approval.id);
-        content =
-          `Action '${tool.name}' is ${tool.risk_level ?? "high"}-risk and was queued for human ` +
-          `approval (approval id ${approval.id}). It has NOT been executed. Continue with the rest ` +
-          `of the task and mention the pending approval in your summary.`;
+        const payload = block.input as Record<string, unknown>;
+        if (settings.autopilot && isAutoApprovable(tool.name, payload)) {
+          // Autopilot: execute now and log an auto-approved record for the audit trail.
+          try {
+            const result = await tool.handler(ctx, payload);
+            const approval: ApprovalRequest = {
+              id: newId(),
+              org_id: ctx.orgId,
+              agent_run_id: ctx.runId,
+              agent_name: agent.name,
+              action: tool.name,
+              payload,
+              risk_level: tool.risk_level ?? "high",
+              reason: `Autopilot auto-approved: ${JSON.stringify(payload).slice(0, 400)}`,
+              status: "approved",
+              result,
+              decided_by: "autopilot",
+              created_at: nowISO(),
+              decided_at: nowISO(),
+            };
+            await saveApproval(approval);
+            content = `Autopilot approved and executed '${tool.name}'. Result: ${result}`;
+          } catch (e) {
+            content = `Tool error: ${(e as Error).message}`;
+            isError = true;
+          }
+        } else {
+          const approval = await queueApproval(agent, tool, payload, ctx);
+          pendingApprovals.push(approval.id);
+          content =
+            `Action '${tool.name}' exceeds the autopilot safety threshold and was queued for owner ` +
+            `approval (approval id ${approval.id}). It has NOT been executed. Continue with the rest ` +
+            `of the task and mention the pending approval in your summary.`;
+        }
       } else {
         try {
           content = await tool.handler(ctx, block.input as Record<string, unknown>);
@@ -248,6 +280,29 @@ async function runSimulated(agent: Agent, task: string, ctx: AgentContext): Prom
 }
 
 /* ---------- approval execution ---------- */
+
+/**
+ * Autopilot sweep: auto-approve every pending action that's within the safety
+ * thresholds. Called by the 24/7 cron so the queue clears itself, leaving only
+ * the ~2% that genuinely needs the owner.
+ */
+export async function autoApprovePending(orgId: string): Promise<number> {
+  const settings = await getOrgSettings(orgId);
+  if (!settings.autopilot) return 0;
+  const pending = (await listApprovals(orgId)).filter((a) => a.status === "pending");
+  let approved = 0;
+  for (const a of pending) {
+    if (isAutoApprovable(a.action, a.payload)) {
+      try {
+        await decideApproval(orgId, a.id, "approve", "autopilot");
+        approved++;
+      } catch {
+        /* skip on error */
+      }
+    }
+  }
+  return approved;
+}
 
 export async function decideApproval(
   orgId: string,

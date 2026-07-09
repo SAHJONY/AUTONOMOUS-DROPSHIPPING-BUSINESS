@@ -3,9 +3,18 @@
  * products, agent runs, approvals, and business memory lives here.
  */
 import { kv, listGet, listPush, listReplace } from "./kv";
-import { ENGINE_NAME, isOwnerEmail, OWNER_EMAIL, OWNER_PASSWORD } from "./config";
+import {
+  AUTOPILOT_DEFAULT,
+  AUTOPILOT_MAX_AD_BUDGET,
+  AUTOPILOT_MAX_REFUND,
+  ENGINE_NAME,
+  isOwnerEmail,
+  OWNER_EMAIL,
+  OWNER_PASSWORD,
+} from "./config";
 import { ANTHROPIC_API_KEY } from "./config";
 import { hashPassword, verifyPassword } from "./auth";
+import type { OrgSettings } from "./types";
 import type {
   AgentRun,
   ApprovalRequest,
@@ -37,9 +46,43 @@ const K = {
   approvals: (oid: string) => `approvals:${oid}`,
   memory: (oid: string) => `memory:${oid}`,
   stores: (oid: string) => `stores:${oid}`,
+  settings: (oid: string) => `settings:${oid}`,
   allOrgs: "index:orgs",
   allUsers: "index:users",
 };
+
+/* ---------- org settings (autopilot) ---------- */
+
+export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
+  const s = await kv.get<OrgSettings>(K.settings(orgId));
+  return { autopilot: s?.autopilot ?? AUTOPILOT_DEFAULT };
+}
+
+export async function setOrgSettings(orgId: string, patch: Partial<OrgSettings>): Promise<OrgSettings> {
+  const current = await getOrgSettings(orgId);
+  const next = { ...current, ...patch };
+  await kv.set(K.settings(orgId), next);
+  return next;
+}
+
+/**
+ * Autopilot policy — the ~2% that still needs a human. Returns true when a
+ * gated action is safe to auto-approve. Large ad budgets and large refunds
+ * always escalate to the owner.
+ */
+export function isAutoApprovable(action: string, payload: Record<string, unknown>): boolean {
+  switch (action) {
+    case "set_ad_budget":
+      return Number(payload.daily_budget ?? 0) <= AUTOPILOT_MAX_AD_BUDGET;
+    case "issue_refund":
+      return Number(payload.amount ?? 0) <= AUTOPILOT_MAX_REFUND;
+    case "create_store":
+    case "kill_product":
+      return true;
+    default:
+      return true;
+  }
+}
 
 /* ---------- users ---------- */
 
@@ -247,12 +290,13 @@ export async function recall(orgId: string, query = "", limit = 20): Promise<Mem
 /* ---------- dashboard ---------- */
 
 export async function buildDashboard(orgId: string): Promise<Dashboard> {
-  const [products, runs, approvals, stores, memory] = await Promise.all([
+  const [products, runs, approvals, stores, memory, settings] = await Promise.all([
     listProducts(orgId),
     listRuns(orgId, 500),
     listApprovals(orgId),
     listStores(orgId),
     listGet<MemoryEntry>(K.memory(orgId)),
+    getOrgSettings(orgId),
   ]);
 
   const productsByStatus: Record<string, number> = {};
@@ -280,5 +324,7 @@ export async function buildDashboard(orgId: string): Promise<Dashboard> {
     revenue_estimate: Math.round(revenue * 100) / 100,
     engine: ENGINE_NAME,
     engine_online: !!ANTHROPIC_API_KEY,
+    autopilot: settings.autopilot,
+    autonomy_pct: settings.autopilot ? 98 : 60,
   };
 }

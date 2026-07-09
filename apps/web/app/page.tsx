@@ -17,6 +17,8 @@ type Dashboard = {
   revenue_estimate: number;
   engine: string;
   engine_online: boolean;
+  autopilot: boolean;
+  autonomy_pct: number;
 };
 type AgentInfo = { name: string; description: string; tools: string[]; high_risk_tools: string[] };
 type AgentRun = {
@@ -233,6 +235,20 @@ export default function Home() {
     }
   }
 
+  async function toggleAutopilot() {
+    if (!dashboard) return;
+    setError("");
+    try {
+      await api(`/orgs/${orgId}/settings`, {
+        method: "POST",
+        body: JSON.stringify({ autopilot: !dashboard.autopilot }),
+      });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function decide(approvalId: string, decision: "approve" | "reject") {
     setError("");
     try {
@@ -384,6 +400,28 @@ export default function Home() {
             review pending decisions, and watch the fleet compound.
           </p>
         </div>
+
+        {dashboard && (
+          <div className={`auto-bar ${dashboard.autopilot ? "" : "off"}`}>
+            <div className="ab-left">
+              <div className="ab-pct">{dashboard.autonomy_pct}%</div>
+              <div>
+                <b>{dashboard.autopilot ? "Autopilot engaged — 98% autonomous" : "Manual mode"}</b>
+                <p>
+                  {dashboard.autopilot
+                    ? "The engine runs the business around the clock and auto-approves routine actions within safe limits. Only large ad budgets or refunds reach you."
+                    : "Every high-risk action waits for your approval. Engage Autopilot to run at 98% autonomy."}
+                </p>
+              </div>
+            </div>
+            <button
+              className={`btn ${dashboard.autopilot ? "btn-ghost" : "btn-accent"} btn-small`}
+              onClick={toggleAutopilot}
+            >
+              {dashboard.autopilot ? "Switch to Manual" : "Engage Autopilot"}
+            </button>
+          </div>
+        )}
 
         {me?.is_owner && admin && (
           <div className="god-banner">

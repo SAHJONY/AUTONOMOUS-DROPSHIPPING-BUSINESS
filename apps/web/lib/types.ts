@@ -114,4 +114,10 @@ export interface Dashboard {
   revenue_estimate: number;
   engine: string;
   engine_online: boolean;
+  autopilot: boolean;
+  autonomy_pct: number;
+}
+
+export interface OrgSettings {
+  autopilot: boolean;
 }
