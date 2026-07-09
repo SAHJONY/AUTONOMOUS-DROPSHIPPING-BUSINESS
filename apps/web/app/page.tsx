@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Manual from "./components/Manual";
 
 const API = "/api";
 
@@ -27,6 +28,11 @@ type Approval = {
   risk_level: string; status: string; result: string;
 };
 type MemoryEntry = { id: string; agent_name: string; key: string; content: string; created_at: string };
+type Product = {
+  id: string; title: string; description: string; status: string; source: string;
+  supplier_url: string; cost: number; price: number; score?: number; verdict?: string; created_at: string;
+};
+type StoreItem = { id: string; name: string; platform: string; url: string; status: string; created_at: string };
 type Me = { id: string; email: string; is_owner: boolean };
 type AdminOverview = {
   owner: string; orgs_total: number; users_total: number;
@@ -79,10 +85,13 @@ export default function Home() {
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [memory, setMemory] = useState<MemoryEntry[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [stores, setStores] = useState<StoreItem[]>([]);
   const [admin, setAdmin] = useState<AdminOverview | null>(null);
   const [selectedAgent, setSelectedAgent] = useState("ceo");
   const [task, setTask] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showManual, setShowManual] = useState(false);
 
   const authed = token !== null && orgId !== null;
 
@@ -132,18 +141,22 @@ export default function Home() {
   const refresh = useCallback(async () => {
     if (!token || !orgId) return;
     try {
-      const [dash, agentList, runList, approvalList, mem] = await Promise.all([
+      const [dash, agentList, runList, approvalList, mem, prods, strs] = await Promise.all([
         api(`/orgs/${orgId}/dashboard`),
         api(`/agents`),
         api(`/orgs/${orgId}/runs`),
         api(`/orgs/${orgId}/approvals`),
         api(`/orgs/${orgId}/memory`),
+        api(`/orgs/${orgId}/products`),
+        api(`/orgs/${orgId}/stores`),
       ]);
       setDashboard(dash);
       setAgents(agentList);
       setRuns(runList);
       setApprovals(approvalList);
       setMemory(mem);
+      setProducts(prods);
+      setStores(strs);
       if (me?.is_owner) {
         api(`/admin/overview`).then(setAdmin).catch(() => {});
       }
@@ -194,7 +207,10 @@ export default function Home() {
     setRuns([]);
     setApprovals([]);
     setMemory([]);
+    setProducts([]);
+    setStores([]);
     setAdmin(null);
+    setShowManual(false);
     setView("hero");
   }
 
@@ -351,11 +367,13 @@ export default function Home() {
             </span>
           )}
           <span className="hide-sm">{pending.length > 0 ? `${pending.length} approvals waiting` : "All clear"}</span>
+          <button onClick={() => setShowManual((v) => !v)}>{showManual ? "Deck" : "Manual"}</button>
           <button onClick={signOut}>Sign out</button>
         </div>
       </nav>
 
-      <main className="app">
+      {showManual && <Manual onBack={() => setShowManual(false)} />}
+      <main className="app" style={showManual ? { display: "none" } : undefined}>
         {error && <p className="error">{error}</p>}
 
         <div className="welcome">
@@ -466,6 +484,70 @@ export default function Home() {
               </div>
             ))
           )}
+        </section>
+
+        <section>
+          <div className="section-head"><h2>Catalog</h2><span className="hint">{products.length} product(s) — click to view</span></div>
+          <div className="card">
+            {products.length === 0 ? (
+              <p className="empty">No products yet. Ask the Product Hunter to find and score some.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>Product</th><th>Status</th><th>Score</th><th>Cost</th><th>Price</th><th>Link</th></tr>
+                </thead>
+                <tbody>
+                  {products.map((p) => (
+                    <tr key={p.id}>
+                      <td>{p.title}</td>
+                      <td><span className={`status ${p.status}`}>{p.status.replace(/_/g, " ")}</span></td>
+                      <td>{p.score ?? "—"}</td>
+                      <td>${Number(p.cost).toFixed(2)}</td>
+                      <td>${Number(p.price).toFixed(2)}</td>
+                      <td>
+                        {p.supplier_url ? (
+                          <a className="link-a" href={p.supplier_url} target="_blank" rel="noreferrer">View →</a>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <div className="section-head"><h2>Stores</h2><span className="hint">{stores.length} store(s) — click to open</span></div>
+          <div className="card">
+            {stores.length === 0 ? (
+              <p className="empty">No stores yet. Ask the Store Builder to create one (needs your approval).</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>Store</th><th>Platform</th><th>Status</th><th>Link</th></tr>
+                </thead>
+                <tbody>
+                  {stores.map((s) => (
+                    <tr key={s.id}>
+                      <td>{s.name}</td>
+                      <td>{s.platform}</td>
+                      <td><span className={`status ${s.status}`}>{s.status}</span></td>
+                      <td>
+                        {s.url ? (
+                          <a className="link-a" href={s.url} target="_blank" rel="noreferrer">Open →</a>
+                        ) : (
+                          <span className="muted">not linked yet</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </section>
 
         <section>
