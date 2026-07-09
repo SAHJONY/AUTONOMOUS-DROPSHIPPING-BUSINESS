@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API = "/api";
 
 type Dashboard = {
   products_total: number;
@@ -12,64 +12,75 @@ type Dashboard = {
   pending_approvals: number;
   stores_total: number;
   total_tokens_used: number;
+  memory_entries: number;
+  revenue_estimate: number;
+  brain_model: string;
+  brain_live: boolean;
+  storage_mode: string;
 };
-
-type AgentInfo = {
-  name: string;
-  description: string;
-  tools: string[];
-  high_risk_tools: string[];
-};
-
+type AgentInfo = { name: string; description: string; tools: string[]; high_risk_tools: string[] };
 type AgentRun = {
-  id: string;
-  agent_name: string;
-  task: string;
-  status: string;
-  output: string;
-  error: string;
-  created_at: string;
+  id: string; agent_name: string; task: string; status: string; output: string; error: string;
+  simulated: boolean; created_at: string;
 };
-
 type Approval = {
-  id: string;
-  agent_name: string;
-  action: string;
-  payload: Record<string, unknown>;
-  risk_level: string;
-  status: string;
-  result: string;
+  id: string; agent_name: string; action: string; payload: Record<string, unknown>;
+  risk_level: string; status: string; result: string;
+};
+type MemoryEntry = { id: string; agent_name: string; key: string; content: string; created_at: string };
+type Me = { id: string; email: string; is_owner: boolean };
+type AdminOverview = {
+  owner: string; orgs_total: number; users_total: number;
+  totals: { products: number; runs: number; approvals: number; stores: number; tokens: number; revenue: number };
 };
 
 const FEATURES = [
-  {
-    title: "CEO Agent",
-    body: "Reviews the business snapshot, coordinates seven specialist agents, and files a structured daily report — revenue, top products, next actions.",
-  },
-  {
-    title: "Product Intelligence",
-    body: "Every opportunity is scored deterministically — demand, competition, margin, trend, risk. Only 85+ reaches the launch queue.",
-  },
-  {
-    title: "Human Command",
-    body: "Refunds, ad budgets, store creation, killing products — high-risk actions halt for your approval. Nothing irreversible happens without you.",
-  },
-  {
-    title: "Total Recall",
-    body: "Agents write every learning, quote, and report to business memory and recall it in future runs. The operation compounds.",
-  },
+  { icon: "◇", title: "Fable 5 CEO", body: "A Claude Fable 5 CEO agent reviews the business, coordinates seven specialists, and files a structured report — revenue, top products, next actions." },
+  { icon: "◈", title: "Product Intelligence", body: "Every opportunity is scored deterministically — demand, competition, margin, trend, risk. Only 85+ reaches the launch queue." },
+  { icon: "⬡", title: "Human Command", body: "Refunds, ad budgets, store creation, killing products — high-risk actions halt for your approval. Nothing irreversible happens without you." },
+  { icon: "❖", title: "Total Recall", body: "Agents write every learning, quote, and report to business memory and recall it in future runs. The operation compounds." },
 ];
+
+const ROSTER = [
+  { name: "CEO", desc: "Coordinates the fleet, reviews the business, writes daily reports.", ceo: true },
+  { name: "Product Hunter", desc: "Discovers and scores product opportunities. Only 85+ ships." },
+  { name: "Supplier", desc: "Sources across CJ, AliExpress, Spocket, Zendrop; tracks landed cost." },
+  { name: "Store Builder", desc: "Builds storefronts and writes high-converting listings." },
+  { name: "Marketing", desc: "Designs ad angles, hooks, and creative briefs." },
+  { name: "Advertising", desc: "Manages ad budgets and ROAS; budget changes need approval." },
+  { name: "Finance", desc: "Computes unit economics and tracks profitability." },
+  { name: "Support", desc: "Drafts empathetic replies; refunds need approval." },
+];
+
+const QUICK_TASKS: Record<string, string[]> = {
+  ceo: [
+    "Review the business and write today's report",
+    "Audit the product pipeline and recommend the next launch",
+    "Identify our biggest risk this week and a mitigation",
+  ],
+  product_hunter: [
+    "Find and score 3 trending product opportunities",
+    "Score a portable neck fan: demand 82, competition 60, margin 70, trend 88, risk 20",
+  ],
+  finance: ["Compute unit economics for price 39.99, cost 9.50, ad cost 8"],
+  advertising: ["Propose a TikTok ad budget for our best product and explain the ROAS math"],
+  support: ["Draft a reply to a customer whose order is 5 days late"],
+};
 
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState("");
   const [view, setView] = useState<"hero" | "register" | "login">("hero");
+  const [booting, setBooting] = useState(true);
 
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
+  const [memory, setMemory] = useState<MemoryEntry[]>([]);
+  const [admin, setAdmin] = useState<AdminOverview | null>(null);
   const [selectedAgent, setSelectedAgent] = useState("ceo");
   const [task, setTask] = useState("");
   const [busy, setBusy] = useState(false);
@@ -95,23 +106,52 @@ export default function Home() {
     [token],
   );
 
+  /* restore session */
+  useEffect(() => {
+    const saved = localStorage.getItem("commerce_os_token");
+    if (saved) setToken(saved);
+    setBooting(false);
+  }, []);
+
+  /* when token appears, resolve org + me */
+  useEffect(() => {
+    if (!token) return;
+    (async () => {
+      try {
+        const [orgs, meResp] = await Promise.all([
+          fetch(`${API}/orgs`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+          fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
+        ]);
+        setMe(meResp);
+        setOrgId((prev) => prev ?? orgs[0]?.id ?? null);
+      } catch {
+        signOut();
+      }
+    })();
+  }, [token]);
+
   const refresh = useCallback(async () => {
     if (!token || !orgId) return;
     try {
-      const [dash, agentList, runList, approvalList] = await Promise.all([
+      const [dash, agentList, runList, approvalList, mem] = await Promise.all([
         api(`/orgs/${orgId}/dashboard`),
         api(`/agents`),
         api(`/orgs/${orgId}/runs`),
         api(`/orgs/${orgId}/approvals`),
+        api(`/orgs/${orgId}/memory`),
       ]);
       setDashboard(dash);
       setAgents(agentList);
       setRuns(runList);
       setApprovals(approvalList);
+      setMemory(mem);
+      if (me?.is_owner) {
+        api(`/admin/overview`).then(setAdmin).catch(() => {});
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [api, token, orgId]);
+  }, [api, token, orgId, me]);
 
   useEffect(() => {
     refresh();
@@ -139,33 +179,35 @@ export default function Home() {
         throw new Error(err.detail ?? "Authentication failed");
       }
       const { access_token } = await res.json();
-      const orgs = await fetch(`${API}/orgs`, {
-        headers: { Authorization: `Bearer ${access_token}` },
-      }).then((r) => r.json());
+      localStorage.setItem("commerce_os_token", access_token);
       setToken(access_token);
-      setOrgId(orgs[0]?.id ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
   }
 
   function signOut() {
+    localStorage.removeItem("commerce_os_token");
     setToken(null);
     setOrgId(null);
+    setMe(null);
     setDashboard(null);
     setRuns([]);
     setApprovals([]);
+    setMemory([]);
+    setAdmin(null);
     setView("hero");
   }
 
-  async function runAgent() {
-    if (!task.trim()) return;
+  async function runAgent(overrideTask?: string) {
+    const t = (overrideTask ?? task).trim();
+    if (!t) return;
     setBusy(true);
     setError("");
     try {
       await api(`/orgs/${orgId}/agents/${selectedAgent}/run`, {
         method: "POST",
-        body: JSON.stringify({ task }),
+        body: JSON.stringify({ task: t }),
       });
       setTask("");
       await refresh();
@@ -189,47 +231,69 @@ export default function Home() {
     }
   }
 
-  /* ---------- Signed out: hero + auth ---------- */
+  const pending = useMemo(() => approvals.filter((a) => a.status === "pending"), [approvals]);
+  const currentAgent = agents.find((a) => a.name === selectedAgent);
+  const quicks = QUICK_TASKS[selectedAgent] ?? [];
 
+  if (booting) return <div style={{ minHeight: "100vh" }} />;
+
+  /* ---------------- Signed out ---------------- */
   if (!authed) {
     if (view === "hero") {
       return (
         <>
           <nav className="nav">
-            <div className="wordmark">
-              Commerce <span>OS</span>
-            </div>
+            <div className="wordmark"><span className="dot" /> Commerce <span>OS</span></div>
             <div className="nav-right">
+              <span className="hide-sm">Powered by Claude Fable 5</span>
               <button onClick={() => setView("login")}>Sign in</button>
             </div>
           </nav>
+
           <div className="hero">
-            <div className="hero-backdrop" />
-            <div className="hero-glow" />
+            <div className="aurora" />
             <div className="hero-horizon" />
             <div className="eyebrow">The Autonomous Commerce Operator</div>
-            <h1 className="display">Commerce, on Autopilot</h1>
+            <h1 className="display">Commerce, run by a <span className="gradient-text">mind</span>.</h1>
             <p className="lede">
-              A Claude CEO agent and seven specialists discover products, validate demand, and
-              run your stores around the clock. You approve only what matters.
+              A Claude Fable 5 CEO agent and seven specialists discover products, validate demand, and
+              run your stores around the clock. You approve only what matters — from an ultra-premium command deck.
             </p>
             <div className="hero-ctas">
-              <button className="btn btn-primary" onClick={() => setView("register")}>
-                Start Operating
-              </button>
-              <button className="btn btn-ghost" onClick={() => setView("login")}>
-                Sign In
-              </button>
+              <button className="btn btn-primary" onClick={() => setView("register")}>Start Operating</button>
+              <button className="btn btn-ghost" onClick={() => setView("login")}>Sign In</button>
+            </div>
+            <div className="hero-badges">
+              <span><b>7</b> Specialist agents</span>
+              <span><b>85+</b> Launch score gate</span>
+              <span><b>24/7</b> Autonomous cycle</span>
+              <span><b>100%</b> Human-gated risk</span>
             </div>
           </div>
+
           <div className="features">
             {FEATURES.map((f) => (
               <div className="feature" key={f.title}>
+                <div className="fi">{f.icon}</div>
                 <h3>{f.title}</h3>
                 <p>{f.body}</p>
               </div>
             ))}
           </div>
+
+          <div className="roster">
+            <h2>One brain. Eight hands.</h2>
+            <p className="sub">The CEO agent orchestrates a fleet of specialists — each with real tools, real data, and hard guardrails on anything irreversible.</p>
+            <div className="roster-grid">
+              {ROSTER.map((r) => (
+                <div className={`roster-card ${r.ceo ? "ceo" : ""}`} key={r.name}>
+                  <div className="rc-name">{r.name}</div>
+                  <div className="rc-desc">{r.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="footer">Claude Commerce OS — Autonomy with a human hand on the wheel</div>
         </>
       );
@@ -239,16 +303,16 @@ export default function Home() {
       <div className="auth-wrap">
         <div className="auth-card">
           <div className="eyebrow">Commerce OS</div>
-          <h1>{view === "register" ? "Create Account" : "Sign In"}</h1>
+          <h1>{view === "register" ? "Create your operation" : "Welcome back"}</h1>
           {error && <p className="error">{error}</p>}
           <form onSubmit={handleAuth}>
             <div className="field">
               <label htmlFor="email">Email address</label>
-              <input id="email" name="email" type="email" required autoFocus />
+              <input id="email" name="email" type="email" required autoFocus placeholder="you@company.com" />
             </div>
             <div className="field">
               <label htmlFor="password">Password</label>
-              <input id="password" name="password" type="password" minLength={8} required />
+              <input id="password" name="password" type="password" minLength={8} required placeholder="At least 8 characters" />
             </div>
             {view === "register" && (
               <div className="field">
@@ -256,21 +320,18 @@ export default function Home() {
                 <input id="org" name="org" placeholder="My Business" />
               </div>
             )}
-            <button className="btn btn-primary" type="submit" style={{ width: "100%" }}>
+            <button className="btn btn-accent" type="submit" style={{ width: "100%" }}>
               {view === "register" ? "Create Account" : "Sign In"}
             </button>
           </form>
-          <p className="auth-switch" style={{ marginTop: 28 }}>
+          <p className="owner-hint">
+            Owner access is automatic for <code>sahjonycapitalllc@outlook.com</code> — full, unrestricted control of every operation.
+          </p>
+          <p className="auth-switch">
             {view === "register" ? (
-              <>
-                Already operating?{" "}
-                <button onClick={() => setView("login")}>Sign in</button>
-              </>
+              <>Already operating? <button onClick={() => setView("login")}>Sign in</button></>
             ) : (
-              <>
-                New here?{" "}
-                <button onClick={() => setView("register")}>Create an account</button>
-              </>
+              <>New here? <button onClick={() => setView("register")}>Create an account</button></>
             )}
           </p>
         </div>
@@ -278,19 +339,19 @@ export default function Home() {
     );
   }
 
-  /* ---------- Signed in: command deck ---------- */
-
-  const pending = approvals.filter((a) => a.status === "pending");
-  const currentAgent = agents.find((a) => a.name === selectedAgent);
-
+  /* ---------------- Signed in: command deck ---------------- */
   return (
     <>
       <nav className="nav">
-        <div className="wordmark">
-          Commerce <span>OS</span>
-        </div>
+        <div className="wordmark"><span className="dot" /> Commerce <span>OS</span></div>
         <div className="nav-right">
-          <span>{pending.length > 0 ? `${pending.length} approvals waiting` : "All clear"}</span>
+          {dashboard && (
+            <span className={`pill-live ${dashboard.brain_live ? "" : "sim"}`}>
+              <span className="live-dot" />
+              {dashboard.brain_live ? `${dashboard.brain_model} live` : "Simulation"}
+            </span>
+          )}
+          <span className="hide-sm">{pending.length > 0 ? `${pending.length} approvals waiting` : "All clear"}</span>
           <button onClick={signOut}>Sign out</button>
         </div>
       </nav>
@@ -298,93 +359,110 @@ export default function Home() {
       <main className="app">
         {error && <p className="error">{error}</p>}
 
+        <div className="welcome">
+          <div className="eyebrow">Command Deck</div>
+          <h1>Good day{me?.is_owner ? ", Owner" : ""}.</h1>
+          <p>
+            Your autonomous operation is {dashboard?.brain_live ? "live" : "in simulation mode"}. Dispatch an agent,
+            review pending decisions, and watch the fleet compound.
+          </p>
+        </div>
+
+        {me?.is_owner && admin && (
+          <div className="god-banner">
+            <span className="crown">👑</span>
+            <div>
+              <b>Owner god-mode active — {admin.owner}</b>
+              <p>
+                Platform-wide: {admin.orgs_total} orgs · {admin.users_total} users · {admin.totals.products} products ·
+                {" "}{admin.totals.runs} agent runs · {admin.totals.approvals} pending · {admin.totals.tokens.toLocaleString()} tokens.
+                You have full, unrestricted access to every operation.
+              </p>
+            </div>
+          </div>
+        )}
+
         {dashboard && (
           <section>
             <div className="metrics">
-              <div className="metric">
-                <div className="value">{dashboard.products_total}</div>
-                <div className="label">Products</div>
-              </div>
-              <div className="metric">
-                <div className="value">{dashboard.stores_total}</div>
-                <div className="label">Stores</div>
-              </div>
-              <div className="metric">
-                <div className="value">{dashboard.runs_total}</div>
-                <div className="label">Agent Runs</div>
-              </div>
-              <div className="metric">
-                <div className="value">{dashboard.pending_approvals}</div>
-                <div className="label">Approvals</div>
-              </div>
-              <div className="metric">
-                <div className="value">{dashboard.total_tokens_used.toLocaleString()}</div>
-                <div className="label">Tokens</div>
-              </div>
+              <div className="metric"><div className="value accent">${dashboard.revenue_estimate.toLocaleString()}</div><div className="label">Est. Margin Pool</div></div>
+              <div className="metric"><div className="value">{dashboard.products_total}</div><div className="label">Products</div></div>
+              <div className="metric"><div className="value">{dashboard.stores_total}</div><div className="label">Stores</div></div>
+              <div className="metric"><div className="value">{dashboard.runs_total}</div><div className="label">Agent Runs</div></div>
+              <div className="metric"><div className="value">{dashboard.pending_approvals}</div><div className="label">Approvals</div></div>
+              <div className="metric"><div className="value">{dashboard.total_tokens_used.toLocaleString()}</div><div className="label">Tokens</div></div>
             </div>
           </section>
         )}
 
         <section>
-          <div className="section-head">
-            <h2>Command</h2>
-            <span className="hint">Dispatch an agent</span>
+          <div className="section-head"><h2>Command</h2><span className="hint">Dispatch an agent</span></div>
+          <div className="console-wrap">
+            <div className="console">
+              <select value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)}>
+                {agents.map((a) => (
+                  <option key={a.name} value={a.name}>{a.name.replace(/_/g, " ").toUpperCase()}</option>
+                ))}
+              </select>
+              <input
+                value={task}
+                onChange={(e) => setTask(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && runAgent()}
+                placeholder="Review the business and write today's report"
+              />
+              <button className="btn btn-accent" onClick={() => runAgent()} disabled={busy || !task.trim()}>
+                {busy ? <span className="spinner" /> : "Run"}
+              </button>
+            </div>
+            {currentAgent && (
+              <p className="agent-desc">
+                {currentAgent.description}
+                {currentAgent.high_risk_tools.length > 0 && (
+                  <> Requires approval for: {currentAgent.high_risk_tools.join(", ")}.</>
+                )}
+              </p>
+            )}
+            {quicks.length > 0 && (
+              <div className="quick-tasks">
+                {quicks.map((q) => (
+                  <button className="chip" key={q} onClick={() => runAgent(q)} disabled={busy}>{q}</button>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="console">
-            <select value={selectedAgent} onChange={(e) => setSelectedAgent(e.target.value)}>
-              {agents.map((a) => (
-                <option key={a.name} value={a.name}>
-                  {a.name.replace(/_/g, " ").toUpperCase()}
-                </option>
-              ))}
-            </select>
-            <input
-              value={task}
-              onChange={(e) => setTask(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && runAgent()}
-              placeholder="Review the business and write today's report"
-            />
-            <button className="btn btn-primary" onClick={runAgent} disabled={busy || !task.trim()}>
-              {busy ? "Running" : "Run"}
-            </button>
-          </div>
-          {currentAgent && (
-            <p className="agent-desc">
-              {currentAgent.description}
-              {currentAgent.high_risk_tools.length > 0 && (
-                <> Requires approval for: {currentAgent.high_risk_tools.join(", ")}.</>
-              )}
-            </p>
-          )}
         </section>
 
         <section>
-          <div className="section-head">
-            <h2>Approvals</h2>
-            <span className="hint">High-risk actions halt here</span>
+          <div className="section-head"><h2>The Fleet</h2><span className="hint">Tap to select</span></div>
+          <div className="agent-grid">
+            {agents.map((a) => (
+              <div
+                key={a.name}
+                className={`agent-tile ${a.name === selectedAgent ? "active" : ""}`}
+                onClick={() => setSelectedAgent(a.name)}
+              >
+                <div className="at-name">{a.name.replace(/_/g, " ")}</div>
+                <div className="at-desc">{a.description}</div>
+                {a.high_risk_tools.length > 0 && <div className="at-risk">⚠ {a.high_risk_tools.length} gated action(s)</div>}
+              </div>
+            ))}
           </div>
+        </section>
+
+        <section>
+          <div className="section-head"><h2>Approvals</h2><span className="hint">High-risk actions halt here</span></div>
           {pending.length === 0 ? (
-            <p className="empty">Nothing awaiting your decision.</p>
+            <div className="card"><p className="empty">Nothing awaiting your decision.</p></div>
           ) : (
             pending.map((a) => (
               <div className="approval" key={a.id}>
                 <div className="approval-info">
-                  <h4>
-                    {a.action.replace(/_/g, " ")}{" "}
-                    <span className={`status ${a.risk_level}`}>{a.risk_level} risk</span>
-                  </h4>
-                  <p>
-                    Requested by the {a.agent_name.replace(/_/g, " ")} agent —{" "}
-                    <code>{JSON.stringify(a.payload)}</code>
-                  </p>
+                  <h4>{a.action.replace(/_/g, " ")} <span className={`status ${a.risk_level}`}>{a.risk_level} risk</span></h4>
+                  <p>Requested by the {a.agent_name.replace(/_/g, " ")} agent — <code>{JSON.stringify(a.payload)}</code></p>
                 </div>
                 <div className="approval-actions">
-                  <button className="btn btn-primary btn-small" onClick={() => decide(a.id, "approve")}>
-                    Approve
-                  </button>
-                  <button className="btn btn-ghost btn-small" onClick={() => decide(a.id, "reject")}>
-                    Reject
-                  </button>
+                  <button className="btn btn-accent btn-small" onClick={() => decide(a.id, "approve")}>Approve</button>
+                  <button className="btn btn-ghost btn-small" onClick={() => decide(a.id, "reject")}>Reject</button>
                 </div>
               </div>
             ))
@@ -392,35 +470,42 @@ export default function Home() {
         </section>
 
         <section>
-          <div className="section-head">
-            <h2>Operations Log</h2>
-            <span className="hint">Latest 20 runs</span>
+          <div className="section-head"><h2>Operations Log</h2><span className="hint">Latest 20 runs</span></div>
+          <div className="card">
+            {runs.length === 0 ? (
+              <p className="empty">No agent runs yet. Dispatch one from the command console.</p>
+            ) : (
+              <table>
+                <thead>
+                  <tr><th>Agent</th><th>Task</th><th>Status</th><th>Output</th></tr>
+                </thead>
+                <tbody>
+                  {runs.slice(0, 20).map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.agent_name.replace(/_/g, " ")}{r.simulated && <> <span className="tag-sim">SIM</span></>}</td>
+                      <td>{r.task.slice(0, 70)}</td>
+                      <td><span className={`status ${r.status}`}>{r.status.replace(/_/g, " ")}</span></td>
+                      <td>{(r.output || r.error).slice(0, 140)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
-          {runs.length === 0 ? (
-            <p className="empty">No agent runs yet. Dispatch one from the command console.</p>
+        </section>
+
+        <section>
+          <div className="section-head"><h2>Business Memory</h2><span className="hint">What the fleet has learned</span></div>
+          {memory.length === 0 ? (
+            <div className="card"><p className="empty">Memory is empty. Agents write learnings and reports here.</p></div>
           ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Agent</th>
-                  <th>Task</th>
-                  <th>Status</th>
-                  <th>Output</th>
-                </tr>
-              </thead>
-              <tbody>
-                {runs.slice(0, 20).map((r) => (
-                  <tr key={r.id}>
-                    <td>{r.agent_name.replace(/_/g, " ")}</td>
-                    <td>{r.task.slice(0, 70)}</td>
-                    <td>
-                      <span className={`status ${r.status}`}>{r.status.replace(/_/g, " ")}</span>
-                    </td>
-                    <td>{(r.output || r.error).slice(0, 140)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            memory.slice(0, 12).map((m) => (
+              <div className="mem-item" key={m.id}>
+                <div className="mk">{m.key} · {m.agent_name || "system"}</div>
+                <div className="mc">{m.content.slice(0, 600)}</div>
+                <div className="mm">{new Date(m.created_at).toLocaleString()}</div>
+              </div>
+            ))
           )}
         </section>
       </main>
