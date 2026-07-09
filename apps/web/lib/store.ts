@@ -3,8 +3,9 @@
  * products, agent runs, approvals, and business memory lives here.
  */
 import { kv, listGet, listPush, listReplace, STORAGE_MODE } from "./kv";
-import { BRAIN_MODEL, isOwnerEmail } from "./config";
+import { BRAIN_MODEL, isOwnerEmail, OWNER_EMAIL, OWNER_PASSWORD } from "./config";
 import { ANTHROPIC_API_KEY } from "./config";
+import { hashPassword, verifyPassword } from "./auth";
 import type {
   AgentRun,
   ApprovalRequest,
@@ -76,6 +77,34 @@ export async function listAllUsers(): Promise<User[]> {
   const ids = await kv.smembers(K.allUsers);
   const users = await Promise.all(ids.map((id) => getUser(id)));
   return users.filter(Boolean) as User[];
+}
+
+export async function setUserPassword(userId: string, hashed_password: string): Promise<void> {
+  const user = await getUser(userId);
+  if (user) await kv.set(K.user(userId), { ...user, hashed_password });
+}
+
+/**
+ * Bootstrap / self-heal the owner account from the OWNER_PASSWORD env var.
+ * Called on owner sign-in: if no owner exists it is created; if it exists but
+ * its stored password no longer matches the env value, the hash is re-synced so
+ * the Vercel env var is always the authoritative owner password.
+ */
+export async function ensureOwnerFromEnv(): Promise<void> {
+  if (!OWNER_PASSWORD) return;
+  const existing = await getUserByEmail(OWNER_EMAIL);
+  if (!existing) {
+    const user = await createUser({
+      email: OWNER_EMAIL,
+      hashed_password: await hashPassword(OWNER_PASSWORD),
+      full_name: "Owner",
+    });
+    await createOrg("SAHJONY Commerce", user.id, "owner");
+    return;
+  }
+  if (!(await verifyPassword(OWNER_PASSWORD, existing.hashed_password))) {
+    await setUserPassword(existing.id, await hashPassword(OWNER_PASSWORD));
+  }
 }
 
 /* ---------- orgs & memberships ---------- */

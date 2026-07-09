@@ -1,6 +1,7 @@
 import { error, json } from "@/lib/api";
 import { createToken, verifyPassword } from "@/lib/auth";
-import { getUserByEmail } from "@/lib/store";
+import { isOwnerEmail } from "@/lib/config";
+import { ensureOwnerFromEnv, getUserByEmail } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +10,9 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => ({}));
   const email = String(body.email ?? "").trim().toLowerCase();
   const password = String(body.password ?? "");
+
+  // Owner account is bootstrapped/kept in sync from the OWNER_PASSWORD env var.
+  if (isOwnerEmail(email)) await ensureOwnerFromEnv();
 
   const user = await getUserByEmail(email);
   if (!user || !(await verifyPassword(password, user.hashed_password))) {

@@ -34,6 +34,13 @@ export const CRON_SECRET = process.env.CRON_SECRET ?? "";
 /** Anthropic key — when absent the brain runs in deterministic simulation mode. */
 export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
 
+/**
+ * Owner bootstrap password, set in Vercel env. When present, the owner account
+ * (OWNER_EMAIL) is auto-provisioned and this value is the authoritative password:
+ * signing in as the owner with it always works and re-syncs the stored hash.
+ */
+export const OWNER_PASSWORD = process.env.OWNER_PASSWORD ?? "";
+
 export const AGENT_MAX_ITERATIONS = Number(
   process.env.AGENT_MAX_ITERATIONS ?? 12,
 );
