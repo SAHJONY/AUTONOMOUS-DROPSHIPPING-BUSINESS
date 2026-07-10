@@ -114,6 +114,7 @@ export default function Home() {
   const [hfKeyId, setHfKeyId] = useState("");
   const [hfKeySecret, setHfKeySecret] = useState("");
   const [imaging, setImaging] = useState<string | null>(null);
+  const [imgDraft, setImgDraft] = useState<Record<string, string>>({});
 
   const authed = token !== null && orgId !== null;
 
@@ -365,11 +366,19 @@ export default function Home() {
     }
   }
 
-  async function generateImage(productId: string) {
+  async function generateImage(productId: string, url?: string) {
     setError("");
     setImaging(productId);
     try {
-      await api(`/orgs/${orgId}/products/${productId}/image`, { method: "POST" });
+      await api(`/orgs/${orgId}/products/${productId}/image`, {
+        method: "POST",
+        body: JSON.stringify(url ? { url } : {}),
+      });
+      setImgDraft((d) => {
+        const n = { ...d };
+        delete n[productId];
+        return n;
+      });
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -740,14 +749,38 @@ export default function Home() {
                   <div className="product-card" key={p.id}>
                     <div className="pc-media">
                       {p.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={p.image_url} alt={p.title} />
-                      ) : higgs.connected ? (
-                        <button className="pc-gen" onClick={() => generateImage(p.id)} disabled={imaging === p.id}>
-                          {imaging === p.id ? "Generating…" : "✦ Generate image"}
-                        </button>
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={p.image_url} alt={p.title} />
+                          <button
+                            className="pc-gen"
+                            style={{ position: "absolute", bottom: 8, right: 8 }}
+                            onClick={() => setImgDraft((d) => ({ ...d, [p.id]: "" }))}
+                          >
+                            Change
+                          </button>
+                        </>
                       ) : (
-                        <span className="pc-noimg">No image</span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, width: "100%" }}>
+                          <input
+                            value={imgDraft[p.id] ?? ""}
+                            onChange={(e) => setImgDraft((d) => ({ ...d, [p.id]: e.target.value }))}
+                            onKeyDown={(e) => e.key === "Enter" && generateImage(p.id, imgDraft[p.id])}
+                            placeholder="Paste image URL from source"
+                            style={{ fontSize: "0.78rem", padding: "8px 10px" }}
+                          />
+                          <div style={{ display: "flex", gap: 8 }}>
+                            {imgDraft[p.id]?.trim() ? (
+                              <button className="pc-gen" onClick={() => generateImage(p.id, imgDraft[p.id])} disabled={imaging === p.id}>
+                                {imaging === p.id ? "Saving…" : "Set image"}
+                              </button>
+                            ) : (
+                              <button className="pc-gen" onClick={() => generateImage(p.id)} disabled={imaging === p.id}>
+                                {imaging === p.id ? "Fetching…" : higgs.connected ? "✦ Auto (source/AI)" : "✦ From source"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       )}
                       <span className={`status ${p.status}`}>{p.status.replace(/_/g, " ")}</span>
                     </div>

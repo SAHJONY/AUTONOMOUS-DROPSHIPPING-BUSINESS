@@ -14,7 +14,10 @@ export async function POST(
   const auth = await requireOrg(req, orgId);
   if ("response" in auth) return auth.response;
 
-  const res = await generateProductImage(orgId, productId);
-  if (!res.ok) return error(res.error ?? "Image generation failed.", 400);
-  return json({ ok: true, url: res.url });
+  const body = await req.json().catch(() => ({}));
+  const manualUrl = typeof body.url === "string" ? body.url : undefined;
+
+  const res = await generateProductImage(orgId, productId, manualUrl);
+  if (!res.ok) return error(res.error ?? "Image acquisition failed.", 400);
+  return json({ ok: true, url: res.url, source: res.source });
 }

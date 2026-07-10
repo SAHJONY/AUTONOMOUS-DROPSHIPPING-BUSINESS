@@ -108,19 +108,70 @@ export async function clearHiggsfieldCreds(orgId: string): Promise<void> {
   await kv.del(K.higgsfield(orgId));
 }
 
-/** Generate a cinematic image for a product (if Higgsfield connected) and save it. */
+/** Extract the primary product image from a source/supplier page (Open Graph). */
+export async function fetchSourceImage(url: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0 (compatible; SAHJONYBot/1.0)" } });
+    if (!res.ok) return undefined;
+    const html = await res.text();
+    const patterns = [
+      /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i,
+      /<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i,
+    ];
+    for (const re of patterns) {
+      const m = html.match(re);
+      if (m?.[1]) return m[1];
+    }
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Acquire a product image, in priority order:
+ *   1. an explicit URL (manually set / from a source),
+ *   2. the source/supplier page's Open Graph image,
+ *   3. a cinematic Higgsfield generation.
+ */
 export async function generateProductImage(
   orgId: string,
   productId: string,
-): Promise<{ ok: boolean; url?: string; error?: string }> {
-  const creds = await getHiggsfieldCreds(orgId);
-  if (!creds) return { ok: false, error: "Higgsfield not connected." };
+  manualUrl?: string,
+): Promise<{ ok: boolean; url?: string; source?: string; error?: string }> {
   const product = (await listProducts(orgId)).find((p) => p.id === productId);
   if (!product) return { ok: false, error: "Product not found." };
+
+  // 1. Explicit URL
+  if (manualUrl && manualUrl.trim()) {
+    let u = manualUrl.trim();
+    if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+    await updateProduct(orgId, productId, { image_url: u });
+    return { ok: true, url: u, source: "manual" };
+  }
+
+  // 2. Source page image
+  if (product.supplier_url) {
+    const og = await fetchSourceImage(product.supplier_url);
+    if (og) {
+      await updateProduct(orgId, productId, { image_url: og });
+      return { ok: true, url: og, source: "source" };
+    }
+  }
+
+  // 3. Higgsfield generation
+  const creds = await getHiggsfieldCreds(orgId);
+  if (!creds) {
+    return {
+      ok: false,
+      error: "No image at the source, and Higgsfield isn't connected. Paste an image URL or connect Higgsfield.",
+    };
+  }
   const res = await generateImage(creds, cinematicPrompt(product.title, product.description));
   if (!res.ok || !res.url) return { ok: false, error: res.error };
   await updateProduct(orgId, productId, { image_url: res.url });
-  return { ok: true, url: res.url };
+  return { ok: true, url: res.url, source: "higgsfield" };
 }
 
 /* ---------- Auto-publish launch-ready products to Shopify ---------- */
@@ -135,20 +186,17 @@ export async function autoPublishReady(orgId: string): Promise<number> {
   if (!settings.auto_publish) return 0;
   const resolved = await resolveShopifyToken(orgId);
   if (!resolved.ok || !resolved.token || !resolved.shop) return 0;
-  const hfCreds = await getHiggsfieldCreds(orgId);
 
   const products = await listProducts(orgId);
   let count = 0;
   for (const p of products) {
     if (p.status !== "ready_to_launch" || p.storefront_url) continue;
 
+    // Acquire an image (source page → Higgsfield) before publishing.
     let imageUrl = p.image_url;
-    if (!imageUrl && hfCreds) {
-      const img = await generateImage(hfCreds, cinematicPrompt(p.title, p.description));
-      if (img.ok && img.url) {
-        imageUrl = img.url;
-        await updateProduct(orgId, p.id, { image_url: img.url });
-      }
+    if (!imageUrl) {
+      const img = await generateProductImage(orgId, p.id);
+      if (img.ok) imageUrl = img.url;
     }
 
     const res = await createShopifyProduct(resolved.shop, resolved.token, {
