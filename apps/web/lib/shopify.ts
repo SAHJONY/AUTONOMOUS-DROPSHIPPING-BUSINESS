@@ -117,6 +117,57 @@ function premiumBody(title: string, description?: string, videoUrl?: string): st
   );
 }
 
+/** Look up a live product's numeric id from its storefront handle. */
+export async function findProductIdByHandle(
+  shop: string,
+  token: string,
+  handle: string,
+): Promise<number | undefined> {
+  try {
+    const res = await shopifyFetch(
+      shop,
+      token,
+      `/products.json?handle=${encodeURIComponent(handle)}&fields=id,handle`,
+      { method: "GET" },
+    );
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { products?: { id?: number; handle?: string }[] };
+    return data.products?.find((p) => p.handle === handle)?.id ?? data.products?.[0]?.id;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Replace the image gallery on an already-published product. Sending the full
+ * `images` array to the product update endpoint replaces the existing gallery,
+ * so this is how we refresh live products with new premium imagery.
+ */
+export async function replaceProductImages(
+  shop: string,
+  token: string,
+  productId: number,
+  images: string[],
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const gallery = [...new Set(images.filter(Boolean))].slice(0, 10);
+    if (!gallery.length) return { ok: false, error: "No images to set." };
+    const res = await shopifyFetch(shop, token, `/products/${productId}.json`, {
+      method: "PUT",
+      body: JSON.stringify({
+        product: { id: productId, images: gallery.map((src) => ({ src })) },
+      }),
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      return { ok: false, error: `Shopify ${res.status}: ${t.slice(0, 200)}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 export async function createShopifyProduct(
   shop: string,
   token: string,
@@ -128,7 +179,7 @@ export async function createShopifyProduct(
     images?: string[];
     video_url?: string;
   },
-): Promise<{ ok: boolean; url?: string; id?: number; error?: string }> {
+): Promise<{ ok: boolean; url?: string; id?: number; handle?: string; error?: string }> {
   try {
     const price = p.price ?? 0;
     // "Was" price for a premium, high-value perception (~1.6x, rounded to .99).
@@ -168,6 +219,7 @@ export async function createShopifyProduct(
     return {
       ok: true,
       id: data.product?.id,
+      handle,
       url: handle ? `https://${shop}/products/${handle}` : undefined,
     };
   } catch (e) {

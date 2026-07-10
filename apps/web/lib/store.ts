@@ -15,8 +15,14 @@ import {
 import { ANTHROPIC_API_KEY } from "./config";
 import { hashPassword, verifyPassword } from "./auth";
 import type { OrgSettings } from "./types";
-import { createShopifyProduct, mintAccessToken, type ShopifyCreds } from "./shopify";
-import { cinematicPrompt, generateImage, type HiggsfieldCreds } from "./higgsfield";
+import {
+  createShopifyProduct,
+  findProductIdByHandle,
+  mintAccessToken,
+  replaceProductImages,
+  type ShopifyCreds,
+} from "./shopify";
+import { generateImage, studioProductPrompt, type HiggsfieldCreds } from "./higgsfield";
 import { cjGetAccessToken, cjSearchProducts, type CJCreds } from "./suppliers/cj";
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type {
@@ -134,48 +140,142 @@ export async function fetchSourceImage(url: string): Promise<string | undefined>
 }
 
 /**
- * Acquire a product image, in priority order:
- *   1. an explicit URL (manually set / from a source),
- *   2. the source/supplier page's Open Graph image,
- *   3. a cinematic Higgsfield generation.
+ * Acquire a product image. A manual URL always wins. Otherwise, in "premium"
+ * mode (the default) we generate a clean white Amazon/Apple-style studio shot
+ * with Higgsfield first — the look shoppers trust — and only fall back to the
+ * raw supplier photo if generation is unavailable or fails. Set premium:false
+ * to prefer the supplier's own image.
  */
 export async function generateProductImage(
   orgId: string,
   productId: string,
   manualUrl?: string,
+  opts: { premium?: boolean } = {},
 ): Promise<{ ok: boolean; url?: string; source?: string; error?: string }> {
+  const premium = opts.premium ?? true;
   const product = (await listProducts(orgId)).find((p) => p.id === productId);
   if (!product) return { ok: false, error: "Product not found." };
 
-  // 1. Explicit URL
+  // 1. Explicit URL always wins.
   if (manualUrl && manualUrl.trim()) {
     let u = manualUrl.trim();
     if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
-    await updateProduct(orgId, productId, { image_url: u });
+    await updateProduct(orgId, productId, { image_url: u, image_source: "manual" });
     return { ok: true, url: u, source: "manual" };
   }
 
-  // 2. Source page image
+  const creds = await getHiggsfieldCreds(orgId);
+
+  // 2. Premium studio generation first (clean white, catalog-grade).
+  if (premium && creds) {
+    const res = await generateImage(creds, studioProductPrompt(product.title, product.description));
+    if (res.ok && res.url) {
+      await updateProduct(orgId, productId, { image_url: res.url, image_source: "higgsfield" });
+      return { ok: true, url: res.url, source: "higgsfield" };
+    }
+    // fall through to source/AI-retry on failure
+  }
+
+  // 3. Source/supplier page image.
   if (product.supplier_url) {
     const og = await fetchSourceImage(product.supplier_url);
     if (og) {
-      await updateProduct(orgId, productId, { image_url: og });
+      await updateProduct(orgId, productId, { image_url: og, image_source: "source" });
       return { ok: true, url: og, source: "source" };
     }
   }
 
-  // 3. Higgsfield generation
-  const creds = await getHiggsfieldCreds(orgId);
+  // 4. Higgsfield generation (fallback when premium wasn't tried first).
   if (!creds) {
     return {
       ok: false,
       error: "No image at the source, and Higgsfield isn't connected. Paste an image URL or connect Higgsfield.",
     };
   }
-  const res = await generateImage(creds, cinematicPrompt(product.title, product.description));
+  const res = await generateImage(creds, studioProductPrompt(product.title, product.description));
   if (!res.ok || !res.url) return { ok: false, error: res.error };
-  await updateProduct(orgId, productId, { image_url: res.url });
+  await updateProduct(orgId, productId, { image_url: res.url, image_source: "higgsfield" });
   return { ok: true, url: res.url, source: "higgsfield" };
+}
+
+/**
+ * Push a product's current image_url onto its already-published Shopify product,
+ * replacing the live gallery. Resolves the numeric Shopify id from the stored
+ * shopify_id, else from the storefront handle. No-op (ok:false) if the product
+ * isn't live or Shopify isn't connected.
+ */
+export async function syncProductImageToShopify(
+  orgId: string,
+  productId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const product = (await listProducts(orgId)).find((p) => p.id === productId);
+  if (!product) return { ok: false, error: "Product not found." };
+  if (!product.image_url) return { ok: false, error: "Product has no image to push." };
+  if (!product.storefront_url && !product.shopify_id) {
+    return { ok: false, error: "Product isn't live on Shopify yet." };
+  }
+
+  const resolved = await resolveShopifyToken(orgId);
+  if (!resolved.ok || !resolved.token || !resolved.shop) {
+    return { ok: false, error: resolved.error ?? "No Shopify store connected." };
+  }
+
+  // Resolve the numeric product id (cache it once resolved).
+  let shopifyId = product.shopify_id;
+  if (!shopifyId) {
+    const handle =
+      product.shopify_handle ?? product.storefront_url?.split("/products/")[1]?.split(/[?#]/)[0];
+    if (!handle) return { ok: false, error: "Could not resolve the live product handle." };
+    shopifyId = await findProductIdByHandle(resolved.shop, resolved.token, handle);
+    if (!shopifyId) return { ok: false, error: "Could not find the product on Shopify." };
+    await updateProduct(orgId, productId, { shopify_id: shopifyId, shopify_handle: handle });
+  }
+
+  const gallery = [...(product.image_url ? [product.image_url] : []), ...(product.images ?? [])];
+  return replaceProductImages(resolved.shop, resolved.token, shopifyId, gallery);
+}
+
+/**
+ * Regenerate one product's image in premium studio style and, if it's already
+ * live on Shopify, push the new image onto the live listing.
+ */
+export async function reimageProduct(
+  orgId: string,
+  productId: string,
+): Promise<{ ok: boolean; url?: string; synced?: boolean; error?: string }> {
+  const gen = await generateProductImage(orgId, productId, undefined, { premium: true });
+  if (!gen.ok) return { ok: false, error: gen.error };
+  const sync = await syncProductImageToShopify(orgId, productId);
+  return { ok: true, url: gen.url, synced: sync.ok };
+}
+
+/**
+ * Premiumize the whole catalog: regenerate every product's image as a clean
+ * white studio shot and refresh any that are already live on Shopify.
+ */
+export async function reimageCatalog(
+  orgId: string,
+  opts: { onlyLive?: boolean } = {},
+): Promise<{ reimaged: number; synced: number; failed: number; total: number }> {
+  const products = await listProducts(orgId);
+  let reimaged = 0;
+  let synced = 0;
+  let failed = 0;
+  let total = 0;
+  for (const p of products) {
+    if (p.status === "killed") continue;
+    if (opts.onlyLive && !p.storefront_url && !p.shopify_id) continue;
+    total++;
+    const gen = await generateProductImage(orgId, p.id, undefined, { premium: true });
+    if (!gen.ok) {
+      failed++;
+      continue;
+    }
+    reimaged++;
+    const sync = await syncProductImageToShopify(orgId, p.id);
+    if (sync.ok) synced++;
+  }
+  return { reimaged, synced, failed, total };
 }
 
 /* ---------- CJ Dropshipping (real product feed) ---------- */
@@ -301,9 +401,14 @@ export async function autoPublishReady(orgId: string): Promise<number> {
   for (const p of products) {
     if (p.status !== "ready_to_launch" || p.storefront_url) continue;
 
-    // Acquire an image (source page → Higgsfield) before publishing.
+    // Acquire a premium studio image before publishing. When Higgsfield is
+    // connected we (re)generate a clean white catalog shot; otherwise we fall
+    // back to whatever image the product already has (source scrape).
     let imageUrl = p.image_url;
-    if (!imageUrl) {
+    if (await getHiggsfieldCreds(orgId)) {
+      const img = await generateProductImage(orgId, p.id, undefined, { premium: true });
+      if (img.ok) imageUrl = img.url;
+    } else if (!imageUrl) {
       const img = await generateProductImage(orgId, p.id);
       if (img.ok) imageUrl = img.url;
     }
@@ -317,7 +422,12 @@ export async function autoPublishReady(orgId: string): Promise<number> {
       video_url: p.video_url,
     });
     if (res.ok) {
-      await updateProduct(orgId, p.id, { status: "launched", storefront_url: res.url ?? "" });
+      await updateProduct(orgId, p.id, {
+        status: "launched",
+        storefront_url: res.url ?? "",
+        shopify_id: res.id,
+        shopify_handle: res.handle,
+      });
       count++;
     }
   }

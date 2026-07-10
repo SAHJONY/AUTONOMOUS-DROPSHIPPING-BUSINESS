@@ -116,6 +116,7 @@ export default function Home() {
   const [hfKeySecret, setHfKeySecret] = useState("");
   const [imaging, setImaging] = useState<string | null>(null);
   const [imgDraft, setImgDraft] = useState<Record<string, string>>({});
+  const [reimaging, setReimaging] = useState(false);
   const [cj, setCj] = useState<{ connected: boolean; email: string | null }>({ connected: false, email: null });
   const [cjEmail, setCjEmail] = useState("");
   const [cjApiKey, setCjApiKey] = useState("");
@@ -438,6 +439,34 @@ export default function Home() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setImaging(null);
+    }
+  }
+
+  async function reimageAll() {
+    if (!higgs.connected) {
+      setError("Connect Higgsfield first to generate premium studio images.");
+      return;
+    }
+    if (!window.confirm("Regenerate every product image as a clean white studio shot and refresh any that are live on Shopify? This may take a minute.")) {
+      return;
+    }
+    setError("");
+    setReimaging(true);
+    try {
+      const r = await api(`/orgs/${orgId}/products/reimage`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      await refresh();
+      setError(
+        `✓ Premiumized ${r.reimaged}/${r.total} images` +
+          (r.synced ? ` · refreshed ${r.synced} live on Shopify` : "") +
+          (r.failed ? ` · ${r.failed} failed` : ""),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setReimaging(false);
     }
   }
 
@@ -783,6 +812,16 @@ export default function Home() {
             <h2>Catalog</h2>
             <span className="hint" style={{ display: "flex", gap: 12, alignItems: "center" }}>
               {products.length} product(s)
+              {products.length > 0 && (
+                <button
+                  className="btn btn-ghost btn-small"
+                  onClick={reimageAll}
+                  disabled={reimaging || !higgs.connected}
+                  title={higgs.connected ? "Regenerate all product images as clean white studio shots" : "Connect Higgsfield to enable"}
+                >
+                  {reimaging ? <span className="spinner" /> : "✦ Premiumize images"}
+                </button>
+              )}
               <button className="btn btn-accent btn-small" onClick={stockTheStore} disabled={busy}>
                 {busy ? <span className="spinner" /> : "✦ Stock the Store"}
               </button>
@@ -806,13 +845,21 @@ export default function Home() {
                         <>
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={p.image_url} alt={p.title} />
-                          <button
-                            className="pc-gen"
-                            style={{ position: "absolute", bottom: 8, right: 8 }}
-                            onClick={() => setImgDraft((d) => ({ ...d, [p.id]: "" }))}
-                          >
-                            Change
-                          </button>
+                          <div style={{ position: "absolute", bottom: 8, right: 8, display: "flex", gap: 6 }}>
+                            {higgs.connected && (
+                              <button
+                                className="pc-gen"
+                                onClick={() => generateImage(p.id)}
+                                disabled={imaging === p.id}
+                                title="Regenerate as a clean white studio image (and refresh live)"
+                              >
+                                {imaging === p.id ? "…" : "✦ Premium"}
+                              </button>
+                            )}
+                            <button className="pc-gen" onClick={() => setImgDraft((d) => ({ ...d, [p.id]: "" }))}>
+                              Change
+                            </button>
+                          </div>
                         </>
                       ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 14, width: "100%" }}>

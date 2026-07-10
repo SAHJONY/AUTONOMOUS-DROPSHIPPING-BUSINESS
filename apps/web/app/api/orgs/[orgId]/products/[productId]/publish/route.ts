@@ -29,10 +29,11 @@ export async function POST(
   const product = (await listProducts(orgId)).find((p) => p.id === productId);
   if (!product) return error("Product not found", 404);
 
-  // Generate a cinematic image first if none exists and Higgsfield is connected.
+  // Generate a premium clean-white studio image when Higgsfield is connected
+  // (refreshing supplier scrapes), else keep whatever image the product has.
   let imageUrl = product.image_url;
-  if (!imageUrl && (await getHiggsfieldCreds(orgId))) {
-    const img = await generateProductImage(orgId, productId);
+  if (await getHiggsfieldCreds(orgId)) {
+    const img = await generateProductImage(orgId, productId, undefined, { premium: true });
     if (img.ok) imageUrl = img.url;
   }
 
@@ -49,6 +50,8 @@ export async function POST(
   const updated = await updateProduct(orgId, productId, {
     status: "launched",
     storefront_url: result.url ?? "",
+    shopify_id: result.id,
+    shopify_handle: result.handle,
   });
   return json({ ok: true, url: result.url, product: updated });
 }

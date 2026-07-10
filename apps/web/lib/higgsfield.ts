@@ -51,19 +51,27 @@ function extractUrl(o: unknown): string | undefined {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
- * Ultra-premium art direction — the "design skill" applied to generation.
- * Produces a cinematic, Tesla-grade commercial product shot.
+ * Clean, conversion-grade art direction — the "design skill" applied to
+ * generation. Produces a bright, Amazon/Apple-marketplace-style catalog shot:
+ * the product isolated on pure seamless white, evenly lit, true-to-life color.
+ * This is the look shoppers trust and that best-selling e-commerce brands use.
  */
-export function cinematicPrompt(title: string, description?: string): string {
+export function studioProductPrompt(title: string, description?: string): string {
   const detail = description ? `${description.slice(0, 160)}. ` : "";
   return (
-    `Ultra-premium cinematic product photograph of ${title}. ${detail}` +
-    `Hero centered composition, dramatic rim lighting and soft key light, deep matte-black studio ` +
-    `background with subtle volumetric haze, glossy reflections on a dark surface, shallow depth of ` +
-    `field, hyper-detailed textures, 8k commercial advertising photography, minimalist luxury ` +
-    `Tesla-grade aesthetic, elegant and aspirational.`
+    `Professional e-commerce catalog product photograph of ${title}. ${detail}` +
+    `Isolated on a pure seamless pure-white studio background (#ffffff), single hero product ` +
+    `centered and filling about 85% of the frame, bright soft even softbox lighting from multiple ` +
+    `angles, no harsh shadows (only a subtle natural contact shadow beneath), crisp edge-to-edge ` +
+    `sharp focus, true-to-life vibrant premium colors, rich saturation, high dynamic range, ` +
+    `ultra-detailed realistic materials and textures, 4k high-resolution commercial catalog ` +
+    `photography, Amazon and Apple marketplace style, clean and premium. ` +
+    `No text, no watermark, no logo, no packaging, no props, no hands, no people, no busy background.`
   );
 }
+
+/** Back-compat alias — older call sites imported this name. */
+export const cinematicPrompt = studioProductPrompt;
 
 /**
  * Request-shape variants across Higgsfield's known API surfaces. We try each in
@@ -83,7 +91,8 @@ function buildVariants(): Variant[] {
   const keyBody = (prompt: string) => ({
     params: {
       prompt,
-      width_and_height: "1536x2048",
+      // Square catalog format — matches Amazon/Shopify product grids.
+      width_and_height: "1536x1536",
       quality: "1080p",
       batch_size: 1,
       enhance_prompt: true,
@@ -95,7 +104,7 @@ function buildVariants(): Variant[] {
     model: "soul",
     prompt,
     width: 1536,
-    height: 2048,
+    height: 1536,
   });
   const reqStatus = (id: string) => `/requests/${id}/status`;
   const genStatus = (id: string) => `/v1/generations/${id}`;
@@ -139,7 +148,7 @@ async function pollForUrl(
 export async function generateImage(
   c: HiggsfieldCreds,
   prompt: string,
-  aspect = "3:4",
+  aspect = "1:1",
 ): Promise<{ ok: boolean; url?: string; error?: string }> {
   const errors: string[] = [];
   for (const v of buildVariants()) {

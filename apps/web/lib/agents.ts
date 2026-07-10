@@ -332,8 +332,8 @@ const storeBuilder: Agent = {
         const product = (await listProducts(ctx.orgId)).find((p) => p.id === String(a.product_id));
         if (!product) return "Error: product not found.";
         let imageUrl = product.image_url;
-        if (!imageUrl && (await getHiggsfieldCreds(ctx.orgId))) {
-          const img = await generateProductImage(ctx.orgId, product.id);
+        if (await getHiggsfieldCreds(ctx.orgId)) {
+          const img = await generateProductImage(ctx.orgId, product.id, undefined, { premium: true });
           if (img.ok) imageUrl = img.url;
         }
         const res = await createShopifyProduct(resolved.shop, resolved.token, {
@@ -345,7 +345,12 @@ const storeBuilder: Agent = {
           video_url: product.video_url,
         });
         if (!res.ok) return `Publish failed: ${res.error}`;
-        await updateProduct(ctx.orgId, product.id, { status: "launched", storefront_url: res.url ?? "" });
+        await updateProduct(ctx.orgId, product.id, {
+          status: "launched",
+          storefront_url: res.url ?? "",
+          shopify_id: res.id,
+          shopify_handle: res.handle,
+        });
         return `Published '${product.title}' to Shopify${res.url ? ` — ${res.url}` : ""}.`;
       },
     },
