@@ -95,6 +95,8 @@ export async function createShopifyProduct(
         title: p.title,
         body_html: p.description ?? "",
         status: "active",
+        published: true,
+        published_scope: "global", // publish to all sales channels incl. Online Store
         vendor: "SAHJONY",
         variants: [{ price: String(p.price ?? 0) }],
       },
