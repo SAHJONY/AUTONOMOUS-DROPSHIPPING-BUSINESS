@@ -60,6 +60,7 @@ export interface Product {
   score?: number;
   verdict?: string;
   storefront_url?: string;
+  image_url?: string;
   created_at: string;
 }
 
@@ -116,9 +117,11 @@ export interface Dashboard {
   engine: string;
   engine_online: boolean;
   autopilot: boolean;
+  auto_publish: boolean;
   autonomy_pct: number;
 }
 
 export interface OrgSettings {
   autopilot: boolean;
+  auto_publish: boolean;
 }

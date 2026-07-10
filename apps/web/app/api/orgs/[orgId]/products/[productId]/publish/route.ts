@@ -1,5 +1,11 @@
 import { error, json, requireOrg } from "@/lib/api";
-import { listProducts, resolveShopifyToken, updateProduct } from "@/lib/store";
+import {
+  generateProductImage,
+  getHiggsfieldCreds,
+  listProducts,
+  resolveShopifyToken,
+  updateProduct,
+} from "@/lib/store";
 import { createShopifyProduct } from "@/lib/shopify";
 
 export const runtime = "nodejs";
@@ -23,10 +29,18 @@ export async function POST(
   const product = (await listProducts(orgId)).find((p) => p.id === productId);
   if (!product) return error("Product not found", 404);
 
+  // Generate a cinematic image first if none exists and Higgsfield is connected.
+  let imageUrl = product.image_url;
+  if (!imageUrl && (await getHiggsfieldCreds(orgId))) {
+    const img = await generateProductImage(orgId, productId);
+    if (img.ok) imageUrl = img.url;
+  }
+
   const result = await createShopifyProduct(resolved.shop, resolved.token, {
     title: product.title,
     description: product.description,
     price: product.price,
+    image_url: imageUrl,
   });
   if (!result.ok) return error(`Publish failed: ${result.error}`, 502);
 

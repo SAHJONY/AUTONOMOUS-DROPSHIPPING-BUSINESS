@@ -87,7 +87,7 @@ export async function testShopifyToken(
 export async function createShopifyProduct(
   shop: string,
   token: string,
-  p: { title: string; description?: string; price?: number },
+  p: { title: string; description?: string; price?: number; image_url?: string },
 ): Promise<{ ok: boolean; url?: string; id?: number; error?: string }> {
   try {
     const body = {
@@ -99,6 +99,7 @@ export async function createShopifyProduct(
         published_scope: "global", // publish to all sales channels incl. Online Store
         vendor: "SAHJONY",
         variants: [{ price: String(p.price ?? 0) }],
+        ...(p.image_url ? { images: [{ src: p.image_url }] } : {}),
       },
     };
     const res = await shopifyFetch(shop, token, "/products.json", {

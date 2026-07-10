@@ -19,7 +19,7 @@ import {
   newId,
   nowISO,
 } from "./store";
-import { resolveShopifyToken } from "./store";
+import { generateProductImage, getHiggsfieldCreds, resolveShopifyToken } from "./store";
 import { createShopifyProduct } from "./shopify";
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type { Product } from "./types";
@@ -293,14 +293,35 @@ const storeBuilder: Agent = {
         }
         const product = (await listProducts(ctx.orgId)).find((p) => p.id === String(a.product_id));
         if (!product) return "Error: product not found.";
+        let imageUrl = product.image_url;
+        if (!imageUrl && (await getHiggsfieldCreds(ctx.orgId))) {
+          const img = await generateProductImage(ctx.orgId, product.id);
+          if (img.ok) imageUrl = img.url;
+        }
         const res = await createShopifyProduct(resolved.shop, resolved.token, {
           title: product.title,
           description: product.description,
           price: product.price,
+          image_url: imageUrl,
         });
         if (!res.ok) return `Publish failed: ${res.error}`;
         await updateProduct(ctx.orgId, product.id, { status: "launched", storefront_url: res.url ?? "" });
         return `Published '${product.title}' to Shopify${res.url ? ` — ${res.url}` : ""}.`;
+      },
+    },
+    {
+      name: "generate_product_image",
+      description:
+        "Generate a cinematic, premium product image via Higgsfield and attach it to a product. " +
+        "Only works if Higgsfield is connected.",
+      input_schema: {
+        type: "object",
+        properties: { product_id: { type: "string" } },
+        required: ["product_id"],
+      },
+      handler: async (ctx, a) => {
+        const res = await generateProductImage(ctx.orgId, String(a.product_id));
+        return res.ok ? `Generated cinematic image: ${res.url}` : `Image generation unavailable: ${res.error}`;
       },
     },
     ...commonTools("store_builder"),

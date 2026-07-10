@@ -19,6 +19,7 @@ type Dashboard = {
   engine: string;
   engine_online: boolean;
   autopilot: boolean;
+  auto_publish: boolean;
   autonomy_pct: number;
 };
 type AgentInfo = { name: string; description: string; tools: string[]; high_risk_tools: string[] };
@@ -34,9 +35,10 @@ type MemoryEntry = { id: string; agent_name: string; key: string; content: strin
 type Product = {
   id: string; title: string; description: string; status: string; source: string;
   supplier_url: string; cost: number; price: number; score?: number; verdict?: string;
-  storefront_url?: string; created_at: string;
+  storefront_url?: string; image_url?: string; created_at: string;
 };
 type ShopifyStatus = { connected: boolean; shop: string | null };
+type HiggsfieldStatus = { connected: boolean };
 type StoreItem = { id: string; name: string; platform: string; url: string; status: string; created_at: string };
 type Me = { id: string; email: string; is_owner: boolean };
 type AdminOverview = {
@@ -108,6 +110,10 @@ export default function Home() {
   const [shopClientId, setShopClientId] = useState("");
   const [shopClientSecret, setShopClientSecret] = useState("");
   const [publishing, setPublishing] = useState<string | null>(null);
+  const [higgs, setHiggs] = useState<HiggsfieldStatus>({ connected: false });
+  const [hfKeyId, setHfKeyId] = useState("");
+  const [hfKeySecret, setHfKeySecret] = useState("");
+  const [imaging, setImaging] = useState<string | null>(null);
 
   const authed = token !== null && orgId !== null;
 
@@ -175,6 +181,7 @@ export default function Home() {
       setProducts(prods);
       setStores(strs);
       setShopify(shop);
+      api(`/orgs/${orgId}/integrations/higgsfield`).then(setHiggs).catch(() => {});
       if (me?.is_owner) {
         api(`/admin/overview`).then(setAdmin).catch(() => {});
       }
@@ -232,6 +239,7 @@ export default function Home() {
     setShowForecast(false);
     setForecast(null);
     setShopify({ connected: false, shop: null });
+    setHiggs({ connected: false });
     setView("hero");
   }
 
@@ -301,6 +309,65 @@ export default function Home() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setPublishing(null);
+    }
+  }
+
+  async function connectHiggsfield() {
+    if (!hfKeySecret.trim()) return;
+    setError("");
+    setBusy(true);
+    try {
+      await api(`/orgs/${orgId}/integrations/higgsfield`, {
+        method: "POST",
+        body: JSON.stringify({ key_id: hfKeyId, key_secret: hfKeySecret }),
+      });
+      setHfKeyId("");
+      setHfKeySecret("");
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnectHiggsfield() {
+    setError("");
+    try {
+      await api(`/orgs/${orgId}/integrations/higgsfield`, {
+        method: "POST",
+        body: JSON.stringify({ disconnect: true }),
+      });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function generateImage(productId: string) {
+    setError("");
+    setImaging(productId);
+    try {
+      await api(`/orgs/${orgId}/products/${productId}/image`, { method: "POST" });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setImaging(null);
+    }
+  }
+
+  async function toggleAutoPublish() {
+    if (!dashboard) return;
+    setError("");
+    try {
+      await api(`/orgs/${orgId}/settings`, {
+        method: "POST",
+        body: JSON.stringify({ auto_publish: !dashboard.auto_publish }),
+      });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -635,15 +702,30 @@ export default function Home() {
             ) : (
               <table>
                 <thead>
-                  <tr><th>Product</th><th>Status</th><th>Score</th><th>Cost</th><th>Price</th><th>Source</th><th>Storefront</th></tr>
+                  <tr><th>Image</th><th>Product</th><th>Status</th><th>Score</th><th>Price</th><th>Source</th><th>Storefront</th></tr>
                 </thead>
                 <tbody>
                   {products.map((p) => (
                     <tr key={p.id}>
+                      <td>
+                        {p.image_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.image_url} alt={p.title} className="pthumb" />
+                        ) : higgs.connected ? (
+                          <button
+                            className="copy-btn"
+                            onClick={() => generateImage(p.id)}
+                            disabled={imaging === p.id}
+                          >
+                            {imaging === p.id ? "…" : "Generate"}
+                          </button>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
+                      </td>
                       <td>{p.title}</td>
                       <td><span className={`status ${p.status}`}>{p.status.replace(/_/g, " ")}</span></td>
                       <td>{p.score ?? "—"}</td>
-                      <td>${Number(p.cost).toFixed(2)}</td>
                       <td>${Number(p.price).toFixed(2)}</td>
                       <td>
                         {p.supplier_url ? (
@@ -684,9 +766,17 @@ export default function Home() {
             {shopify.connected ? (
               <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
                 <span className="pill-live"><span className="live-dot" /> {shopify.shop} connected</span>
-                <span className="agent-desc" style={{ margin: 0 }}>
-                  The engine can now publish products to your store. Use “Publish” in the Catalog, or ask the Store Builder to publish autonomously.
+                <span className="agent-desc" style={{ margin: 0, flex: 1, minWidth: 240 }}>
+                  {dashboard?.auto_publish
+                    ? "Auto-publish is ON — launch-ready products publish to your store automatically (with cinematic imagery when Higgsfield is connected)."
+                    : "Auto-publish is OFF — use “Publish” in the Catalog or ask the Store Builder to publish."}
                 </span>
+                <button
+                  className={`btn ${dashboard?.auto_publish ? "btn-ghost" : "btn-accent"} btn-small`}
+                  onClick={toggleAutoPublish}
+                >
+                  {dashboard?.auto_publish ? "Auto-publish: ON" : "Auto-publish: OFF"}
+                </button>
                 <button className="btn btn-ghost btn-small" onClick={disconnectShopify}>Disconnect</button>
               </div>
             ) : (
@@ -721,6 +811,48 @@ export default function Home() {
                   add the <code>write_products</code> scope and release it, then copy the app&apos;s <b>Client ID</b> and
                   <b> Client Secret</b> and paste them here. Credentials are stored securely; the platform mints
                   short-lived tokens automatically.
+                </p>
+              </>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <div className="section-head">
+            <h2>Cinematic Studio · Higgsfield</h2>
+            <span className="hint">{higgs.connected ? "Connected · AI imagery on" : "Auto-generate product visuals"}</span>
+          </div>
+          <div className="console-wrap">
+            {higgs.connected ? (
+              <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+                <span className="pill-live"><span className="live-dot" /> Higgsfield connected</span>
+                <span className="agent-desc" style={{ margin: 0, flex: 1, minWidth: 240 }}>
+                  Products get ultra-premium cinematic images automatically on publish. Use “Generate” in the Catalog for any product on demand.
+                </span>
+                <button className="btn btn-ghost btn-small" onClick={disconnectHiggsfield}>Disconnect</button>
+              </div>
+            ) : (
+              <>
+                <div className="console">
+                  <input
+                    value={hfKeyId}
+                    onChange={(e) => setHfKeyId(e.target.value)}
+                    placeholder="Key ID (optional)"
+                  />
+                  <input
+                    value={hfKeySecret}
+                    onChange={(e) => setHfKeySecret(e.target.value)}
+                    placeholder="Higgsfield API key / secret"
+                    type="password"
+                  />
+                  <button className="btn btn-accent" onClick={connectHiggsfield} disabled={busy || !hfKeySecret.trim()}>
+                    {busy ? <span className="spinner" /> : "Connect"}
+                  </button>
+                </div>
+                <p className="agent-desc">
+                  In Higgsfield → <b>API Keys</b>, create a key and paste it here (Key ID + Secret, or a single token in the
+                  second field). The engine then generates cinematic, Tesla-grade product images automatically and attaches
+                  them when publishing to Shopify.
                 </p>
               </>
             )}

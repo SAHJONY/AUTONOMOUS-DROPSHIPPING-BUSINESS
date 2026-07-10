@@ -1,7 +1,7 @@
 import { json, error } from "@/lib/api";
 import { CRON_SECRET } from "@/lib/config";
 import { autoApprovePending, runAgent } from "@/lib/brain";
-import { listAllOrgs } from "@/lib/store";
+import { autoPublishReady, listAllOrgs } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,7 +39,15 @@ async function handle(req: Request) {
           "to memory. Make reasonable assumptions; never stop to ask a human.",
       });
       const autoApproved = await autoApprovePending(org.id);
-      results.push({ org: org.id, name: org.name, run_id: run.id, status: run.status, auto_approved: autoApproved });
+      const published = await autoPublishReady(org.id);
+      results.push({
+        org: org.id,
+        name: org.name,
+        run_id: run.id,
+        status: run.status,
+        auto_approved: autoApproved,
+        auto_published: published,
+      });
     } catch (e) {
       results.push({ org: org.id, name: org.name, error: (e as Error).message });
     }

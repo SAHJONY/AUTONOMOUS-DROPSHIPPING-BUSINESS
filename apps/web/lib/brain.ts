@@ -20,6 +20,7 @@ import {
 } from "./config";
 import { getAgent, OPERATING_DIRECTIVE, type Agent, type AgentContext, type ToolDef } from "./agents";
 import {
+  autoPublishReady,
   getApproval,
   getOrgSettings,
   isAutoApprovable,
@@ -110,6 +111,15 @@ export async function runAgent(opts: RunOptions): Promise<AgentRun> {
       output_tokens: result.output_tokens,
     };
     await updateRun(opts.orgId, run.id, patch);
+    // Zero-click storefront: after product discovery, auto-publish launch-ready
+    // products (with cinematic imagery) to the connected Shopify store.
+    if (opts.agentName === "product_hunter" || opts.agentName === "ceo") {
+      try {
+        await autoPublishReady(opts.orgId);
+      } catch {
+        /* non-fatal */
+      }
+    }
     return { ...run, ...patch };
   } catch (err) {
     const patch = {

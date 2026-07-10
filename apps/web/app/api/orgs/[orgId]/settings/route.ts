@@ -17,8 +17,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   const auth = await requireOrg(req, orgId);
   if ("response" in auth) return auth.response;
   const body = await req.json().catch(() => ({}));
-  const patch: { autopilot?: boolean } = {};
+  const patch: { autopilot?: boolean; auto_publish?: boolean } = {};
   if (typeof body.autopilot === "boolean") patch.autopilot = body.autopilot;
+  if (typeof body.auto_publish === "boolean") patch.auto_publish = body.auto_publish;
   const settings = await setOrgSettings(orgId, patch);
   // Turning autopilot on immediately clears any within-threshold approvals.
   if (settings.autopilot) await autoApprovePending(orgId);

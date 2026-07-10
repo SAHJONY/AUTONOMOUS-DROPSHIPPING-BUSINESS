@@ -15,7 +15,8 @@ import {
 import { ANTHROPIC_API_KEY } from "./config";
 import { hashPassword, verifyPassword } from "./auth";
 import type { OrgSettings } from "./types";
-import { mintAccessToken, type ShopifyCreds } from "./shopify";
+import { createShopifyProduct, mintAccessToken, type ShopifyCreds } from "./shopify";
+import { cinematicPrompt, generateImage, type HiggsfieldCreds } from "./higgsfield";
 import type {
   AgentRun,
   ApprovalRequest,
@@ -50,6 +51,7 @@ const K = {
   settings: (oid: string) => `settings:${oid}`,
   shopify: (oid: string) => `shopify:${oid}`,
   shopifyToken: (oid: string) => `shopify_token:${oid}`,
+  higgsfield: (oid: string) => `higgsfield:${oid}`,
   allOrgs: "index:orgs",
   allUsers: "index:users",
 };
@@ -94,11 +96,83 @@ export async function resolveShopifyToken(
   return { ok: false, error: "Incomplete Shopify credentials." };
 }
 
+/* ---------- Higgsfield (cinematic imagery) ---------- */
+
+export async function getHiggsfieldCreds(orgId: string): Promise<HiggsfieldCreds | null> {
+  return kv.get<HiggsfieldCreds>(K.higgsfield(orgId));
+}
+export async function setHiggsfieldCreds(orgId: string, creds: HiggsfieldCreds): Promise<void> {
+  await kv.set(K.higgsfield(orgId), creds);
+}
+export async function clearHiggsfieldCreds(orgId: string): Promise<void> {
+  await kv.del(K.higgsfield(orgId));
+}
+
+/** Generate a cinematic image for a product (if Higgsfield connected) and save it. */
+export async function generateProductImage(
+  orgId: string,
+  productId: string,
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+  const creds = await getHiggsfieldCreds(orgId);
+  if (!creds) return { ok: false, error: "Higgsfield not connected." };
+  const product = (await listProducts(orgId)).find((p) => p.id === productId);
+  if (!product) return { ok: false, error: "Product not found." };
+  const res = await generateImage(creds, cinematicPrompt(product.title, product.description));
+  if (!res.ok || !res.url) return { ok: false, error: res.error };
+  await updateProduct(orgId, productId, { image_url: res.url });
+  return { ok: true, url: res.url };
+}
+
+/* ---------- Auto-publish launch-ready products to Shopify ---------- */
+
+/**
+ * Publish every launch-ready product that isn't live yet to the connected
+ * Shopify store — generating a cinematic image first when Higgsfield is
+ * connected. Runs hands-free from the cron and after product discovery.
+ */
+export async function autoPublishReady(orgId: string): Promise<number> {
+  const settings = await getOrgSettings(orgId);
+  if (!settings.auto_publish) return 0;
+  const resolved = await resolveShopifyToken(orgId);
+  if (!resolved.ok || !resolved.token || !resolved.shop) return 0;
+  const hfCreds = await getHiggsfieldCreds(orgId);
+
+  const products = await listProducts(orgId);
+  let count = 0;
+  for (const p of products) {
+    if (p.status !== "ready_to_launch" || p.storefront_url) continue;
+
+    let imageUrl = p.image_url;
+    if (!imageUrl && hfCreds) {
+      const img = await generateImage(hfCreds, cinematicPrompt(p.title, p.description));
+      if (img.ok && img.url) {
+        imageUrl = img.url;
+        await updateProduct(orgId, p.id, { image_url: img.url });
+      }
+    }
+
+    const res = await createShopifyProduct(resolved.shop, resolved.token, {
+      title: p.title,
+      description: p.description,
+      price: p.price,
+      image_url: imageUrl,
+    });
+    if (res.ok) {
+      await updateProduct(orgId, p.id, { status: "launched", storefront_url: res.url ?? "" });
+      count++;
+    }
+  }
+  return count;
+}
+
 /* ---------- org settings (autopilot) ---------- */
 
 export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
   const s = await kv.get<OrgSettings>(K.settings(orgId));
-  return { autopilot: s?.autopilot ?? AUTOPILOT_DEFAULT };
+  return {
+    autopilot: s?.autopilot ?? AUTOPILOT_DEFAULT,
+    auto_publish: s?.auto_publish ?? true,
+  };
 }
 
 export async function setOrgSettings(orgId: string, patch: Partial<OrgSettings>): Promise<OrgSettings> {
@@ -376,6 +450,7 @@ export async function buildDashboard(orgId: string): Promise<Dashboard> {
     engine: ENGINE_NAME,
     engine_online: !!ANTHROPIC_API_KEY,
     autopilot: settings.autopilot,
+    auto_publish: settings.auto_publish,
     autonomy_pct: settings.autopilot ? 98 : 60,
   };
 }
