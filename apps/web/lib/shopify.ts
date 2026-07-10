@@ -84,21 +84,49 @@ export async function testShopifyToken(
   }
 }
 
+/** Ultra-premium storefront copy — the design skill applied to the listing. */
+function premiumBody(title: string, description?: string): string {
+  const d =
+    (description && description.trim()) ||
+    `Meet the ${title} — engineered for those who expect more. A refined essential, curated by SAHJONY.`;
+  return (
+    `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.75;color:#1a1a1a">` +
+    `<p style="font-size:1.06em;margin:0 0 1em">${d}</p>` +
+    `<ul style="list-style:none;padding:0;margin:0">` +
+    `<li style="margin:.4em 0">✦ &nbsp;Premium quality, hand-curated by SAHJONY</li>` +
+    `<li style="margin:.4em 0">✦ &nbsp;Fast, fully tracked worldwide shipping</li>` +
+    `<li style="margin:.4em 0">✦ &nbsp;30-day satisfaction guarantee</li>` +
+    `<li style="margin:.4em 0">✦ &nbsp;Secure checkout</li>` +
+    `</ul></div>`
+  );
+}
+
 export async function createShopifyProduct(
   shop: string,
   token: string,
   p: { title: string; description?: string; price?: number; image_url?: string },
 ): Promise<{ ok: boolean; url?: string; id?: number; error?: string }> {
   try {
+    const price = p.price ?? 0;
+    // "Was" price for a premium, high-value perception (~1.6x, rounded to .99).
+    const compareAt = price > 0 ? (Math.ceil(price * 1.6) - 0.01).toFixed(2) : undefined;
     const body = {
       product: {
         title: p.title,
-        body_html: p.description ?? "",
+        body_html: premiumBody(p.title, p.description),
         status: "active",
         published: true,
         published_scope: "global", // publish to all sales channels incl. Online Store
         vendor: "SAHJONY",
-        variants: [{ price: String(p.price ?? 0) }],
+        product_type: "Featured",
+        tags: "SAHJONY, Trending, Featured, Autonomous",
+        variants: [
+          {
+            price: String(price),
+            ...(compareAt ? { compare_at_price: compareAt } : {}),
+            inventory_policy: "continue",
+          },
+        ],
         ...(p.image_url ? { images: [{ src: p.image_url }] } : {}),
       },
     };

@@ -312,6 +312,27 @@ export default function Home() {
     }
   }
 
+  async function stockTheStore() {
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/orgs/${orgId}/agents/product_hunter/run`, {
+        method: "POST",
+        body: JSON.stringify({
+          task:
+            "Find and score 6 diverse trending dropshipping products across popular niches (home, " +
+            "wellness, tech gadgets, pet, beauty, fitness). Save every one with a compelling premium " +
+            "2-3 sentence description, a realistic cost, and a retail price 3-4x the cost.",
+        }),
+      });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function connectHiggsfield() {
     if (!hfKeySecret.trim()) return;
     setError("");
@@ -695,66 +716,68 @@ export default function Home() {
         </section>
 
         <section>
-          <div className="section-head"><h2>Catalog</h2><span className="hint">{products.length} product(s) — click to view</span></div>
-          <div className="card">
-            {products.length === 0 ? (
-              <p className="empty">No products yet. Ask the Product Hunter to find and score some.</p>
-            ) : (
-              <table>
-                <thead>
-                  <tr><th>Image</th><th>Product</th><th>Status</th><th>Score</th><th>Price</th><th>Source</th><th>Storefront</th></tr>
-                </thead>
-                <tbody>
-                  {products.map((p) => (
-                    <tr key={p.id}>
-                      <td>
-                        {p.image_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={p.image_url} alt={p.title} className="pthumb" />
-                        ) : higgs.connected ? (
-                          <button
-                            className="copy-btn"
-                            onClick={() => generateImage(p.id)}
-                            disabled={imaging === p.id}
-                          >
-                            {imaging === p.id ? "…" : "Generate"}
-                          </button>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
-                      </td>
-                      <td>{p.title}</td>
-                      <td><span className={`status ${p.status}`}>{p.status.replace(/_/g, " ")}</span></td>
-                      <td>{p.score ?? "—"}</td>
-                      <td>${Number(p.price).toFixed(2)}</td>
-                      <td>
-                        {p.supplier_url ? (
-                          <a className="link-a" href={p.supplier_url} target="_blank" rel="noreferrer">View →</a>
-                        ) : (
-                          <span className="muted">—</span>
-                        )}
-                      </td>
-                      <td>
+          <div className="section-head">
+            <h2>Catalog</h2>
+            <span className="hint" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              {products.length} product(s)
+              <button className="btn btn-accent btn-small" onClick={stockTheStore} disabled={busy}>
+                {busy ? <span className="spinner" /> : "✦ Stock the Store"}
+              </button>
+            </span>
+          </div>
+          {products.length === 0 ? (
+            <div className="card">
+              <p className="empty">
+                No products yet. Hit <b>✦ Stock the Store</b> and the engine will discover, score, image, and
+                (with auto-publish on) push a batch of launch-ready products to your storefront.
+              </p>
+            </div>
+          ) : (
+            <div className="product-grid">
+              {products.map((p) => {
+                const was = p.price > 0 ? Math.ceil(p.price * 1.6) - 0.01 : 0;
+                return (
+                  <div className="product-card" key={p.id}>
+                    <div className="pc-media">
+                      {p.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.image_url} alt={p.title} />
+                      ) : higgs.connected ? (
+                        <button className="pc-gen" onClick={() => generateImage(p.id)} disabled={imaging === p.id}>
+                          {imaging === p.id ? "Generating…" : "✦ Generate image"}
+                        </button>
+                      ) : (
+                        <span className="pc-noimg">No image</span>
+                      )}
+                      <span className={`status ${p.status}`}>{p.status.replace(/_/g, " ")}</span>
+                    </div>
+                    <div className="pc-body">
+                      <div className="pc-title">{p.title}</div>
+                      <div className="pc-meta">
+                        <span className="pc-price">${Number(p.price).toFixed(2)}</span>
+                        {was > 0 && <span className="pc-was">${was.toFixed(2)}</span>}
+                        {p.score != null && <span className="pc-score">SCORE {p.score}</span>}
+                      </div>
+                      <div className="pc-actions">
                         {p.storefront_url ? (
-                          <a className="link-a" href={p.storefront_url} target="_blank" rel="noreferrer">Live →</a>
+                          <a className="btn btn-ghost btn-small" href={p.storefront_url} target="_blank" rel="noreferrer">Live →</a>
                         ) : shopify.connected ? (
-                          <button
-                            className="btn btn-accent btn-small"
-                            onClick={() => publishProduct(p.id)}
-                            disabled={publishing === p.id}
-                          >
+                          <button className="btn btn-accent btn-small" onClick={() => publishProduct(p.id)} disabled={publishing === p.id}>
                             {publishing === p.id ? <span className="spinner" /> : "Publish"}
                           </button>
                         ) : (
-                          <span className="muted">connect Shopify</span>
+                          <span className="muted" style={{ fontSize: 11 }}>connect Shopify</span>
                         )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
+                        {p.supplier_url && (
+                          <a className="btn btn-ghost btn-small" href={p.supplier_url} target="_blank" rel="noreferrer">Source</a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <section>

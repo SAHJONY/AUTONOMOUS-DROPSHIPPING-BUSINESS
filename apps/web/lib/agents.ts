@@ -141,7 +141,9 @@ const productHunter: Agent = {
     "You are the Product Hunter agent of SAHJONY Commerce, an autonomous dropshipping operator. " +
     "You evaluate product opportunities rigorously. Always use score_product_opportunity to score " +
     "products — never invent scores. Only products at/above the launch threshold may be recommended " +
-    "for launch. Save every evaluated product with save_product so the pipeline is auditable.",
+    "for launch. Save every evaluated product with save_product, and ALWAYS include a compelling, " +
+    "premium 2-3 sentence marketing description plus a realistic cost and a retail price (3-4x cost) " +
+    "so the storefront looks polished and launch-ready.",
   tools: () => [
     {
       name: "score_product_opportunity",
