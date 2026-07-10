@@ -3,6 +3,9 @@ import { getAgent } from "@/lib/agents";
 import { runAgent } from "@/lib/brain";
 
 export const runtime = "nodejs";
+// Agents may generate imagery via Higgsfield, whose API only accepts European
+// IPs — run in Frankfurt.
+export const preferredRegion = "fra1";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 

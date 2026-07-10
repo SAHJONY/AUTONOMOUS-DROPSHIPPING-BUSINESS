@@ -2,6 +2,8 @@ import { error, json, requireOrg } from "@/lib/api";
 import { reimageCatalog, reimageProduct } from "@/lib/store";
 
 export const runtime = "nodejs";
+// Higgsfield's API only accepts requests from European IPs — run in Frankfurt.
+export const preferredRegion = "fra1";
 export const dynamic = "force-dynamic";
 // Regenerating a whole catalog can take a while (one AI image per product).
 export const maxDuration = 300;

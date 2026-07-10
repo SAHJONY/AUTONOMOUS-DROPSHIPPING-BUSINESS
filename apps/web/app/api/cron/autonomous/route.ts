@@ -10,6 +10,8 @@ import {
 } from "@/lib/store";
 
 export const runtime = "nodejs";
+// Higgsfield's API only accepts requests from European IPs — run in Frankfurt.
+export const preferredRegion = "fra1";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
