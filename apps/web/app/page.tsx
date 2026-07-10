@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Manual from "./components/Manual";
+import Forecast, { type ForecastData } from "./components/Forecast";
 
 const API = "/api";
 
@@ -69,7 +70,10 @@ const QUICK_TASKS: Record<string, string[]> = {
     "Find and score 3 trending product opportunities",
     "Score a portable neck fan: demand 82, competition 60, margin 70, trend 88, risk 20",
   ],
-  finance: ["Compute unit economics for price 39.99, cost 9.50, ad cost 8"],
+  finance: [
+    "Compute unit economics for price 39.99, cost 9.50, ad cost 8",
+    "Build a 12-month financial forecast from our current catalog and unit economics",
+  ],
   advertising: ["Propose a TikTok ad budget for our best product and explain the ROAS math"],
   support: ["Draft a reply to a customer whose order is 5 days late"],
 };
@@ -94,6 +98,8 @@ export default function Home() {
   const [task, setTask] = useState("");
   const [busy, setBusy] = useState(false);
   const [showManual, setShowManual] = useState(false);
+  const [showForecast, setShowForecast] = useState(false);
+  const [forecast, setForecast] = useState<ForecastData | null>(null);
 
   const authed = token !== null && orgId !== null;
 
@@ -213,6 +219,8 @@ export default function Home() {
     setStores([]);
     setAdmin(null);
     setShowManual(false);
+    setShowForecast(false);
+    setForecast(null);
     setView("hero");
   }
 
@@ -232,6 +240,18 @@ export default function Home() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function openForecast() {
+    setError("");
+    try {
+      const data = await api(`/orgs/${orgId}/forecast`);
+      setForecast(data);
+      setShowManual(false);
+      setShowForecast(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -383,13 +403,15 @@ export default function Home() {
             </span>
           )}
           <span className="hide-sm">{pending.length > 0 ? `${pending.length} approvals waiting` : "All clear"}</span>
-          <button onClick={() => setShowManual((v) => !v)}>{showManual ? "Deck" : "Manual"}</button>
+          <button onClick={openForecast}>Forecast</button>
+          <button onClick={() => { setShowManual((v) => !v); setShowForecast(false); }}>{showManual ? "Deck" : "Manual"}</button>
           <button onClick={signOut}>Sign out</button>
         </div>
       </nav>
 
       {showManual && <Manual onBack={() => setShowManual(false)} />}
-      <main className="app" style={showManual ? { display: "none" } : undefined}>
+      {showForecast && forecast && <Forecast data={forecast} onBack={() => setShowForecast(false)} />}
+      <main className="app" style={showManual || showForecast ? { display: "none" } : undefined}>
         {error && <p className="error">{error}</p>}
 
         <div className="welcome">

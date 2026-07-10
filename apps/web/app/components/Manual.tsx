@@ -179,6 +179,8 @@ export default function Manual({ onBack }: { onBack: () => void }) {
         <h3>Finance</h3>
         <Prompt>Compute unit economics for price 39.99, cost 9.50, ad cost per order 8. Tell me profit per order and net margin.</Prompt>
         <Prompt>Run the margin math on our launch-ready products and tell me which has the strongest unit economics.</Prompt>
+        <Prompt>Build a 12-month financial forecast from our current catalog and unit economics.</Prompt>
+        <div className="doc-note"><b>Live Forecast tab.</b> The <b>Forecast</b> button in the nav opens a 12-month projection built from your real catalog — three scenarios, unit economics, and monthly revenue/profit. It updates as your catalog grows.</div>
 
         <h3>Support</h3>
         <Prompt>Draft an empathetic reply to a customer whose order is 5 days late and asking for an update.</Prompt>
