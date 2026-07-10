@@ -224,6 +224,14 @@ export async function listStores(orgId: string): Promise<Store[]> {
 export async function saveStore(s: Store): Promise<void> {
   await listPush(K.stores(s.org_id), s, 200);
 }
+export async function updateStore(orgId: string, id: string, patch: Partial<Store>): Promise<Store | null> {
+  const arr = await listStores(orgId);
+  const idx = arr.findIndex((s) => s.id === id);
+  if (idx === -1) return null;
+  arr[idx] = { ...arr[idx], ...patch };
+  await listReplace(K.stores(orgId), arr);
+  return arr[idx];
+}
 
 /* ---------- runs ---------- */
 

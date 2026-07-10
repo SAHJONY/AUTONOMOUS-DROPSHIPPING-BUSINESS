@@ -100,6 +100,7 @@ export default function Home() {
   const [showManual, setShowManual] = useState(false);
   const [showForecast, setShowForecast] = useState(false);
   const [forecast, setForecast] = useState<ForecastData | null>(null);
+  const [linkDraft, setLinkDraft] = useState<Record<string, string>>({});
 
   const authed = token !== null && orgId !== null;
 
@@ -240,6 +241,26 @@ export default function Home() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function saveStoreLink(storeId: string) {
+    const url = (linkDraft[storeId] ?? "").trim();
+    if (!url) return;
+    setError("");
+    try {
+      await api(`/orgs/${orgId}/stores/${storeId}`, {
+        method: "POST",
+        body: JSON.stringify({ url }),
+      });
+      setLinkDraft((d) => {
+        const next = { ...d };
+        delete next[storeId];
+        return next;
+      });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -596,10 +617,22 @@ export default function Home() {
                       <td>{s.platform}</td>
                       <td><span className={`status ${s.status}`}>{s.status}</span></td>
                       <td>
-                        {s.url ? (
-                          <a className="link-a" href={s.url} target="_blank" rel="noreferrer">Open →</a>
+                        {!s.url || linkDraft[s.id] !== undefined ? (
+                          <span style={{ display: "inline-flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            <input
+                              value={linkDraft[s.id] ?? ""}
+                              onChange={(e) => setLinkDraft((d) => ({ ...d, [s.id]: e.target.value }))}
+                              onKeyDown={(e) => e.key === "Enter" && saveStoreLink(s.id)}
+                              placeholder="your-store.myshopify.com"
+                              style={{ width: 220, padding: "8px 10px", fontSize: "0.82rem" }}
+                            />
+                            <button className="btn btn-accent btn-small" onClick={() => saveStoreLink(s.id)}>Link</button>
+                          </span>
                         ) : (
-                          <span className="muted">not linked yet</span>
+                          <span style={{ display: "inline-flex", gap: 10, alignItems: "center" }}>
+                            <a className="link-a" href={s.url} target="_blank" rel="noreferrer">Open →</a>
+                            <button className="copy-btn" onClick={() => setLinkDraft((d) => ({ ...d, [s.id]: s.url }))}>Edit</button>
+                          </span>
                         )}
                       </td>
                     </tr>
