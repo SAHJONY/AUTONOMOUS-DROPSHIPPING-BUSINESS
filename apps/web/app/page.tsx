@@ -926,7 +926,7 @@ export default function Home() {
                 <span className="pill-live"><span className="live-dot" /> {shopify.shop} connected</span>
                 <span className="agent-desc" style={{ margin: 0, flex: 1, minWidth: 240 }}>
                   {dashboard?.auto_publish
-                    ? "Auto-publish is ON — launch-ready products publish to your store automatically (with cinematic imagery when Higgsfield is connected)."
+                    ? "Auto-publish is ON — launch-ready products publish to your store automatically (with clean premium white-background imagery when Higgsfield is connected)."
                     : "Auto-publish is OFF — use “Publish” in the Catalog or ask the Store Builder to publish."}
                 </span>
                 <button
@@ -977,7 +977,7 @@ export default function Home() {
 
         <section>
           <div className="section-head">
-            <h2>Cinematic Studio · Higgsfield</h2>
+            <h2>Studio Imagery · Higgsfield</h2>
             <span className="hint">{higgs.connected ? "Connected · AI imagery on" : "Auto-generate product visuals"}</span>
           </div>
           <div className="console-wrap">
@@ -985,7 +985,7 @@ export default function Home() {
               <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
                 <span className="pill-live"><span className="live-dot" /> Higgsfield connected</span>
                 <span className="agent-desc" style={{ margin: 0, flex: 1, minWidth: 240 }}>
-                  Products get ultra-premium cinematic images automatically on publish. Use “Generate” in the Catalog for any product on demand.
+                  Products get clean, premium white-background studio images (Amazon/Apple style) automatically on publish. Use <b>✦ Premiumize images</b> in the Catalog to refresh the whole store, or <b>✦ Premium</b> on any card.
                 </span>
                 <button className="btn btn-ghost btn-small" onClick={disconnectHiggsfield}>Disconnect</button>
               </div>
@@ -1009,8 +1009,8 @@ export default function Home() {
                 </div>
                 <p className="agent-desc">
                   In Higgsfield → <b>API Keys</b>, create a key and paste it here (Key ID + Secret, or a single token in the
-                  second field). The engine then generates cinematic, Tesla-grade product images automatically and attaches
-                  them when publishing to Shopify.
+                  second field). The engine then generates clean, premium white-background studio product images
+                  (Amazon/Apple style) automatically and attaches them when publishing to Shopify.
                 </p>
               </>
             )}
