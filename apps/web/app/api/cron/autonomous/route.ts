@@ -7,7 +7,6 @@ import {
   getCJCreds,
   getShopifyCreds,
   listAllOrgs,
-  listProducts,
 } from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -34,12 +33,9 @@ async function handle(req: Request) {
     try {
       // Focus the autonomous cycle on orgs with real integrations or a catalog
       // (skips empty throwaway orgs — saves cost and stays on-task).
-      const [shop, cjc, products] = await Promise.all([
-        getShopifyCreds(org.id),
-        getCJCreds(org.id),
-        listProducts(org.id),
-      ]);
-      if (!shop && !cjc && products.length === 0) continue;
+      const [shop, cjc] = await Promise.all([getShopifyCreds(org.id), getCJCreds(org.id)]);
+      // Only run the heavy CEO cycle for orgs with real integrations connected.
+      if (!shop && !cjc) continue;
 
       // 1. Source real products from the supplier (CJ) when stock is thin.
       const sourced = await autonomousSource(org.id);
