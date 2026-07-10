@@ -17,6 +17,8 @@ import { hashPassword, verifyPassword } from "./auth";
 import type { OrgSettings } from "./types";
 import { createShopifyProduct, mintAccessToken, type ShopifyCreds } from "./shopify";
 import { cinematicPrompt, generateImage, type HiggsfieldCreds } from "./higgsfield";
+import { cjGetAccessToken, cjSearchProducts, type CJCreds } from "./suppliers/cj";
+import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type {
   AgentRun,
   ApprovalRequest,
@@ -52,6 +54,8 @@ const K = {
   shopify: (oid: string) => `shopify:${oid}`,
   shopifyToken: (oid: string) => `shopify_token:${oid}`,
   higgsfield: (oid: string) => `higgsfield:${oid}`,
+  cj: (oid: string) => `cj:${oid}`,
+  cjToken: (oid: string) => `cj_token:${oid}`,
   allOrgs: "index:orgs",
   allUsers: "index:users",
 };
@@ -174,6 +178,77 @@ export async function generateProductImage(
   return { ok: true, url: res.url, source: "higgsfield" };
 }
 
+/* ---------- CJ Dropshipping (real product feed) ---------- */
+
+export async function getCJCreds(orgId: string): Promise<CJCreds | null> {
+  return kv.get<CJCreds>(K.cj(orgId));
+}
+export async function setCJCreds(orgId: string, creds: CJCreds): Promise<void> {
+  await kv.set(K.cj(orgId), creds);
+}
+export async function clearCJCreds(orgId: string): Promise<void> {
+  await kv.del(K.cj(orgId));
+  await kv.del(K.cjToken(orgId));
+}
+
+async function resolveCJToken(orgId: string): Promise<{ ok: boolean; token?: string; error?: string }> {
+  const creds = await getCJCreds(orgId);
+  if (!creds) return { ok: false, error: "CJ Dropshipping not connected." };
+  const now = Date.now();
+  const cached = await kv.get<{ token: string; expires_at: number }>(K.cjToken(orgId));
+  if (cached && cached.expires_at > now + 60_000) return { ok: true, token: cached.token };
+  const minted = await cjGetAccessToken(creds);
+  if (!minted.ok || !minted.token) return { ok: false, error: minted.error };
+  await kv.set(K.cjToken(orgId), { token: minted.token, expires_at: minted.expires_at ?? now + 86_400_000 });
+  return { ok: true, token: minted.token };
+}
+
+/** Import real products (with real images + video) from CJ into the catalog. */
+export async function importFromSupplier(
+  orgId: string,
+  query: string,
+  limit = 6,
+): Promise<{ ok: boolean; imported?: number; error?: string }> {
+  const tok = await resolveCJToken(orgId);
+  if (!tok.ok || !tok.token) return { ok: false, error: tok.error };
+  const search = await cjSearchProducts(tok.token, query, limit);
+  if (!search.ok || !search.products) return { ok: false, error: search.error };
+
+  let imported = 0;
+  for (const sp of search.products) {
+    const cost = sp.cost || 0;
+    const price = cost > 0 ? Math.max(9.99, Math.ceil(cost * 3) - 0.01) : 0;
+    const score = scoreProduct({
+      demand: 82,
+      competition: 50,
+      margin: marginScoreFromPrices(cost, price),
+      trend: 82,
+      risk: 18,
+    });
+    const product: Product = {
+      id: newId(),
+      org_id: orgId,
+      title: sp.title,
+      description: sp.description,
+      source: "CJ Dropshipping",
+      supplier: "cj",
+      supplier_url: sp.supplier_url ?? "",
+      cost,
+      price,
+      status: score.verdict === VERDICT_LAUNCH ? "ready_to_launch" : "analyzed",
+      score: score.total_score,
+      verdict: score.verdict,
+      image_url: sp.image_url,
+      images: sp.images,
+      video_url: sp.video_url,
+      created_at: nowISO(),
+    };
+    await saveProduct(product);
+    imported++;
+  }
+  return { ok: true, imported };
+}
+
 /* ---------- Auto-publish launch-ready products to Shopify ---------- */
 
 /**
@@ -204,6 +279,8 @@ export async function autoPublishReady(orgId: string): Promise<number> {
       description: p.description,
       price: p.price,
       image_url: imageUrl,
+      images: p.images,
+      video_url: p.video_url,
     });
     if (res.ok) {
       await updateProduct(orgId, p.id, { status: "launched", storefront_url: res.url ?? "" });

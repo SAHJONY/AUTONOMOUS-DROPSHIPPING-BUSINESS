@@ -61,6 +61,9 @@ export interface Product {
   verdict?: string;
   storefront_url?: string;
   image_url?: string;
+  video_url?: string;
+  images?: string[];
+  supplier?: string;
   created_at: string;
 }
 

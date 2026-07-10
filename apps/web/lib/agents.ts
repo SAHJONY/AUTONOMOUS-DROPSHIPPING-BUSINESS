@@ -19,7 +19,13 @@ import {
   newId,
   nowISO,
 } from "./store";
-import { generateProductImage, getHiggsfieldCreds, resolveShopifyToken } from "./store";
+import {
+  generateProductImage,
+  getCJCreds,
+  getHiggsfieldCreds,
+  importFromSupplier,
+  resolveShopifyToken,
+} from "./store";
 import { createShopifyProduct } from "./shopify";
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type { Product } from "./types";
@@ -217,8 +223,38 @@ const supplier: Agent = {
   system_prompt:
     "You are the Supplier agent of SAHJONY Commerce. You evaluate sourcing across CJ Dropshipping, " +
     "AliExpress, Spocket, and Zendrop, compare landed costs and shipping times, and record supplier " +
-    "quotes and issues in business memory.",
-  tools: () => commonTools("supplier"),
+    "quotes and issues in business memory. When a real supplier (CJ Dropshipping) is connected, use " +
+    "import_supplier_products to pull real products with real images and video into the catalog.",
+  tools: () => [
+    {
+      name: "import_supplier_products",
+      description:
+        "Import real products (with real images and product video) from the connected CJ Dropshipping " +
+        "account into the catalog. Provide a search query and optional count (default 6).",
+      input_schema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "What to source, e.g. 'led desk lamp'" },
+          count: { type: "number", description: "How many to import (1-12, default 6)" },
+        },
+        required: ["query"],
+      },
+      handler: async (ctx, a) => {
+        if (!(await getCJCreds(ctx.orgId))) {
+          return "No supplier connected — ask the owner to connect CJ Dropshipping in the dashboard.";
+        }
+        const res = await importFromSupplier(
+          ctx.orgId,
+          String(a.query),
+          Math.min(Math.max(Number(a.count ?? 6), 1), 12),
+        );
+        return res.ok
+          ? `Imported ${res.imported} real product(s) from CJ Dropshipping with real media.`
+          : `Import failed: ${res.error}`;
+      },
+    },
+    ...commonTools("supplier"),
+  ],
 };
 
 /* ---------- store builder ---------- */
@@ -305,6 +341,8 @@ const storeBuilder: Agent = {
           description: product.description,
           price: product.price,
           image_url: imageUrl,
+          images: product.images,
+          video_url: product.video_url,
         });
         if (!res.ok) return `Publish failed: ${res.error}`;
         await updateProduct(ctx.orgId, product.id, { status: "launched", storefront_url: res.url ?? "" });

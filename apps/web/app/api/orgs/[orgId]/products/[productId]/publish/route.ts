@@ -41,6 +41,8 @@ export async function POST(
     description: product.description,
     price: product.price,
     image_url: imageUrl,
+    images: product.images,
+    video_url: product.video_url,
   });
   if (!result.ok) return error(`Publish failed: ${result.error}`, 502);
 

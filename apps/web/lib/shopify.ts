@@ -84,13 +84,29 @@ export async function testShopifyToken(
   }
 }
 
+/** Embed a product video (mp4 → HTML5 player; YouTube/Vimeo → iframe). */
+function videoEmbed(url?: string): string {
+  if (!url) return "";
+  const u = url.trim();
+  const yt = u.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]+)/i);
+  if (yt) {
+    return `<div style="margin:1em 0"><iframe width="100%" height="360" src="https://www.youtube.com/embed/${yt[1]}" frameborder="0" allowfullscreen></iframe></div>`;
+  }
+  if (/vimeo\.com\/(\d+)/i.test(u)) {
+    const id = u.match(/vimeo\.com\/(\d+)/i)![1];
+    return `<div style="margin:1em 0"><iframe src="https://player.vimeo.com/video/${id}" width="100%" height="360" frameborder="0" allowfullscreen></iframe></div>`;
+  }
+  return `<div style="margin:1em 0"><video controls playsinline preload="metadata" style="width:100%;border-radius:12px" src="${u}"></video></div>`;
+}
+
 /** Ultra-premium storefront copy — the design skill applied to the listing. */
-function premiumBody(title: string, description?: string): string {
+function premiumBody(title: string, description?: string, videoUrl?: string): string {
   const d =
     (description && description.trim()) ||
     `Meet the ${title} — engineered for those who expect more. A refined essential, curated by SAHJONY.`;
   return (
     `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.75;color:#1a1a1a">` +
+    videoEmbed(videoUrl) +
     `<p style="font-size:1.06em;margin:0 0 1em">${d}</p>` +
     `<ul style="list-style:none;padding:0;margin:0">` +
     `<li style="margin:.4em 0">✦ &nbsp;Premium quality, hand-curated by SAHJONY</li>` +
@@ -104,16 +120,25 @@ function premiumBody(title: string, description?: string): string {
 export async function createShopifyProduct(
   shop: string,
   token: string,
-  p: { title: string; description?: string; price?: number; image_url?: string },
+  p: {
+    title: string;
+    description?: string;
+    price?: number;
+    image_url?: string;
+    images?: string[];
+    video_url?: string;
+  },
 ): Promise<{ ok: boolean; url?: string; id?: number; error?: string }> {
   try {
     const price = p.price ?? 0;
     // "Was" price for a premium, high-value perception (~1.6x, rounded to .99).
     const compareAt = price > 0 ? (Math.ceil(price * 1.6) - 0.01).toFixed(2) : undefined;
+    // Full image gallery (dedupe, cap at 10).
+    const gallery = [...new Set([...(p.image_url ? [p.image_url] : []), ...(p.images ?? [])])].slice(0, 10);
     const body = {
       product: {
         title: p.title,
-        body_html: premiumBody(p.title, p.description),
+        body_html: premiumBody(p.title, p.description, p.video_url),
         status: "active",
         published: true,
         published_scope: "global", // publish to all sales channels incl. Online Store
@@ -127,7 +152,7 @@ export async function createShopifyProduct(
             inventory_policy: "continue",
           },
         ],
-        ...(p.image_url ? { images: [{ src: p.image_url }] } : {}),
+        ...(gallery.length ? { images: gallery.map((src) => ({ src })) } : {}),
       },
     };
     const res = await shopifyFetch(shop, token, "/products.json", {

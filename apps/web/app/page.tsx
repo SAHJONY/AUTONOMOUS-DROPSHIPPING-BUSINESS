@@ -35,7 +35,8 @@ type MemoryEntry = { id: string; agent_name: string; key: string; content: strin
 type Product = {
   id: string; title: string; description: string; status: string; source: string;
   supplier_url: string; cost: number; price: number; score?: number; verdict?: string;
-  storefront_url?: string; image_url?: string; created_at: string;
+  storefront_url?: string; image_url?: string; video_url?: string; images?: string[];
+  supplier?: string; created_at: string;
 };
 type ShopifyStatus = { connected: boolean; shop: string | null };
 type HiggsfieldStatus = { connected: boolean };
@@ -115,6 +116,11 @@ export default function Home() {
   const [hfKeySecret, setHfKeySecret] = useState("");
   const [imaging, setImaging] = useState<string | null>(null);
   const [imgDraft, setImgDraft] = useState<Record<string, string>>({});
+  const [cj, setCj] = useState<{ connected: boolean; email: string | null }>({ connected: false, email: null });
+  const [cjEmail, setCjEmail] = useState("");
+  const [cjApiKey, setCjApiKey] = useState("");
+  const [importQuery, setImportQuery] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const authed = token !== null && orgId !== null;
 
@@ -183,6 +189,7 @@ export default function Home() {
       setStores(strs);
       setShopify(shop);
       api(`/orgs/${orgId}/integrations/higgsfield`).then(setHiggs).catch(() => {});
+      api(`/orgs/${orgId}/integrations/cj`).then(setCj).catch(() => {});
       if (me?.is_owner) {
         api(`/admin/overview`).then(setAdmin).catch(() => {});
       }
@@ -241,6 +248,7 @@ export default function Home() {
     setForecast(null);
     setShopify({ connected: false, shop: null });
     setHiggs({ connected: false });
+    setCj({ connected: false, email: null });
     setView("hero");
   }
 
@@ -310,6 +318,52 @@ export default function Home() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setPublishing(null);
+    }
+  }
+
+  async function connectCJ() {
+    if (!cjEmail.trim() || !cjApiKey.trim()) return;
+    setError("");
+    setBusy(true);
+    try {
+      await api(`/orgs/${orgId}/integrations/cj`, {
+        method: "POST",
+        body: JSON.stringify({ email: cjEmail, api_key: cjApiKey }),
+      });
+      setCjEmail("");
+      setCjApiKey("");
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnectCJ() {
+    setError("");
+    try {
+      await api(`/orgs/${orgId}/integrations/cj`, { method: "POST", body: JSON.stringify({ disconnect: true }) });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function importProducts() {
+    setError("");
+    setImporting(true);
+    try {
+      await api(`/orgs/${orgId}/source`, {
+        method: "POST",
+        body: JSON.stringify({ query: importQuery.trim() || "trending gadgets", limit: 6 }),
+      });
+      setImportQuery("");
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -783,6 +837,7 @@ export default function Home() {
                         </div>
                       )}
                       <span className={`status ${p.status}`}>{p.status.replace(/_/g, " ")}</span>
+                      {p.video_url && <span className="pc-video">▶ Video</span>}
                     </div>
                     <div className="pc-body">
                       <div className="pc-title">{p.title}</div>
@@ -909,6 +964,54 @@ export default function Home() {
                   In Higgsfield → <b>API Keys</b>, create a key and paste it here (Key ID + Secret, or a single token in the
                   second field). The engine then generates cinematic, Tesla-grade product images automatically and attaches
                   them when publishing to Shopify.
+                </p>
+              </>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <div className="section-head">
+            <h2>Supplier · CJ Dropshipping</h2>
+            <span className="hint">{cj.connected ? `Connected · ${cj.email}` : "Source real products with real media"}</span>
+          </div>
+          <div className="console-wrap">
+            {cj.connected ? (
+              <>
+                <div className="console">
+                  <input
+                    value={importQuery}
+                    onChange={(e) => setImportQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && importProducts()}
+                    placeholder="What to source, e.g. led desk lamp, pet grooming, neck massager"
+                  />
+                  <button className="btn btn-accent" onClick={importProducts} disabled={importing}>
+                    {importing ? <span className="spinner" /> : "Import 6 products"}
+                  </button>
+                  <button className="btn btn-ghost btn-small" onClick={disconnectCJ}>Disconnect</button>
+                </div>
+                <p className="agent-desc">
+                  Imports real products — with real images and product video — straight into your Catalog, scored and
+                  ready to publish (auto-published with media when auto-publish is on).
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="console">
+                  <input value={cjEmail} onChange={(e) => setCjEmail(e.target.value)} placeholder="CJ account email" />
+                  <input
+                    value={cjApiKey}
+                    onChange={(e) => setCjApiKey(e.target.value)}
+                    placeholder="CJ API key"
+                    type="password"
+                  />
+                  <button className="btn btn-accent" onClick={connectCJ} disabled={busy || !cjEmail.trim() || !cjApiKey.trim()}>
+                    {busy ? <span className="spinner" /> : "Connect"}
+                  </button>
+                </div>
+                <p className="agent-desc">
+                  In CJ Dropshipping → <b>My CJ → API</b>, generate an API key, then paste your account email + key here.
+                  Real products (with genuine photos and videos) will flow into your store automatically.
                 </p>
               </>
             )}
