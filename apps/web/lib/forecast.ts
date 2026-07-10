@@ -82,7 +82,7 @@ function buildScenario(
     const adSpend = cfg.startAd * Math.pow(cfg.growth, m - 1);
     const orders = adSpend / cpa;
     const revenue = orders * aov;
-    const opex = 400 + (m - 1) * 90; // infra + tools ramp
+    const opex = 350 + (m - 1) * 45; // lean infra + tools ramp (Vercel/Upstash/engine/Shopify/apps)
     const net = orders * netPerOrder - opex;
     cumulative += net;
     if (breakeven === null && cumulative > 0) breakeven = m;
