@@ -33,8 +33,10 @@ type Approval = {
 type MemoryEntry = { id: string; agent_name: string; key: string; content: string; created_at: string };
 type Product = {
   id: string; title: string; description: string; status: string; source: string;
-  supplier_url: string; cost: number; price: number; score?: number; verdict?: string; created_at: string;
+  supplier_url: string; cost: number; price: number; score?: number; verdict?: string;
+  storefront_url?: string; created_at: string;
 };
+type ShopifyStatus = { connected: boolean; shop: string | null };
 type StoreItem = { id: string; name: string; platform: string; url: string; status: string; created_at: string };
 type Me = { id: string; email: string; is_owner: boolean };
 type AdminOverview = {
@@ -101,6 +103,10 @@ export default function Home() {
   const [showForecast, setShowForecast] = useState(false);
   const [forecast, setForecast] = useState<ForecastData | null>(null);
   const [linkDraft, setLinkDraft] = useState<Record<string, string>>({});
+  const [shopify, setShopify] = useState<ShopifyStatus>({ connected: false, shop: null });
+  const [shopDomain, setShopDomain] = useState("");
+  const [shopToken, setShopToken] = useState("");
+  const [publishing, setPublishing] = useState<string | null>(null);
 
   const authed = token !== null && orgId !== null;
 
@@ -150,7 +156,7 @@ export default function Home() {
   const refresh = useCallback(async () => {
     if (!token || !orgId) return;
     try {
-      const [dash, agentList, runList, approvalList, mem, prods, strs] = await Promise.all([
+      const [dash, agentList, runList, approvalList, mem, prods, strs, shop] = await Promise.all([
         api(`/orgs/${orgId}/dashboard`),
         api(`/agents`),
         api(`/orgs/${orgId}/runs`),
@@ -158,6 +164,7 @@ export default function Home() {
         api(`/orgs/${orgId}/memory`),
         api(`/orgs/${orgId}/products`),
         api(`/orgs/${orgId}/stores`),
+        api(`/orgs/${orgId}/integrations/shopify`),
       ]);
       setDashboard(dash);
       setAgents(agentList);
@@ -166,6 +173,7 @@ export default function Home() {
       setMemory(mem);
       setProducts(prods);
       setStores(strs);
+      setShopify(shop);
       if (me?.is_owner) {
         api(`/admin/overview`).then(setAdmin).catch(() => {});
       }
@@ -222,6 +230,7 @@ export default function Home() {
     setShowManual(false);
     setShowForecast(false);
     setForecast(null);
+    setShopify({ connected: false, shop: null });
     setView("hero");
   }
 
@@ -241,6 +250,51 @@ export default function Home() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function connectShopify() {
+    if (!shopDomain.trim() || !shopToken.trim()) return;
+    setError("");
+    setBusy(true);
+    try {
+      await api(`/orgs/${orgId}/integrations/shopify`, {
+        method: "POST",
+        body: JSON.stringify({ shop: shopDomain, token: shopToken }),
+      });
+      setShopDomain("");
+      setShopToken("");
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function disconnectShopify() {
+    setError("");
+    try {
+      await api(`/orgs/${orgId}/integrations/shopify`, {
+        method: "POST",
+        body: JSON.stringify({ disconnect: true }),
+      });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function publishProduct(productId: string) {
+    setError("");
+    setPublishing(productId);
+    try {
+      await api(`/orgs/${orgId}/products/${productId}/publish`, { method: "POST" });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPublishing(null);
     }
   }
 
@@ -575,7 +629,7 @@ export default function Home() {
             ) : (
               <table>
                 <thead>
-                  <tr><th>Product</th><th>Status</th><th>Score</th><th>Cost</th><th>Price</th><th>Link</th></tr>
+                  <tr><th>Product</th><th>Status</th><th>Score</th><th>Cost</th><th>Price</th><th>Source</th><th>Storefront</th></tr>
                 </thead>
                 <tbody>
                   {products.map((p) => (
@@ -592,10 +646,66 @@ export default function Home() {
                           <span className="muted">—</span>
                         )}
                       </td>
+                      <td>
+                        {p.storefront_url ? (
+                          <a className="link-a" href={p.storefront_url} target="_blank" rel="noreferrer">Live →</a>
+                        ) : shopify.connected ? (
+                          <button
+                            className="btn btn-accent btn-small"
+                            onClick={() => publishProduct(p.id)}
+                            disabled={publishing === p.id}
+                          >
+                            {publishing === p.id ? <span className="spinner" /> : "Publish"}
+                          </button>
+                        ) : (
+                          <span className="muted">connect Shopify</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+            )}
+          </div>
+        </section>
+
+        <section>
+          <div className="section-head">
+            <h2>Shopify Connection</h2>
+            <span className="hint">{shopify.connected ? `Connected · ${shopify.shop}` : "Publish products live"}</span>
+          </div>
+          <div className="console-wrap">
+            {shopify.connected ? (
+              <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+                <span className="pill-live"><span className="live-dot" /> {shopify.shop} connected</span>
+                <span className="agent-desc" style={{ margin: 0 }}>
+                  The engine can now publish products to your store. Use “Publish” in the Catalog, or ask the Store Builder to publish autonomously.
+                </span>
+                <button className="btn btn-ghost btn-small" onClick={disconnectShopify}>Disconnect</button>
+              </div>
+            ) : (
+              <>
+                <div className="console">
+                  <input
+                    value={shopDomain}
+                    onChange={(e) => setShopDomain(e.target.value)}
+                    placeholder="your-store.myshopify.com"
+                  />
+                  <input
+                    value={shopToken}
+                    onChange={(e) => setShopToken(e.target.value)}
+                    placeholder="Admin API access token (shpat_…)"
+                    type="password"
+                  />
+                  <button className="btn btn-accent" onClick={connectShopify} disabled={busy || !shopDomain.trim() || !shopToken.trim()}>
+                    {busy ? <span className="spinner" /> : "Connect"}
+                  </button>
+                </div>
+                <p className="agent-desc">
+                  Create a custom app in your Shopify admin (Settings → Apps → Develop apps), grant it
+                  <code> write_products</code>, install it, and paste the Admin API access token here. The token is stored securely and never shown again.
+                </p>
+              </>
             )}
           </div>
         </section>

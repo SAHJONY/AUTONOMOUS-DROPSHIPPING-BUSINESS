@@ -19,6 +19,8 @@ import {
   newId,
   nowISO,
 } from "./store";
+import { getShopifyCreds } from "./store";
+import { createShopifyProduct } from "./shopify";
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type { Product } from "./types";
 
@@ -272,6 +274,31 @@ const storeBuilder: Agent = {
         if (a.price !== undefined) patch.price = Number(a.price);
         const updated = await updateProduct(ctx.orgId, String(a.product_id), patch);
         return updated ? `Listing updated for product ${a.product_id}.` : "Error: product not found.";
+      },
+    },
+    {
+      name: "publish_product_to_shopify",
+      description:
+        "Publish a product to the connected Shopify store (creates it live). Only works if a " +
+        "Shopify store is connected; otherwise reports that no store is connected.",
+      input_schema: {
+        type: "object",
+        properties: { product_id: { type: "string" } },
+        required: ["product_id"],
+      },
+      handler: async (ctx, a) => {
+        const creds = await getShopifyCreds(ctx.orgId);
+        if (!creds) return "No Shopify store is connected — ask the owner to connect one in the dashboard.";
+        const product = (await listProducts(ctx.orgId)).find((p) => p.id === String(a.product_id));
+        if (!product) return "Error: product not found.";
+        const res = await createShopifyProduct(creds, {
+          title: product.title,
+          description: product.description,
+          price: product.price,
+        });
+        if (!res.ok) return `Publish failed: ${res.error}`;
+        await updateProduct(ctx.orgId, product.id, { status: "launched", storefront_url: res.url ?? "" });
+        return `Published '${product.title}' to Shopify${res.url ? ` — ${res.url}` : ""}.`;
       },
     },
     ...commonTools("store_builder"),

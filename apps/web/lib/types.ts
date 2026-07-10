@@ -59,6 +59,7 @@ export interface Product {
   status: ProductStatus;
   score?: number;
   verdict?: string;
+  storefront_url?: string;
   created_at: string;
 }
 

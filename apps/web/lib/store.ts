@@ -15,6 +15,7 @@ import {
 import { ANTHROPIC_API_KEY } from "./config";
 import { hashPassword, verifyPassword } from "./auth";
 import type { OrgSettings } from "./types";
+import type { ShopifyCreds } from "./shopify";
 import type {
   AgentRun,
   ApprovalRequest,
@@ -47,9 +48,22 @@ const K = {
   memory: (oid: string) => `memory:${oid}`,
   stores: (oid: string) => `stores:${oid}`,
   settings: (oid: string) => `settings:${oid}`,
+  shopify: (oid: string) => `shopify:${oid}`,
   allOrgs: "index:orgs",
   allUsers: "index:users",
 };
+
+/* ---------- Shopify integration creds ---------- */
+
+export async function getShopifyCreds(orgId: string): Promise<ShopifyCreds | null> {
+  return kv.get<ShopifyCreds>(K.shopify(orgId));
+}
+export async function setShopifyCreds(orgId: string, creds: ShopifyCreds): Promise<void> {
+  await kv.set(K.shopify(orgId), creds);
+}
+export async function clearShopifyCreds(orgId: string): Promise<void> {
+  await kv.del(K.shopify(orgId));
+}
 
 /* ---------- org settings (autopilot) ---------- */
 
