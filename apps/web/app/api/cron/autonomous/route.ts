@@ -1,7 +1,14 @@
 import { json, error } from "@/lib/api";
 import { CRON_SECRET } from "@/lib/config";
 import { autoApprovePending, runAgent } from "@/lib/brain";
-import { autoPublishReady, listAllOrgs } from "@/lib/store";
+import {
+  autoPublishReady,
+  autonomousSource,
+  getCJCreds,
+  getShopifyCreds,
+  listAllOrgs,
+  listProducts,
+} from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,19 +32,31 @@ async function handle(req: Request) {
   const results = [];
   for (const org of orgs) {
     try {
+      // Focus the autonomous cycle on orgs with real integrations or a catalog
+      // (skips empty throwaway orgs — saves cost and stays on-task).
+      const [shop, cjc, products] = await Promise.all([
+        getShopifyCreds(org.id),
+        getCJCreds(org.id),
+        listProducts(org.id),
+      ]);
+      if (!shop && !cjc && products.length === 0) continue;
+
+      // 1. Source real products from the supplier (CJ) when stock is thin.
+      const sourced = await autonomousSource(org.id);
+
+      // 2. Run the CEO cycle to advance the business.
       const run = await runAgent({
         orgId: org.id,
         agentName: "ceo",
         task:
-          "Autonomous 24/7 cycle. Move the business forward, don't just report. Steps: (1) get the " +
-          "business snapshot and list products; (2) if fewer than 3 launch-ready products exist, " +
-          "dispatch product_hunter to find and score new opportunities; (3) for the best ready_to_launch " +
-          "product with no listing, dispatch store_builder to write one, and dispatch finance to verify " +
-          "unit economics; (4) dispatch marketing for a creative brief on the top product; (5) queue any " +
-          "high-risk actions (store creation, budgets) for owner approval — never wait on them; " +
-          "(6) file a concise report (what advanced today, key numbers, pending approvals, next action) " +
-          "to memory. Make reasonable assumptions; never stop to ask a human.",
+          "Autonomous 24/7 cycle. Move the business forward, don't just report. Review the snapshot and " +
+          "catalog; if a supplier is connected, ensure the store is stocked; for the best ready_to_launch " +
+          "products write listings and verify unit economics; dispatch marketing for a creative brief on " +
+          "the top product; queue any high-risk actions for owner approval — never wait on them; file a " +
+          "concise report to memory. Make reasonable assumptions; never stop to ask a human.",
       });
+
+      // 3. Auto-approve within thresholds, then publish everything ready.
       const autoApproved = await autoApprovePending(org.id);
       const published = await autoPublishReady(org.id);
       results.push({
@@ -45,6 +64,8 @@ async function handle(req: Request) {
         name: org.name,
         run_id: run.id,
         status: run.status,
+        sourced: sourced.imported,
+        source_error: sourced.error,
         auto_approved: autoApproved,
         auto_published: published,
       });

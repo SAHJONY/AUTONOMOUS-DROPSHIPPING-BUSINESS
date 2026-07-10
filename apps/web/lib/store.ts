@@ -249,6 +249,40 @@ export async function importFromSupplier(
   return { ok: true, imported };
 }
 
+const AUTONOMOUS_NICHES = [
+  "smart home gadget",
+  "wellness device",
+  "pet accessory",
+  "kitchen gadget",
+  "fitness gear",
+  "beauty tool",
+  "car accessory",
+  "desk gadget",
+];
+
+/**
+ * Autonomous sourcing: if CJ is connected and the catalog is thin, import a
+ * couple of rotating niches of real products (with real media). Deterministic
+ * niche rotation (by catalog size) — no randomness needed.
+ */
+export async function autonomousSource(
+  orgId: string,
+): Promise<{ imported: number; error?: string }> {
+  if (!(await getCJCreds(orgId))) return { imported: 0 };
+  const products = await listProducts(orgId);
+  if (products.length >= 18) return { imported: 0 }; // enough stock
+  const i = products.length % AUTONOMOUS_NICHES.length;
+  const picks = [AUTONOMOUS_NICHES[i], AUTONOMOUS_NICHES[(i + 3) % AUTONOMOUS_NICHES.length]];
+  let imported = 0;
+  let error: string | undefined;
+  for (const q of picks) {
+    const r = await importFromSupplier(orgId, q, 3);
+    if (r.ok) imported += r.imported ?? 0;
+    else error = r.error;
+  }
+  return { imported, error };
+}
+
 /* ---------- Auto-publish launch-ready products to Shopify ---------- */
 
 /**
