@@ -1,5 +1,5 @@
 import { error, json, requireOrg } from "@/lib/api";
-import { getShopifyCreds, listProducts, updateProduct } from "@/lib/store";
+import { listProducts, resolveShopifyToken, updateProduct } from "@/lib/store";
 import { createShopifyProduct } from "@/lib/shopify";
 
 export const runtime = "nodejs";
@@ -15,13 +15,15 @@ export async function POST(
   const auth = await requireOrg(req, orgId);
   if ("response" in auth) return auth.response;
 
-  const creds = await getShopifyCreds(orgId);
-  if (!creds) return error("No Shopify store connected. Connect one first.", 400);
+  const resolved = await resolveShopifyToken(orgId);
+  if (!resolved.ok || !resolved.token || !resolved.shop) {
+    return error(resolved.error ?? "No Shopify store connected. Connect one first.", 400);
+  }
 
   const product = (await listProducts(orgId)).find((p) => p.id === productId);
   if (!product) return error("Product not found", 404);
 
-  const result = await createShopifyProduct(creds, {
+  const result = await createShopifyProduct(resolved.shop, resolved.token, {
     title: product.title,
     description: product.description,
     price: product.price,

@@ -19,7 +19,7 @@ import {
   newId,
   nowISO,
 } from "./store";
-import { getShopifyCreds } from "./store";
+import { resolveShopifyToken } from "./store";
 import { createShopifyProduct } from "./shopify";
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type { Product } from "./types";
@@ -287,11 +287,13 @@ const storeBuilder: Agent = {
         required: ["product_id"],
       },
       handler: async (ctx, a) => {
-        const creds = await getShopifyCreds(ctx.orgId);
-        if (!creds) return "No Shopify store is connected — ask the owner to connect one in the dashboard.";
+        const resolved = await resolveShopifyToken(ctx.orgId);
+        if (!resolved.ok || !resolved.token || !resolved.shop) {
+          return "No Shopify store is connected — ask the owner to connect one in the dashboard.";
+        }
         const product = (await listProducts(ctx.orgId)).find((p) => p.id === String(a.product_id));
         if (!product) return "Error: product not found.";
-        const res = await createShopifyProduct(creds, {
+        const res = await createShopifyProduct(resolved.shop, resolved.token, {
           title: product.title,
           description: product.description,
           price: product.price,

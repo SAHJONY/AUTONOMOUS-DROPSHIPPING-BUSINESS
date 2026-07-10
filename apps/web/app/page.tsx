@@ -105,7 +105,8 @@ export default function Home() {
   const [linkDraft, setLinkDraft] = useState<Record<string, string>>({});
   const [shopify, setShopify] = useState<ShopifyStatus>({ connected: false, shop: null });
   const [shopDomain, setShopDomain] = useState("");
-  const [shopToken, setShopToken] = useState("");
+  const [shopClientId, setShopClientId] = useState("");
+  const [shopClientSecret, setShopClientSecret] = useState("");
   const [publishing, setPublishing] = useState<string | null>(null);
 
   const authed = token !== null && orgId !== null;
@@ -254,16 +255,21 @@ export default function Home() {
   }
 
   async function connectShopify() {
-    if (!shopDomain.trim() || !shopToken.trim()) return;
+    if (!shopDomain.trim() || !shopClientId.trim() || !shopClientSecret.trim()) return;
     setError("");
     setBusy(true);
     try {
       await api(`/orgs/${orgId}/integrations/shopify`, {
         method: "POST",
-        body: JSON.stringify({ shop: shopDomain, token: shopToken }),
+        body: JSON.stringify({
+          shop: shopDomain,
+          client_id: shopClientId,
+          client_secret: shopClientSecret,
+        }),
       });
       setShopDomain("");
-      setShopToken("");
+      setShopClientId("");
+      setShopClientSecret("");
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -692,18 +698,29 @@ export default function Home() {
                     placeholder="your-store.myshopify.com"
                   />
                   <input
-                    value={shopToken}
-                    onChange={(e) => setShopToken(e.target.value)}
-                    placeholder="Admin API access token (shpat_…)"
+                    value={shopClientId}
+                    onChange={(e) => setShopClientId(e.target.value)}
+                    placeholder="Client ID"
+                  />
+                  <input
+                    value={shopClientSecret}
+                    onChange={(e) => setShopClientSecret(e.target.value)}
+                    placeholder="Client Secret"
                     type="password"
                   />
-                  <button className="btn btn-accent" onClick={connectShopify} disabled={busy || !shopDomain.trim() || !shopToken.trim()}>
+                  <button
+                    className="btn btn-accent"
+                    onClick={connectShopify}
+                    disabled={busy || !shopDomain.trim() || !shopClientId.trim() || !shopClientSecret.trim()}
+                  >
                     {busy ? <span className="spinner" /> : "Connect"}
                   </button>
                 </div>
                 <p className="agent-desc">
-                  Create a custom app in your Shopify admin (Settings → Apps → Develop apps), grant it
-                  <code> write_products</code>, install it, and paste the Admin API access token here. The token is stored securely and never shown again.
+                  In Shopify → <b>Settings → Apps and sales channels → Develop apps</b> (Dev Dashboard) → create an app,
+                  add the <code>write_products</code> scope and release it, then copy the app&apos;s <b>Client ID</b> and
+                  <b> Client Secret</b> and paste them here. Credentials are stored securely; the platform mints
+                  short-lived tokens automatically.
                 </p>
               </>
             )}

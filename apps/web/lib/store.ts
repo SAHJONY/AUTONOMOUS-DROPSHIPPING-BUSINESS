@@ -15,7 +15,7 @@ import {
 import { ANTHROPIC_API_KEY } from "./config";
 import { hashPassword, verifyPassword } from "./auth";
 import type { OrgSettings } from "./types";
-import type { ShopifyCreds } from "./shopify";
+import { mintAccessToken, type ShopifyCreds } from "./shopify";
 import type {
   AgentRun,
   ApprovalRequest,
@@ -49,6 +49,7 @@ const K = {
   stores: (oid: string) => `stores:${oid}`,
   settings: (oid: string) => `settings:${oid}`,
   shopify: (oid: string) => `shopify:${oid}`,
+  shopifyToken: (oid: string) => `shopify_token:${oid}`,
   allOrgs: "index:orgs",
   allUsers: "index:users",
 };
@@ -63,6 +64,34 @@ export async function setShopifyCreds(orgId: string, creds: ShopifyCreds): Promi
 }
 export async function clearShopifyCreds(orgId: string): Promise<void> {
   await kv.del(K.shopify(orgId));
+  await kv.del(K.shopifyToken(orgId));
+}
+
+/**
+ * Resolve a usable Admin API token: legacy static token if present, else mint a
+ * short-lived one from Client ID/Secret (cached in KV until ~1 min before expiry).
+ */
+export async function resolveShopifyToken(
+  orgId: string,
+): Promise<{ ok: boolean; shop?: string; token?: string; error?: string }> {
+  const creds = await getShopifyCreds(orgId);
+  if (!creds) return { ok: false, error: "No Shopify store connected." };
+  if (creds.token) return { ok: true, shop: creds.shop, token: creds.token };
+  if (creds.client_id && creds.client_secret) {
+    const now = Date.now();
+    const cached = await kv.get<{ access_token: string; expires_at: number }>(K.shopifyToken(orgId));
+    if (cached && cached.expires_at > now + 60_000) {
+      return { ok: true, shop: creds.shop, token: cached.access_token };
+    }
+    const minted = await mintAccessToken(creds.shop, creds.client_id, creds.client_secret);
+    if (!minted.ok || !minted.token) return { ok: false, error: minted.error ?? "Token mint failed." };
+    await kv.set(K.shopifyToken(orgId), {
+      access_token: minted.token,
+      expires_at: now + (minted.expires_in ?? 86399) * 1000,
+    });
+    return { ok: true, shop: creds.shop, token: minted.token };
+  }
+  return { ok: false, error: "Incomplete Shopify credentials." };
 }
 
 /* ---------- org settings (autopilot) ---------- */

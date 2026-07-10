@@ -115,7 +115,7 @@ export default function Manual({ onBack }: { onBack: () => void }) {
         </ul>
         <div className="doc-note"><b>Tip:</b> the sharper your task, the sharper the result. Put real specifics (product, price, channel, budget) into the prompt.</div>
         <h3>Connect Shopify (publish products live)</h3>
-        <p>In the <b>Shopify Connection</b> panel, paste your store domain and an Admin API access token from a custom app (Shopify admin → Settings → Apps → Develop apps → grant <code>write_products</code> → install → copy the token). Once connected, hit <b>Publish</b> on any product in the Catalog to create it live on your store, or ask the Store Builder to <i>&quot;publish our best product to Shopify.&quot;</i> Shopify doesn&apos;t allow creating brand-new stores by API — connect an existing store.</p>
+        <p>In Shopify → <b>Settings → Apps and sales channels → Develop apps</b> (the Dev Dashboard) → create an app, add the <code>write_products</code> scope, and release it. Copy the app&apos;s <b>Client ID</b> and <b>Client Secret</b> and paste them into the <b>Shopify Connection</b> panel with your store domain. The platform mints short-lived tokens automatically. Then hit <b>Publish</b> on any product in the Catalog, or ask the Store Builder to <i>&quot;publish our best product to Shopify.&quot;</i> Shopify doesn&apos;t allow creating brand-new stores by API — connect an existing store.</p>
       </section>
 
       <section id="owner" className="doc-section">
