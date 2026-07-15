@@ -16,6 +16,8 @@ interface KVDriver {
   del(key: string): Promise<void>;
   sadd(key: string, member: string): Promise<void>;
   smembers(key: string): Promise<string[]>;
+  incr(key: string): Promise<number>;
+  expire(key: string, seconds: number): Promise<void>;
 }
 
 const UPSTASH_URL =
@@ -31,29 +33,57 @@ export const STORAGE_MODE: "upstash" | "memory" =
 type MemGlobal = {
   __commerceKV?: Map<string, string>;
   __commerceSets?: Map<string, Set<string>>;
+  __commerceExpiry?: Map<string, number>;
 };
 const g = globalThis as unknown as MemGlobal;
 g.__commerceKV ??= new Map();
 g.__commerceSets ??= new Map();
+g.__commerceExpiry ??= new Map();
+
+function purgeExpired(key: string): void {
+  const expiresAt = g.__commerceExpiry!.get(key);
+  if (expiresAt !== undefined && expiresAt <= Date.now()) {
+    g.__commerceKV!.delete(key);
+    g.__commerceSets!.delete(key);
+    g.__commerceExpiry!.delete(key);
+  }
+}
 
 const memoryDriver: KVDriver = {
   async get<T>(key: string): Promise<T | null> {
+    purgeExpired(key);
     const raw = g.__commerceKV!.get(key);
     return raw === undefined ? null : (JSON.parse(raw) as T);
   },
   async set(key: string, value: Json): Promise<void> {
+    purgeExpired(key);
     g.__commerceKV!.set(key, JSON.stringify(value));
   },
   async del(key: string): Promise<void> {
     g.__commerceKV!.delete(key);
+    g.__commerceSets!.delete(key);
+    g.__commerceExpiry!.delete(key);
   },
   async sadd(key: string, member: string): Promise<void> {
+    purgeExpired(key);
     const set = g.__commerceSets!.get(key) ?? new Set<string>();
     set.add(member);
     g.__commerceSets!.set(key, set);
   },
   async smembers(key: string): Promise<string[]> {
+    purgeExpired(key);
     return [...(g.__commerceSets!.get(key) ?? [])];
+  },
+  async incr(key: string): Promise<number> {
+    purgeExpired(key);
+    const raw = g.__commerceKV!.get(key);
+    const current = raw === undefined ? 0 : Number(JSON.parse(raw));
+    const next = Number.isFinite(current) ? current + 1 : 1;
+    g.__commerceKV!.set(key, JSON.stringify(next));
+    return next;
+  },
+  async expire(key: string, seconds: number): Promise<void> {
+    g.__commerceExpiry!.set(key, Date.now() + Math.max(1, seconds) * 1000);
   },
 };
 
@@ -81,6 +111,12 @@ const upstashDriver: KVDriver = {
   },
   async smembers(key: string): Promise<string[]> {
     return (await client().smembers(key)) as string[];
+  },
+  async incr(key: string): Promise<number> {
+    return await client().incr(key);
+  },
+  async expire(key: string, seconds: number): Promise<void> {
+    await client().expire(key, Math.max(1, seconds));
   },
 };
 
