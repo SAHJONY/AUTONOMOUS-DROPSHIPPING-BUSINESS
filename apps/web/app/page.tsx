@@ -563,6 +563,7 @@ export default function Home() {
           </nav>
 
           <div className="hero">
+            <div className="hero-backdrop" />
             <div className="aurora" />
             <div className="hero-horizon" />
             <div className="eyebrow">The Autonomous Commerce Operator</div>
