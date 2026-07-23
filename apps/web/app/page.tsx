@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Manual from "./components/Manual";
 import Forecast, { type ForecastData } from "./components/Forecast";
+import { governanceCapabilities } from "@/lib/governance";
+import type { Role } from "@/lib/types";
 
 const API = "/api";
 
@@ -21,6 +23,7 @@ type Dashboard = {
   autopilot: boolean;
   auto_publish: boolean;
   autonomy_enabled: boolean;
+  commerce_release_enabled: boolean;
   autonomy_pct: number;
 };
 type AgentInfo = { name: string; description: string; tools: string[]; high_risk_tools: string[] };
@@ -87,6 +90,7 @@ const QUICK_TASKS: Record<string, string[]> = {
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
   const [orgId, setOrgId] = useState<string | null>(null);
+  const [orgRole, setOrgRole] = useState<Role | null>(null);
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState("");
   const [view, setView] = useState<"hero" | "register" | "login">("hero");
@@ -162,7 +166,9 @@ export default function Home() {
           fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.json()),
         ]);
         setMe(meResp);
-        setOrgId((prev) => prev ?? orgs[0]?.id ?? null);
+        const selected = orgs.find((org: { id: string }) => org.id === orgId) ?? orgs[0];
+        setOrgId(selected?.id ?? null);
+        setOrgRole(selected?.role ?? null);
       } catch {
         signOut();
       }
@@ -237,6 +243,7 @@ export default function Home() {
     localStorage.removeItem("commerce_os_token");
     setToken(null);
     setOrgId(null);
+    setOrgRole(null);
     setMe(null);
     setDashboard(null);
     setRuns([]);
@@ -545,6 +552,10 @@ export default function Home() {
   }
 
   const pending = useMemo(() => approvals.filter((a) => a.status === "pending"), [approvals]);
+  const capabilities = governanceCapabilities(
+    orgRole,
+    dashboard?.commerce_release_enabled ?? false,
+  );
   const currentAgent = agents.find((a) => a.name === selectedAgent);
   const quicks = QUICK_TASKS[selectedAgent] ?? [];
 
@@ -680,6 +691,7 @@ export default function Home() {
         <div className="welcome">
           <div className="eyebrow">Command Deck</div>
           <h1>Good day{me?.is_owner ? ", Owner" : ""}.</h1>
+          <p><b>Organization role:</b> {orgRole ?? "unavailable"}{capabilities.readOnly ? " · Read-only access" : ""}</p>
           <p>
             Your autonomous operation is {dashboard?.engine_online ? "online" : "on standby"}. Dispatch an agent,
             review pending decisions, and watch the fleet compound.
@@ -710,7 +722,8 @@ export default function Home() {
             <button
               className={`btn ${dashboard.autopilot ? "btn-ghost" : "btn-accent"} btn-small`}
               onClick={toggleAutopilot}
-              disabled={!dashboard.autonomy_enabled}
+              disabled={!dashboard.autonomy_enabled || !capabilities.canManage}
+              title={!capabilities.canManage ? "Owner or administrator access required." : undefined}
             >
               {dashboard.autopilot
                 ? "Switch to Manual"
@@ -763,7 +776,7 @@ export default function Home() {
                 onKeyDown={(e) => e.key === "Enter" && runAgent()}
                 placeholder="Review the business and write today's report"
               />
-              <button className="btn btn-accent" onClick={() => runAgent()} disabled={busy || !task.trim()}>
+              <button className="btn btn-accent" onClick={() => runAgent()} disabled={busy || !task.trim() || !capabilities.canRunAgents}>
                 {busy ? <span className="spinner" /> : "Run"}
               </button>
             </div>
@@ -778,7 +791,7 @@ export default function Home() {
             {quicks.length > 0 && (
               <div className="quick-tasks">
                 {quicks.map((q) => (
-                  <button className="chip" key={q} onClick={() => runAgent(q)} disabled={busy}>{q}</button>
+                  <button className="chip" key={q} onClick={() => runAgent(q)} disabled={busy || !capabilities.canRunAgents}>{q}</button>
                 ))}
               </div>
             )}
@@ -814,8 +827,8 @@ export default function Home() {
                   <p>Requested by the {a.agent_name.replace(/_/g, " ")} agent — <code>{JSON.stringify(a.payload)}</code></p>
                 </div>
                 <div className="approval-actions">
-                  <button className="btn btn-accent btn-small" onClick={() => decide(a.id, "approve")}>Approve</button>
-                  <button className="btn btn-ghost btn-small" onClick={() => decide(a.id, "reject")}>Reject</button>
+                  <button className="btn btn-accent btn-small" onClick={() => decide(a.id, "approve")} disabled={!capabilities.canApprove}>Approve</button>
+                  <button className="btn btn-ghost btn-small" onClick={() => decide(a.id, "reject")} disabled={!capabilities.canApprove}>Reject</button>
                 </div>
               </div>
             ))
@@ -831,13 +844,13 @@ export default function Home() {
                 <button
                   className="btn btn-ghost btn-small"
                   onClick={reimageAll}
-                  disabled={reimaging || !higgs.connected}
+                  disabled={reimaging || !higgs.connected || !capabilities.canManage}
                   title={higgs.connected ? "Regenerate all product images as clean white studio shots" : "Connect Higgsfield to enable"}
                 >
                   {reimaging ? <span className="spinner" /> : "✦ Premiumize images"}
                 </button>
               )}
-              <button className="btn btn-accent btn-small" onClick={stockTheStore} disabled={busy}>
+              <button className="btn btn-accent btn-small" onClick={stockTheStore} disabled={busy || !capabilities.canManage}>
                 {busy ? <span className="spinner" /> : "✦ Stock the Store"}
               </button>
             </span>
@@ -865,13 +878,13 @@ export default function Home() {
                               <button
                                 className="pc-gen"
                                 onClick={() => generateImage(p.id)}
-                                disabled={imaging === p.id}
+                                disabled={imaging === p.id || !capabilities.canManage}
                                 title="Regenerate as a clean white studio image (and refresh live)"
                               >
                                 {imaging === p.id ? "…" : "✦ Premium"}
                               </button>
                             )}
-                            <button className="pc-gen" onClick={() => setImgDraft((d) => ({ ...d, [p.id]: "" }))}>
+                            <button className="pc-gen" onClick={() => setImgDraft((d) => ({ ...d, [p.id]: "" }))} disabled={!capabilities.canManage}>
                               Change
                             </button>
                           </div>
@@ -887,11 +900,11 @@ export default function Home() {
                           />
                           <div style={{ display: "flex", gap: 8 }}>
                             {imgDraft[p.id]?.trim() ? (
-                              <button className="pc-gen" onClick={() => generateImage(p.id, imgDraft[p.id])} disabled={imaging === p.id}>
+                              <button className="pc-gen" onClick={() => generateImage(p.id, imgDraft[p.id])} disabled={imaging === p.id || !capabilities.canManage}>
                                 {imaging === p.id ? "Saving…" : "Set image"}
                               </button>
                             ) : (
-                              <button className="pc-gen" onClick={() => generateImage(p.id)} disabled={imaging === p.id}>
+                              <button className="pc-gen" onClick={() => generateImage(p.id)} disabled={imaging === p.id || !capabilities.canManage}>
                                 {imaging === p.id ? "Fetching…" : higgs.connected ? "✦ Auto (source/AI)" : "✦ From source"}
                               </button>
                             )}
@@ -912,7 +925,12 @@ export default function Home() {
                         {p.storefront_url ? (
                           <a className="btn btn-ghost btn-small" href={p.storefront_url} target="_blank" rel="noreferrer">Live →</a>
                         ) : shopify.connected ? (
-                          <button className="btn btn-accent btn-small" onClick={() => publishProduct(p.id)} disabled={publishing === p.id}>
+                          <button
+                            className="btn btn-accent btn-small"
+                            onClick={() => publishProduct(p.id)}
+                            disabled={publishing === p.id || !capabilities.canPublish}
+                            title={capabilities.publishingReason ?? undefined}
+                          >
                             {publishing === p.id ? <span className="spinner" /> : "Publish"}
                           </button>
                         ) : (
@@ -947,10 +965,12 @@ export default function Home() {
                 <button
                   className={`btn ${dashboard?.auto_publish ? "btn-ghost" : "btn-accent"} btn-small`}
                   onClick={toggleAutoPublish}
+                  disabled={!capabilities.canPublish}
+                  title={capabilities.publishingReason ?? undefined}
                 >
                   {dashboard?.auto_publish ? "Auto-publish: ON" : "Auto-publish: OFF"}
                 </button>
-                <button className="btn btn-ghost btn-small" onClick={disconnectShopify}>Disconnect</button>
+                <button className="btn btn-ghost btn-small" onClick={disconnectShopify} disabled={!capabilities.canManage}>Disconnect</button>
               </div>
             ) : (
               <>
@@ -974,7 +994,7 @@ export default function Home() {
                   <button
                     className="btn btn-accent"
                     onClick={connectShopify}
-                    disabled={busy || !shopDomain.trim() || !shopClientId.trim() || !shopClientSecret.trim()}
+                    disabled={busy || !shopDomain.trim() || !shopClientId.trim() || !shopClientSecret.trim() || !capabilities.canManage}
                   >
                     {busy ? <span className="spinner" /> : "Connect"}
                   </button>
@@ -1002,7 +1022,7 @@ export default function Home() {
                 <span className="agent-desc" style={{ margin: 0, flex: 1, minWidth: 240 }}>
                   Products get clean, premium white-background studio images (Amazon/Apple style) automatically on publish. Use <b>✦ Premiumize images</b> in the Catalog to refresh the whole store, or <b>✦ Premium</b> on any card.
                 </span>
-                <button className="btn btn-ghost btn-small" onClick={disconnectHiggsfield}>Disconnect</button>
+                <button className="btn btn-ghost btn-small" onClick={disconnectHiggsfield} disabled={!capabilities.canManage}>Disconnect</button>
               </div>
             ) : (
               <>
@@ -1018,7 +1038,7 @@ export default function Home() {
                     placeholder="Higgsfield API key / secret"
                     type="password"
                   />
-                  <button className="btn btn-accent" onClick={connectHiggsfield} disabled={busy || !hfKeySecret.trim()}>
+                  <button className="btn btn-accent" onClick={connectHiggsfield} disabled={busy || !hfKeySecret.trim() || !capabilities.canManage}>
                     {busy ? <span className="spinner" /> : "Connect"}
                   </button>
                 </div>
@@ -1047,10 +1067,10 @@ export default function Home() {
                     onKeyDown={(e) => e.key === "Enter" && importProducts()}
                     placeholder="What to source, e.g. led desk lamp, pet grooming, neck massager"
                   />
-                  <button className="btn btn-accent" onClick={importProducts} disabled={importing}>
+                  <button className="btn btn-accent" onClick={importProducts} disabled={importing || !capabilities.canManage}>
                     {importing ? <span className="spinner" /> : "Import 6 products"}
                   </button>
-                  <button className="btn btn-ghost btn-small" onClick={disconnectCJ}>Disconnect</button>
+                  <button className="btn btn-ghost btn-small" onClick={disconnectCJ} disabled={!capabilities.canManage}>Disconnect</button>
                 </div>
                 <p className="agent-desc">
                   Imports real products — with real images and product video — straight into your Catalog, scored and
@@ -1067,7 +1087,7 @@ export default function Home() {
                     placeholder="CJ API key"
                     type="password"
                   />
-                  <button className="btn btn-accent" onClick={connectCJ} disabled={busy || !cjEmail.trim() || !cjApiKey.trim()}>
+                  <button className="btn btn-accent" onClick={connectCJ} disabled={busy || !cjEmail.trim() || !cjApiKey.trim() || !capabilities.canManage}>
                     {busy ? <span className="spinner" /> : "Connect"}
                   </button>
                 </div>
@@ -1106,12 +1126,12 @@ export default function Home() {
                               placeholder="your-store.myshopify.com"
                               style={{ width: 220, padding: "8px 10px", fontSize: "0.82rem" }}
                             />
-                            <button className="btn btn-accent btn-small" onClick={() => saveStoreLink(s.id)}>Link</button>
+                            <button className="btn btn-accent btn-small" onClick={() => saveStoreLink(s.id)} disabled={!capabilities.canManage}>Link</button>
                           </span>
                         ) : (
                           <span style={{ display: "inline-flex", gap: 10, alignItems: "center" }}>
                             <a className="link-a" href={s.url} target="_blank" rel="noreferrer">Open →</a>
-                            <button className="copy-btn" onClick={() => setLinkDraft((d) => ({ ...d, [s.id]: s.url }))}>Edit</button>
+                            <button className="copy-btn" onClick={() => setLinkDraft((d) => ({ ...d, [s.id]: s.url }))} disabled={!capabilities.canManage}>Edit</button>
                           </span>
                         )}
                       </td>

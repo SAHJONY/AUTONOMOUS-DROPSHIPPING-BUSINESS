@@ -17,7 +17,14 @@ export async function POST(
   if (!decision) return error("decision must be 'approve' or 'reject'.", 422);
 
   try {
-    const approval = await decideApproval(orgId, id, decision, auth.user.id, String(body.reason ?? ""));
+    const approval = await decideApproval(
+      orgId,
+      id,
+      decision,
+      auth.user.id,
+      auth.role,
+      String(body.reason ?? ""),
+    );
     return json(approval);
   } catch (e) {
     const msg = (e as Error).message;

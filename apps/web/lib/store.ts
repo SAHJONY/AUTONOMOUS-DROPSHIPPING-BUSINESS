@@ -6,6 +6,7 @@ import { kv, listGet, listPush, listReplace } from "./kv";
 import {
   AUTONOMY_ENABLED,
   AUTOPILOT_DEFAULT,
+  COMMERCE_RELEASE_ENABLED,
   ENGINE_NAME,
   isOwnerEmail,
   OWNER_EMAIL,
@@ -27,6 +28,7 @@ import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type {
   AgentRun,
   ApprovalRequest,
+  ApprovalAuditEvent,
   Dashboard,
   Membership,
   MemoryEntry,
@@ -34,6 +36,7 @@ import type {
   Product,
   Store,
   User,
+  Role,
 } from "./types";
 
 export function newId(): string {
@@ -53,6 +56,8 @@ const K = {
   products: (oid: string) => `products:${oid}`,
   runs: (oid: string) => `runs:${oid}`,
   approvals: (oid: string) => `approvals:${oid}`,
+  approvalAudit: (oid: string) => `approval_audit:${oid}`,
+  approvalClaim: (oid: string, aid: string) => `approval_claim:${oid}:${aid}`,
   memory: (oid: string) => `memory:${oid}`,
   stores: (oid: string) => `stores:${oid}`,
   settings: (oid: string) => `settings:${oid}`,
@@ -390,6 +395,7 @@ export async function autonomousSource(
  * connected. Runs hands-free from the cron and after product discovery.
  */
 export async function autoPublishReady(orgId: string): Promise<number> {
+  if (!COMMERCE_RELEASE_ENABLED) return 0;
   const settings = await getOrgSettings(orgId);
   if (!settings.auto_publish) return 0;
   const resolved = await resolveShopifyToken(orgId);
@@ -653,6 +659,17 @@ export async function listApprovals(orgId: string): Promise<ApprovalRequest[]> {
 }
 export async function saveApproval(a: ApprovalRequest): Promise<void> {
   await listPush(K.approvals(a.org_id), a, 500);
+  await appendApprovalAudit({
+    orgId: a.org_id,
+    requestId: a.id,
+    actorId: "system",
+    actorRole: "system",
+    action: a.action,
+    previousState: null,
+    nextState: a.status,
+    result: "created",
+    executionToken: a.execution_token ?? null,
+  });
 }
 export async function getApproval(orgId: string, id: string): Promise<ApprovalRequest | null> {
   return (await listApprovals(orgId)).find((a) => a.id === id) ?? null;
@@ -664,6 +681,123 @@ export async function updateApproval(orgId: string, id: string, patch: Partial<A
     arr[idx] = { ...arr[idx], ...patch };
     await listReplace(K.approvals(orgId), arr);
   }
+}
+
+export async function appendApprovalAudit(args: {
+  orgId: string;
+  requestId: string;
+  actorId: string;
+  actorRole: Role | "system";
+  action: string;
+  previousState: ApprovalRequest["status"] | null;
+  nextState: ApprovalRequest["status"];
+  result: string;
+  failure?: string | null;
+  executionToken?: string | null;
+}): Promise<ApprovalAuditEvent> {
+  const event: ApprovalAuditEvent = {
+    id: newId(),
+    org_id: args.orgId,
+    request_id: args.requestId,
+    actor_id: args.actorId,
+    actor_role: args.actorRole,
+    action: args.action,
+    previous_state: args.previousState,
+    next_state: args.nextState,
+    result: args.result,
+    failure: args.failure ?? null,
+    execution_token: args.executionToken ?? null,
+    timestamp: nowISO(),
+  };
+  await kv.append(K.approvalAudit(args.orgId), event);
+  return event;
+}
+
+export async function listApprovalAudit(orgId: string, limit = 500): Promise<ApprovalAuditEvent[]> {
+  const events = await kv.range<ApprovalAuditEvent>(K.approvalAudit(orgId), 0, -1);
+  return events.slice(-Math.max(1, limit)).reverse();
+}
+
+export async function claimApproval(
+  orgId: string,
+  approvalId: string,
+  actorId: string,
+  actorRole: Role,
+): Promise<{ approval: ApprovalRequest; executionToken: string }> {
+  let approval = await getApproval(orgId, approvalId);
+  if (!approval) throw new Error("Approval request not found");
+  if (
+    approval.status === "executing" &&
+    approval.execution_started_at &&
+    Date.now() - Date.parse(approval.execution_started_at) >= 10 * 60 * 1000
+  ) {
+    await appendApprovalAudit({
+      orgId,
+      requestId: approvalId,
+      actorId,
+      actorRole,
+      action: approval.action,
+      previousState: "executing",
+      nextState: "pending",
+      result: "released",
+      failure: "Execution claim expired before finalization.",
+      executionToken: approval.execution_token ?? null,
+    });
+    const released: ApprovalRequest = {
+      ...approval,
+      status: "pending",
+      execution_token: null,
+      execution_started_at: null,
+      execution_failure: "Previous execution claim expired.",
+    };
+    await updateApproval(orgId, approvalId, released);
+    approval = released;
+  }
+  if (approval.status !== "pending") throw new Error("Approval request has already been claimed.");
+
+  const executionToken = newId();
+  const claimed = await kv.setIfAbsent(
+    K.approvalClaim(orgId, approvalId),
+    { execution_token: executionToken, actor_id: actorId },
+    10 * 60,
+  );
+  if (!claimed) throw new Error("Approval request has already been claimed.");
+
+  const patch: Partial<ApprovalRequest> = {
+    status: "executing",
+    execution_token: executionToken,
+    execution_started_at: nowISO(),
+    execution_failure: null,
+  };
+  await updateApproval(orgId, approvalId, patch);
+  await appendApprovalAudit({
+    orgId,
+    requestId: approvalId,
+    actorId,
+    actorRole,
+    action: approval.action,
+    previousState: "pending",
+    nextState: "executing",
+    result: "claimed",
+    executionToken,
+  });
+  return { approval: { ...approval, ...patch }, executionToken };
+}
+
+export async function finalizeApproval(
+  orgId: string,
+  approvalId: string,
+  executionToken: string,
+  patch: Partial<ApprovalRequest>,
+): Promise<ApprovalRequest> {
+  const current = await getApproval(orgId, approvalId);
+  if (!current) throw new Error("Approval request not found");
+  if (current.status !== "executing" || current.execution_token !== executionToken) {
+    throw new Error("Approval execution token is no longer valid.");
+  }
+  const finalized = { ...current, ...patch };
+  await updateApproval(orgId, approvalId, patch);
+  return finalized;
 }
 
 /* ---------- memory ---------- */
@@ -731,6 +865,7 @@ export async function buildDashboard(orgId: string): Promise<Dashboard> {
     autopilot: settings.autopilot,
     auto_publish: settings.auto_publish,
     autonomy_enabled: AUTONOMY_ENABLED,
+    commerce_release_enabled: COMMERCE_RELEASE_ENABLED,
     autonomy_pct: settings.autopilot ? 98 : 60,
   };
 }

@@ -60,6 +60,8 @@ export const AGENT_MAX_TOKENS = Number(process.env.AGENT_MAX_TOKENS ?? 16000);
 export const AUTOPILOT_DEFAULT = (process.env.AUTOPILOT ?? "false") === "true";
 /** Master release gate. Keep false until security, commerce and accounting gates pass. */
 export const AUTONOMY_ENABLED = process.env.ENABLE_AUTONOMY === "true";
+/** Hard server-side publishing gate. PR B owns enabling this safely. */
+export const COMMERCE_RELEASE_ENABLED = process.env.COMMERCE_RELEASE_ENABLED === "true";
 export function isOwnerEmail(email: string | null | undefined): boolean {
   return !!email && email.trim().toLowerCase() === OWNER_EMAIL;
 }

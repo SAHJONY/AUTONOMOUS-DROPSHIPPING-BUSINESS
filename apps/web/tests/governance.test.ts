@@ -19,12 +19,16 @@ import { GET as stockCron } from "../app/api/cron/stock/route";
 import { requireOrgRole } from "../lib/api";
 import { createToken } from "../lib/auth";
 import { OWNER_EMAIL } from "../lib/config";
+import { decideApproval as decideApprovalCore } from "../lib/brain";
+import { cronGovernanceStatus, governanceCapabilities } from "../lib/governance";
 import {
   addMembership,
   createOrg,
   createUser,
   getOrgSettings,
   isAutoApprovable,
+  listApprovalAudit,
+  saveApproval,
   setOrgSettings,
 } from "../lib/store";
 
@@ -183,7 +187,7 @@ test("members cannot execute any privileged organization route", async () => {
     const response = await route.handler(request(route.path, token), {
       params: Promise.resolve(route.params),
     });
-    assert.equal(response.status, 403, route.name);
+    assert.equal(response.status, route.name === "publish products" ? 423 : 403, route.name);
   }
 });
 
@@ -202,4 +206,111 @@ test("administrators pass the shared privileged-role guard", async () => {
 
   const result = await requireOrgRole(request(`/api/orgs/${org.id}/settings`, token), org.id);
   assert.equal("role" in result && result.role, "admin");
+});
+
+test("commerce publishing is locked for every authenticated organization role", async () => {
+  const owner = await createUser({
+    email: `lock-owner-${crypto.randomUUID()}@example.com`,
+    hashed_password: "unused",
+  });
+  const org = await createOrg("Commerce lock test", owner.id, "owner");
+  const identities = [{ user: owner, role: "owner" as const }];
+  for (const role of ["admin", "member", "viewer"] as const) {
+    const user = await createUser({
+      email: `lock-${role}-${crypto.randomUUID()}@example.com`,
+      hashed_password: "unused",
+    });
+    await addMembership(user.id, org.id, role);
+    identities.push({ user, role });
+  }
+  for (const identity of identities) {
+    const token = await createToken(identity.user.id);
+    const response = await publishProduct(
+      request(`/api/orgs/${org.id}/products/missing/publish`, token),
+      { params: Promise.resolve({ orgId: org.id, productId: "missing" }) },
+    );
+    assert.equal(response.status, 423, identity.role);
+  }
+});
+
+test("approval claims execute once under concurrent decisions and append immutable events", async () => {
+  const owner = await createUser({
+    email: `claim-owner-${crypto.randomUUID()}@example.com`,
+    hashed_password: "unused",
+  });
+  const org = await createOrg("Atomic approval test", owner.id, "owner");
+  const approvalId = crypto.randomUUID();
+  await saveApproval({
+    id: approvalId,
+    org_id: org.id,
+    agent_run_id: null,
+    agent_name: "ceo",
+    action: "kill_product",
+    payload: { product_id: "missing" },
+    risk_level: "high",
+    reason: "Concurrency fixture",
+    status: "pending",
+    result: "",
+    decided_by: null,
+    created_at: new Date().toISOString(),
+    decided_at: null,
+  });
+
+  const outcomes = await Promise.allSettled([
+    decideApprovalCore(org.id, approvalId, "approve", owner.id, "owner"),
+    decideApprovalCore(org.id, approvalId, "approve", owner.id, "owner"),
+  ]);
+  assert.equal(outcomes.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(outcomes.filter((result) => result.status === "rejected").length, 1);
+  const events = await listApprovalAudit(org.id);
+  assert.equal(events.filter((event) => event.result === "claimed").length, 1);
+  assert.equal(events.filter((event) => event.result === "executed").length, 1);
+});
+
+test("failed approval execution is finalized and recorded immutably", async () => {
+  const owner = await createUser({
+    email: `failure-owner-${crypto.randomUUID()}@example.com`,
+    hashed_password: "unused",
+  });
+  const org = await createOrg("Failure audit test", owner.id, "owner");
+  const approvalId = crypto.randomUUID();
+  await saveApproval({
+    id: approvalId,
+    org_id: org.id,
+    agent_run_id: null,
+    agent_name: "ceo",
+    action: "removed_action",
+    payload: {},
+    risk_level: "high",
+    reason: "Failure fixture",
+    status: "pending",
+    result: "",
+    decided_by: null,
+    created_at: new Date().toISOString(),
+    decided_at: null,
+  });
+  await assert.rejects(
+    decideApprovalCore(org.id, approvalId, "approve", owner.id, "owner"),
+    /no longer available/,
+  );
+  const events = await listApprovalAudit(org.id);
+  const failure = events.find((event) => event.result === "failed");
+  assert.equal(failure?.next_state, "failed");
+  assert.match(failure?.failure ?? "", /no longer available/);
+});
+
+test("command-deck capabilities enforce the role and release-gate matrix", () => {
+  assert.equal(governanceCapabilities("owner", true).canPublish, true);
+  assert.equal(governanceCapabilities("admin", true).canApprove, true);
+  assert.equal(governanceCapabilities("member", true).canManage, false);
+  assert.equal(governanceCapabilities("viewer", true).readOnly, true);
+  assert.equal(governanceCapabilities("owner", false).canPublish, false);
+  assert.match(governanceCapabilities("admin", false).publishingReason ?? "", /locked/i);
+});
+
+test("cron authentication precedes the autonomy release gate", () => {
+  assert.equal(cronGovernanceStatus("", "", false), 503);
+  assert.equal(cronGovernanceStatus("Bearer wrong", "secret", false), 401);
+  assert.equal(cronGovernanceStatus("Bearer secret", "secret", false), 423);
+  assert.equal(cronGovernanceStatus("Bearer secret", "secret", true), null);
 });

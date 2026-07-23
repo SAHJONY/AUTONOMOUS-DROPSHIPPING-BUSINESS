@@ -1,4 +1,5 @@
-import { error, json, requireOrgRole } from "@/lib/api";
+import { error, json, requireOrg, requireOrgRole } from "@/lib/api";
+import { COMMERCE_RELEASE_ENABLED } from "@/lib/config";
 import {
   generateProductImage,
   getHiggsfieldCreds,
@@ -20,6 +21,11 @@ export async function POST(
   { params }: { params: Promise<{ orgId: string; productId: string }> },
 ) {
   const { orgId, productId } = await params;
+  const membership = await requireOrg(req, orgId);
+  if ("response" in membership) return membership.response;
+  if (!COMMERCE_RELEASE_ENABLED) {
+    return error("Commerce publishing is locked until the commerce safety release is approved.", 423);
+  }
   const auth = await requireOrgRole(req, orgId);
   if ("response" in auth) return auth.response;
 

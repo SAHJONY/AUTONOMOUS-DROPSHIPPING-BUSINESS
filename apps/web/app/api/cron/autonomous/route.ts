@@ -1,5 +1,6 @@
 import { json, error } from "@/lib/api";
 import { AUTONOMY_ENABLED, CRON_SECRET } from "@/lib/config";
+import { cronGovernanceStatus } from "@/lib/governance";
 import { autoApprovePending, runAgent } from "@/lib/brain";
 import {
   autoPublishReady,
@@ -21,14 +22,11 @@ export const maxDuration = 300;
  * CRON_SECRET (Vercel Cron sends it as a Bearer token automatically when set).
  */
 async function handle(req: Request) {
-  if (!CRON_SECRET) return error("Autonomous cron is disabled: CRON_SECRET is not configured.", 503);
   const header = req.headers.get("authorization") ?? "";
-  if (header !== `Bearer ${CRON_SECRET}`) {
-    return error("Unauthorized", 401);
-  }
-  if (!AUTONOMY_ENABLED) {
-    return error("Autonomous operations are disabled by the release governance gate.", 423);
-  }
+  const governanceStatus = cronGovernanceStatus(header, CRON_SECRET, AUTONOMY_ENABLED);
+  if (governanceStatus === 503) return error("Autonomous cron is disabled: CRON_SECRET is not configured.", 503);
+  if (governanceStatus === 401) return error("Unauthorized", 401);
+  if (governanceStatus === 423) return error("Autonomous operations are disabled by the release governance gate.", 423);
 
   const orgs = await listAllOrgs();
   const results = [];
