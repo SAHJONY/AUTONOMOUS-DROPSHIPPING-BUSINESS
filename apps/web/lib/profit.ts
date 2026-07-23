@@ -1,6 +1,6 @@
 import type { Product } from "./types";
 
-const API_VERSION = "2024-10";
+const API_VERSION = "2026-07";
 
 export type ProfitProduct = {
   product_id: number | null;
