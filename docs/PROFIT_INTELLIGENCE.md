@@ -8,7 +8,7 @@ The connected Shopify app must be allowed to read orders. The token used by the 
 
 ## Metrics
 
-- Gross revenue from non-cancelled Shopify orders
+- Gross revenue from non-cancelled, paid Shopify orders
 - Refunds
 - Net revenue
 - Catalog cost of goods sold (COGS)
@@ -16,6 +16,10 @@ The connected Shopify app must be allowed to read orders. The token used by the 
 - Average order value
 - Units sold
 - Top products by gross profit
+
+Only orders with `paid`, `partially_refunded`, or `refunded` financial status are
+recognized as revenue. Item refunds are attributed to their products so the
+product ranking cannot present refunded sales as profit.
 
 The workspace supports 7, 30 and 90 day windows. The API accepts 1–365 days:
 

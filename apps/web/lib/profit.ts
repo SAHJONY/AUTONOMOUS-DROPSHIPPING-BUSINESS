@@ -25,12 +25,14 @@ export type ProfitSnapshot = {
   gross_margin_pct: number;
   average_order_value: number;
   estimated_cogs_orders: number;
+  excluded_unpaid_orders: number;
   top_products: ProfitProduct[];
   generated_at: string;
   scope_note: string;
 };
 
 type ShopifyLineItem = {
+  id?: number;
   product_id?: number | null;
   title?: string;
   quantity?: number;
@@ -109,7 +111,14 @@ export async function buildProfitSnapshot(args: {
   days?: number;
 }): Promise<ProfitSnapshot> {
   const days = Math.min(365, Math.max(1, Math.round(args.days ?? 30)));
-  const orders = (await fetchOrders(args.shop, args.token, days)).filter((o) => !o.cancelled_at);
+  const fetchedOrders = await fetchOrders(args.shop, args.token, days);
+  const revenueStatuses = new Set(["paid", "partially_refunded", "refunded"]);
+  const orders = fetchedOrders.filter(
+    (order) => !order.cancelled_at && revenueStatuses.has(order.financial_status ?? ""),
+  );
+  const excludedUnpaidOrders = fetchedOrders.filter(
+    (order) => !order.cancelled_at && !revenueStatuses.has(order.financial_status ?? ""),
+  ).length;
   const productCosts = new Map<number, number>();
   for (const product of args.products) {
     if (product.shopify_id) productCosts.set(product.shopify_id, Math.max(0, product.cost || 0));
@@ -144,6 +153,7 @@ export async function buildProfitSnapshot(args: {
     refunds += orderRefunds;
 
     let usedEstimate = false;
+    const orderProducts = new Map<number, ProfitProduct>();
     for (const item of order.line_items ?? []) {
       const quantity = Math.max(0, Number(item.quantity ?? 0));
       const lineRevenue = money(item.price) * quantity;
@@ -169,6 +179,18 @@ export async function buildProfitSnapshot(args: {
       current.revenue += lineRevenue;
       current.cogs += lineCogs;
       byProduct.set(key, current);
+      if (item.id) orderProducts.set(item.id, current);
+    }
+
+    // Attribute item refunds to products. A refund transaction can also include
+    // shipping or tax, so any remainder remains part of the order-level total.
+    for (const refund of order.refunds ?? []) {
+      for (const refundedItem of refund.refund_line_items ?? []) {
+        const lineItemId = refundedItem.line_item?.id;
+        if (!lineItemId) continue;
+        const product = orderProducts.get(lineItemId);
+        if (product) product.refunds += money(refundedItem.subtotal);
+      }
     }
     if (usedEstimate) estimatedCogsOrders++;
   }
@@ -181,7 +203,7 @@ export async function buildProfitSnapshot(args: {
       revenue: round(product.revenue),
       refunds: round(product.refunds),
       cogs: round(product.cogs),
-      gross_profit: round(product.revenue - product.cogs),
+      gross_profit: round(product.revenue - product.refunds - product.cogs),
     }))
     .sort((a, b) => b.gross_profit - a.gross_profit)
     .slice(0, 10);
@@ -199,6 +221,7 @@ export async function buildProfitSnapshot(args: {
     gross_margin_pct: netRevenue > 0 ? round((grossProfit / netRevenue) * 100) : 0,
     average_order_value: orders.length ? round(netRevenue / orders.length) : 0,
     estimated_cogs_orders: estimatedCogsOrders,
+    excluded_unpaid_orders: excludedUnpaidOrders,
     top_products: topProducts,
     generated_at: new Date().toISOString(),
     scope_note:

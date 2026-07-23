@@ -24,6 +24,7 @@ type ProfitSnapshot = {
   gross_margin_pct: number;
   average_order_value: number;
   estimated_cogs_orders: number;
+  excluded_unpaid_orders: number;
   top_products: ProfitProduct[];
   generated_at: string;
   scope_note: string;
@@ -181,6 +182,11 @@ export default function ProfitPage() {
               {snapshot.estimated_cogs_orders > 0 && (
                 <p style={{ marginBottom: 6, color: "#f2c879" }}>
                   {snapshot.estimated_cogs_orders} order(s) used a conservative 35% COGS estimate because the Shopify product was not matched to the catalog.
+                </p>
+              )}
+              {snapshot.excluded_unpaid_orders > 0 && (
+                <p style={{ marginBottom: 6, color: "#9ecbff" }}>
+                  {snapshot.excluded_unpaid_orders} unpaid, pending or authorized order(s) were excluded from revenue.
                 </p>
               )}
               <small>Generated {new Date(snapshot.generated_at).toLocaleString()} · {snapshot.units_sold} units sold</small>
