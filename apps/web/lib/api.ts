@@ -1,8 +1,8 @@
 /** Shared helpers for Next.js route handlers: auth extraction and responses. */
 import { NextResponse } from "next/server";
 import { verifyToken } from "./auth";
-import { getUser, userCanAccessOrg } from "./store";
-import type { User } from "./types";
+import { getUser, getUserOrgRole, userCanAccessOrg } from "./store";
+import type { Role, User } from "./types";
 
 export function json(data: unknown, status = 200): NextResponse {
   return NextResponse.json(data, { status });
@@ -41,4 +41,20 @@ export async function requireOrg(
     return { response: error("Organization not found", 404) };
   }
   return { user: auth.user };
+}
+
+/** Require an authenticated organization role for privileged operations. */
+export async function requireOrgRole(
+  req: Request,
+  orgId: string,
+  allowedRoles: Role[] = ["owner", "admin"],
+): Promise<{ user: User; role: Role } | { response: NextResponse }> {
+  const auth = await requireUser(req);
+  if ("response" in auth) return auth;
+  const role = await getUserOrgRole(auth.user, orgId);
+  if (!role) return { response: error("Organization not found", 404) };
+  if (!allowedRoles.includes(role)) {
+    return { response: error("Owner or administrator access required.", 403) };
+  }
+  return { user: auth.user, role };
 }

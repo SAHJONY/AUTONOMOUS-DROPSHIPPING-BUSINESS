@@ -317,13 +317,15 @@ const storeBuilder: Agent = {
     {
       name: "publish_product_to_shopify",
       description:
-        "Publish a product to the connected Shopify store (creates it live). Only works if a " +
+        "Publish a product to the connected Shopify store (HIGH RISK — requires approval). Only works if a " +
         "Shopify store is connected; otherwise reports that no store is connected.",
       input_schema: {
         type: "object",
         properties: { product_id: { type: "string" } },
         required: ["product_id"],
       },
+      requires_approval: true,
+      risk_level: "high",
       handler: async (ctx, a) => {
         const resolved = await resolveShopifyToken(ctx.orgId);
         if (!resolved.ok || !resolved.token || !resolved.shop) {

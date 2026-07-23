@@ -1,5 +1,5 @@
 import { json, error } from "@/lib/api";
-import { CRON_SECRET } from "@/lib/config";
+import { AUTONOMY_ENABLED, CRON_SECRET } from "@/lib/config";
 import { autoApprovePending } from "@/lib/brain";
 import { autoPublishReady, autonomousSource, getCJCreds, listAllOrgs } from "@/lib/store";
 
@@ -15,12 +15,13 @@ export const maxDuration = 300;
  * within the function time limit. Secured by CRON_SECRET.
  */
 async function handle(req: Request) {
-  if (CRON_SECRET) {
-    const header = req.headers.get("authorization") ?? "";
-    const secret = new URL(req.url).searchParams.get("secret") ?? "";
-    if (header !== `Bearer ${CRON_SECRET}` && secret !== CRON_SECRET) {
-      return error("Unauthorized", 401);
-    }
+  if (!CRON_SECRET) return error("Stock cron is disabled: CRON_SECRET is not configured.", 503);
+  const header = req.headers.get("authorization") ?? "";
+  if (header !== `Bearer ${CRON_SECRET}`) {
+    return error("Unauthorized", 401);
+  }
+  if (!AUTONOMY_ENABLED) {
+    return error("Autonomous stocking is disabled by the release governance gate.", 423);
   }
 
   const orgs = await listAllOrgs();

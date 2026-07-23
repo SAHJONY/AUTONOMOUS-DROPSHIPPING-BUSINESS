@@ -1,5 +1,6 @@
 import { error, json } from "@/lib/api";
 import { createToken, hashPassword } from "@/lib/auth";
+import { isOwnerEmail } from "@/lib/config";
 import { rateLimit } from "@/lib/rate-limit";
 import { createOrg, createUser, getUserByEmail } from "@/lib/store";
 
@@ -25,6 +26,9 @@ export async function POST(req: Request) {
   const password = String(body.password ?? "");
   if (!email || !email.includes("@")) return error("A valid email is required.", 422);
   if (password.length < 8) return error("Password must be at least 8 characters.", 422);
+  if (isOwnerEmail(email)) {
+    return error("This account is provisioned through the secured owner bootstrap.", 403);
+  }
 
   if (await getUserByEmail(email)) return error("Email already registered", 409);
 

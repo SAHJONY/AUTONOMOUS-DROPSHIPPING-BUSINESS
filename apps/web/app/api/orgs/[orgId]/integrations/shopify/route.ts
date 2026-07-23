@@ -1,4 +1,4 @@
-import { error, json, requireOrg } from "@/lib/api";
+import { error, json, requireOrg, requireOrgRole } from "@/lib/api";
 import { clearShopifyCreds, getShopifyCreds, setShopifyCreds } from "@/lib/store";
 import { mintAccessToken, normalizeShop, testShopifyToken } from "@/lib/shopify";
 import type { ShopifyCreds } from "@/lib/shopify";
@@ -27,7 +27,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
  */
 export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
-  const auth = await requireOrg(req, orgId);
+  const auth = await requireOrgRole(req, orgId);
   if ("response" in auth) return auth.response;
 
   const body = await req.json().catch(() => ({}));

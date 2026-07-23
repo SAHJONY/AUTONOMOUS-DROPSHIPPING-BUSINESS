@@ -1,4 +1,4 @@
-import { json, requireOrg } from "@/lib/api";
+import { json, requireOrg, requireOrgRole } from "@/lib/api";
 import { autoApprovePending } from "@/lib/brain";
 import { getOrgSettings, setOrgSettings } from "@/lib/store";
 
@@ -14,7 +14,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
 
 export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
-  const auth = await requireOrg(req, orgId);
+  const auth = await requireOrgRole(req, orgId);
   if ("response" in auth) return auth.response;
   const body = await req.json().catch(() => ({}));
   const patch: { autopilot?: boolean; auto_publish?: boolean } = {};

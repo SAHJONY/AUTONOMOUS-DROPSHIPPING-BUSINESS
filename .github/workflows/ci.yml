@@ -37,5 +37,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install
         run: npm ci
+      - name: Governance tests
+        run: npm test --workspace apps/web
       - name: Build
         run: npm run build --workspace apps/web

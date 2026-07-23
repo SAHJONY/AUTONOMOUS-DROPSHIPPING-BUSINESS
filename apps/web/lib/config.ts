@@ -57,12 +57,9 @@ export const AGENT_MAX_TOKENS = Number(process.env.AGENT_MAX_TOKENS ?? 16000);
  * gated actions within safe thresholds and only escalates genuinely large or
  * risky ones (big ad budgets, big refunds) to the owner. Default ON.
  */
-export const AUTOPILOT_DEFAULT = (process.env.AUTOPILOT ?? "true") !== "false";
-/** Ad budgets at/below this ($/day) auto-approve; above it, the owner decides. */
-export const AUTOPILOT_MAX_AD_BUDGET = Number(process.env.AUTOPILOT_MAX_AD_BUDGET ?? 50);
-/** Refunds at/below this ($) auto-approve; above it, the owner decides. */
-export const AUTOPILOT_MAX_REFUND = Number(process.env.AUTOPILOT_MAX_REFUND ?? 50);
-
+export const AUTOPILOT_DEFAULT = (process.env.AUTOPILOT ?? "false") === "true";
+/** Master release gate. Keep false until security, commerce and accounting gates pass. */
+export const AUTONOMY_ENABLED = process.env.ENABLE_AUTONOMY === "true";
 export function isOwnerEmail(email: string | null | undefined): boolean {
   return !!email && email.trim().toLowerCase() === OWNER_EMAIL;
 }

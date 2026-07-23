@@ -1,4 +1,4 @@
-import { error, json, requireOrg } from "@/lib/api";
+import { error, json, requireOrg, requireOrgRole } from "@/lib/api";
 import { clearHiggsfieldCreds, getHiggsfieldCreds, setHiggsfieldCreds } from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -16,7 +16,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
 /** Connect ({ key_id, key_secret }) or disconnect ({ disconnect: true }). */
 export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
-  const auth = await requireOrg(req, orgId);
+  const auth = await requireOrgRole(req, orgId);
   if ("response" in auth) return auth.response;
 
   const body = await req.json().catch(() => ({}));

@@ -20,6 +20,7 @@ type Dashboard = {
   engine_online: boolean;
   autopilot: boolean;
   auto_publish: boolean;
+  autonomy_enabled: boolean;
   autonomy_pct: number;
 };
 type AgentInfo = { name: string; description: string; tools: string[]; high_risk_tools: string[] };
@@ -50,7 +51,7 @@ type AdminOverview = {
 const FEATURES = [
   { icon: "◇", title: "Autonomous CEO", body: "The SAHJONY CEO reviews the business, coordinates seven specialists, and files a structured report — revenue, top products, next actions." },
   { icon: "◈", title: "Product Intelligence", body: "Every opportunity is scored deterministically — demand, competition, margin, trend, risk. Only 85+ reaches the launch queue." },
-  { icon: "⬡", title: "Human Command", body: "Refunds, ad budgets, store creation, killing products — high-risk actions halt for your approval. Nothing irreversible happens without you." },
+  { icon: "⬡", title: "Human Command", body: "AI-assisted operations keep privileged and capital-affecting actions behind explicit owner or administrator controls." },
   { icon: "❖", title: "Total Recall", body: "Agents write every learning, quote, and report to business memory and recall it in future runs. The operation compounds." },
 ];
 
@@ -580,7 +581,7 @@ export default function Home() {
               <span><b>7</b> Specialist agents</span>
               <span><b>85+</b> Launch score gate</span>
               <span><b>24/7</b> Autonomous cycle</span>
-              <span><b>100%</b> Human-gated risk</span>
+              <span><b>Manual</b> Governance first</span>
             </div>
           </div>
 
@@ -690,19 +691,32 @@ export default function Home() {
             <div className="ab-left">
               <div className="ab-pct">{dashboard.autonomy_pct}%</div>
               <div>
-                <b>{dashboard.autopilot ? "Autopilot engaged — 98% autonomous" : "Manual mode"}</b>
+                <b>
+                  {dashboard.autopilot
+                    ? "Autopilot engaged"
+                    : dashboard.autonomy_enabled
+                      ? "Manual mode"
+                      : "Governance lock active"}
+                </b>
                 <p>
                   {dashboard.autopilot
-                    ? "The engine runs the business around the clock and auto-approves routine actions within safe limits. Only large ad budgets or refunds reach you."
-                    : "Every high-risk action waits for your approval. Engage Autopilot to run at 98% autonomy."}
+                    ? "Approved automation is active within the configured governance policy."
+                    : dashboard.autonomy_enabled
+                      ? "Privileged and capital-affecting actions require explicit approval."
+                      : "Autonomy and automatic publishing remain disabled until the security, commerce-safety, and accounting release gates pass."}
                 </p>
               </div>
             </div>
             <button
               className={`btn ${dashboard.autopilot ? "btn-ghost" : "btn-accent"} btn-small`}
               onClick={toggleAutopilot}
+              disabled={!dashboard.autonomy_enabled}
             >
-              {dashboard.autopilot ? "Switch to Manual" : "Engage Autopilot"}
+              {dashboard.autopilot
+                ? "Switch to Manual"
+                : dashboard.autonomy_enabled
+                  ? "Engage Autopilot"
+                  : "Autonomy Locked"}
             </button>
           </div>
         )}

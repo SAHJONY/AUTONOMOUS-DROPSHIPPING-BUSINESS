@@ -4,9 +4,8 @@
  */
 import { kv, listGet, listPush, listReplace } from "./kv";
 import {
+  AUTONOMY_ENABLED,
   AUTOPILOT_DEFAULT,
-  AUTOPILOT_MAX_AD_BUDGET,
-  AUTOPILOT_MAX_REFUND,
   ENGINE_NAME,
   isOwnerEmail,
   OWNER_EMAIL,
@@ -439,14 +438,18 @@ export async function autoPublishReady(orgId: string): Promise<number> {
 export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
   const s = await kv.get<OrgSettings>(K.settings(orgId));
   return {
-    autopilot: s?.autopilot ?? AUTOPILOT_DEFAULT,
-    auto_publish: s?.auto_publish ?? true,
+    autopilot: AUTONOMY_ENABLED && (s?.autopilot ?? AUTOPILOT_DEFAULT),
+    auto_publish: AUTONOMY_ENABLED && (s?.auto_publish ?? false),
   };
 }
 
 export async function setOrgSettings(orgId: string, patch: Partial<OrgSettings>): Promise<OrgSettings> {
   const current = await getOrgSettings(orgId);
-  const next = { ...current, ...patch };
+  const requested = { ...current, ...patch };
+  const next = {
+    autopilot: AUTONOMY_ENABLED && requested.autopilot,
+    auto_publish: AUTONOMY_ENABLED && requested.auto_publish,
+  };
   await kv.set(K.settings(orgId), next);
   return next;
 }
@@ -459,15 +462,24 @@ export async function setOrgSettings(orgId: string, patch: Partial<OrgSettings>)
 export function isAutoApprovable(action: string, payload: Record<string, unknown>): boolean {
   switch (action) {
     case "set_ad_budget":
-      return Number(payload.daily_budget ?? 0) <= AUTOPILOT_MAX_AD_BUDGET;
     case "issue_refund":
-      return Number(payload.amount ?? 0) <= AUTOPILOT_MAX_REFUND;
     case "create_store":
     case "kill_product":
-      return true;
+      return false;
     default:
-      return true;
+      // Fail closed: newly added gated actions must receive an explicit policy
+      // decision before they can ever be approved automatically.
+      return false;
   }
+}
+
+export async function getUserOrgRole(
+  user: User,
+  orgId: string,
+): Promise<Membership["role"] | null> {
+  if (user.is_owner) return "owner";
+  const memberships = await listGet<Membership>(K.membershipsByUser(user.id));
+  return memberships.find((membership) => membership.org_id === orgId)?.role ?? null;
 }
 
 /* ---------- users ---------- */
@@ -580,9 +592,7 @@ export async function listAllOrgs(): Promise<Organization[]> {
 }
 
 export async function userCanAccessOrg(user: User, orgId: string): Promise<boolean> {
-  if (user.is_owner) return true; // unrestricted god-mode access
-  const memberships = await listGet<Membership>(K.membershipsByUser(user.id));
-  return memberships.some((m) => m.org_id === orgId);
+  return (await getUserOrgRole(user, orgId)) !== null;
 }
 
 /* ---------- products ---------- */
@@ -720,6 +730,7 @@ export async function buildDashboard(orgId: string): Promise<Dashboard> {
     engine_online: !!ANTHROPIC_API_KEY,
     autopilot: settings.autopilot,
     auto_publish: settings.auto_publish,
+    autonomy_enabled: AUTONOMY_ENABLED,
     autonomy_pct: settings.autopilot ? 98 : 60,
   };
 }

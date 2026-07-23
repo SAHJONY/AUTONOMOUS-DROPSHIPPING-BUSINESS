@@ -124,6 +124,7 @@ export interface Dashboard {
   engine_online: boolean;
   autopilot: boolean;
   auto_publish: boolean;
+  autonomy_enabled: boolean;
   autonomy_pct: number;
 }
 
