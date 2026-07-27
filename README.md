@@ -206,6 +206,48 @@ Order webhooks are registered automatically on connect when `PUBLIC_BASE_URL` an
 never learn that any of them sold; without `write_fulfillments` it can buy the goods but never tell
 the customer their package is on the way.
 
+## 24/7 autonomy — the shift rotation
+
+The fleet works in shifts (`apps/web/lib/autonomy.ts`). Every tick ships what is already sold, then
+puts **one agent on duty** with a concrete duty brief, rotating through the whole roster — `ceo →
+product_hunter → supplier → store_builder → marketing → advertising → finance → support`. On a
+30-minute heartbeat the eight-agent roster completes a full rotation every four hours while token
+spend stays bounded to one agent per tick rather than eight.
+
+Deterministic work that needs no model runs on **every** tick, before any agent: fulfillment of paid
+orders, supplier sourcing when stock is thin, autopilot approvals within safe thresholds, and
+publishing everything launch-ready. So customers get their packages and the storefront keeps
+stocking itself even if the engine is unreachable or an agent shift fails.
+
+| Control | Effect |
+|---|---|
+| `GET /api/cron/autonomous` | Ship, stock, then run the agent currently on duty |
+| `?all=1` | Run the entire roster in one tick |
+| `?agent=marketing,finance` | Run specific agents |
+| `?include_idle=1` | Also advance orgs with no integrations and no catalog |
+| `GET /api/health` | Live status: engine, storage durability, roster, who is on duty |
+
+Tuning: `AUTONOMY_MAX_ORGS` (default 25) bounds orgs advanced per tick; `AUTONOMY_DEADLINE_MS`
+(default 240000) stops new work before the function time limit.
+
+### Getting a true 24/7 cadence on the Hobby plan
+
+Vercel's Hobby plan only permits *daily* cron schedules, so `vercel.json` pins the two passes to
+08:00 and 20:00 UTC. `.github/workflows/heartbeat.yml` closes that gap on **any** plan: a GitHub
+Actions schedule calls the same endpoints every 30 minutes, so the fleet works around the clock and
+an order never waits twelve hours to ship. Ticks are idempotent, so the Vercel and Actions
+heartbeats overlapping is harmless.
+
+Enable it with two repository secrets (**Settings → Secrets and variables → Actions**):
+
+| Secret | Value |
+|---|---|
+| `APP_URL` | `https://autonomous-dropshipping-business.vercel.app` |
+| `CRON_SECRET` | the same value set on the Vercel project |
+
+The workflow no-ops when `APP_URL` is unset, so forks stay quiet.
+
+
 ## Local development (web)
 
 ```bash

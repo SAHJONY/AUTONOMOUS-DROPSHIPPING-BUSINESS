@@ -1,15 +1,7 @@
 import { json, error } from "@/lib/api";
 import { AUTONOMY_ENABLED, CRON_SECRET } from "@/lib/config";
 import { cronGovernanceStatus } from "@/lib/governance";
-import { autoApprovePending, runAgent } from "@/lib/brain";
-import { runFulfillmentCycle } from "@/lib/fulfillment";
-import {
-  autoPublishReady,
-  autonomousSource,
-  getCJCreds,
-  getShopifyCreds,
-  listAllOrgs,
-} from "@/lib/store";
+import { runAutonomousTick } from "@/lib/autonomy";
 
 export const runtime = "nodejs";
 // Higgsfield's API only accepts requests from European IPs — run in Frankfurt.
@@ -18,70 +10,37 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 /**
- * 24/7 autonomous operations. Vercel Cron hits this on a schedule; the CEO
- * agent reviews every organization and files a fresh daily report. Secured by
- * CRON_SECRET (Vercel Cron sends it as a Bearer token automatically when set).
+ * The 24/7 heartbeat. Every tick ships what is already sold, then puts one
+ * agent on duty — rotating through the whole roster hour by hour — and runs the
+ * deterministic housekeeping (sourcing, autopilot approvals, publishing) for
+ * every live organization.
+ *
+ * Query parameters:
+ *   ?all=1              run the entire roster this tick instead of the rotation
+ *   ?agent=marketing    run specific agents (comma-separated)
+ *   ?include_idle=1     also advance orgs with no integrations and no catalog
+ *
+ * Fail-closed: requires CRON_SECRET to be configured and the ENABLE_AUTONOMY
+ * release gate to be on.
  */
 async function handle(req: Request) {
   const header = req.headers.get("authorization") ?? "";
   const governanceStatus = cronGovernanceStatus(header, CRON_SECRET, AUTONOMY_ENABLED);
-  if (governanceStatus === 503) return error("Autonomous cron is disabled: CRON_SECRET is not configured.", 503);
+  if (governanceStatus === 503)
+    return error("Autonomous cron is disabled: CRON_SECRET is not configured.", 503);
   if (governanceStatus === 401) return error("Unauthorized", 401);
-  if (governanceStatus === 423) return error("Autonomous operations are disabled by the release governance gate.", 423);
+  if (governanceStatus === 423)
+    return error("Autonomous operations are disabled by the release governance gate.", 423);
 
-  const orgs = await listAllOrgs();
-  const results = [];
-  for (const org of orgs) {
-    try {
-      // Focus the autonomous cycle on orgs with real integrations or a catalog
-      // (skips empty throwaway orgs — saves cost and stays on-task).
-      const [shop, cjc] = await Promise.all([getShopifyCreds(org.id), getCJCreds(org.id)]);
-      // Only run the heavy CEO cycle for orgs with real integrations connected.
-      if (!shop && !cjc) continue;
+  const url = new URL(req.url);
+  const agentParam = url.searchParams.get("agent") ?? url.searchParams.get("agents");
+  const result = await runAutonomousTick({
+    all: url.searchParams.get("all") === "1",
+    agents: agentParam ? agentParam.split(",").map((a) => a.trim()).filter(Boolean) : undefined,
+    includeIdle: url.searchParams.get("include_idle") === "1",
+  });
 
-      // 1. Ship what's already sold. Paid orders outrank everything else, so
-      //    this runs before any model call — even if the CEO cycle later fails,
-      //    customers still get their packages.
-      const fulfillment = shop ? await runFulfillmentCycle(org.id) : null;
-
-      // 2. Source real products from the supplier (CJ) when stock is thin.
-      const sourced = await autonomousSource(org.id);
-
-      // 3. Run the CEO cycle to advance the business.
-      const run = await runAgent({
-        orgId: org.id,
-        agentName: "ceo",
-        task:
-          "Autonomous 24/7 cycle. Move the business forward, don't just report. Start with the business " +
-          "snapshot. Clear the order pipeline first: dispatch the supplier agent to fulfill anything " +
-          "pending and to explain every on_hold order. Then read the real P&L — if it shows a loss, " +
-          "name the line item causing it and act on it before spending anywhere else. Then growth: if a " +
-          "supplier is connected ensure the store is stocked, write listings for the best " +
-          "ready_to_launch products, verify unit economics, and dispatch marketing for a creative brief " +
-          "on the top seller. Queue high-risk actions for owner approval — never wait on them. File a " +
-          "concise report to memory. Make reasonable assumptions; never stop to ask a human.",
-      });
-
-      // 4. Auto-approve within thresholds, then publish everything ready.
-      const autoApproved = await autoApprovePending(org.id);
-      const published = await autoPublishReady(org.id);
-      results.push({
-        org: org.id,
-        name: org.name,
-        run_id: run.id,
-        status: run.status,
-        fulfillment,
-        sourced: sourced.imported,
-        source_error: sourced.error,
-        auto_approved: autoApproved,
-        auto_published: published,
-      });
-    } catch (e) {
-      results.push({ org: org.id, name: org.name, error: (e as Error).message });
-    }
-  }
-
-  return json({ ran: results.length, at: new Date().toISOString(), results });
+  return json(result);
 }
 
 export async function GET(req: Request) {

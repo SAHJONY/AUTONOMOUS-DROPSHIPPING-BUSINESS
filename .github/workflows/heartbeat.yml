@@ -1,0 +1,69 @@
+name: Autonomy heartbeat
+
+# The 24/7 heartbeat for the agent fleet.
+#
+# Vercel's Hobby plan only permits *daily* cron schedules, so vercel.json can
+# only fire the two passes once each per day. This workflow calls the same
+# endpoints every 30 minutes, which is what actually makes the operation run
+# around the clock: an agent shift comes on duty, paid orders ship, and the
+# storefront restocks — without waiting up to twelve hours for the next cron.
+#
+# The endpoints are idempotent, so overlapping with Vercel Cron is harmless.
+#
+# Setup — repository secrets (Settings → Secrets and variables → Actions):
+#   APP_URL      e.g. https://autonomous-dropshipping-business.vercel.app
+#   CRON_SECRET  the same value set on the Vercel project (required: the cron
+#                endpoints are fail-closed and return 503 without it)
+#
+# The job no-ops when APP_URL is unset, so forks stay quiet.
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: "Run a specific agent instead of the rotation (optional)"
+        required: false
+        type: string
+      all:
+        description: "Run the entire roster this tick"
+        required: false
+        type: boolean
+
+jobs:
+  tick:
+    name: Advance the fleet
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ship paid orders
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "APP_URL secret is not set — skipping heartbeat." && exit 0
+          fi
+          curl --fail-with-body --silent --show-error --location --max-time 300 \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "$APP_URL/api/cron/fulfillment" | head -c 4000
+          echo
+
+      - name: Agent shift
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          AGENT: ${{ inputs.agent }}
+          ALL: ${{ inputs.all }}
+        run: |
+          if [ -z "$APP_URL" ]; then exit 0; fi
+          URL="$APP_URL/api/cron/autonomous"
+          if [ -n "$AGENT" ]; then
+            URL="$URL?agent=$AGENT"
+          elif [ "$ALL" = "true" ]; then
+            URL="$URL?all=1"
+          fi
+          curl --fail-with-body --silent --show-error --location --max-time 300 \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "$URL" | head -c 4000
+          echo
