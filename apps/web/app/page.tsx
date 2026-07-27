@@ -23,6 +23,8 @@ type Dashboard = {
   orders_total: number;
   orders_awaiting_fulfillment: number;
   orders_on_hold: number;
+  supplier_exposure_count: number;
+  supplier_exposure_value: number;
   revenue_30d: number;
   net_profit_30d: number;
   net_margin_30d: number;
@@ -873,7 +875,14 @@ export default function Home() {
                 </div>
                 <div className="label">Need Attention</div>
               </div>
-              <div className="metric"><div className="value">{dashboard.products_total}</div><div className="label">Products</div></div>
+              {dashboard.supplier_exposure_count > 0 ? (
+                <div className="metric">
+                  <div className="value loss">${dashboard.supplier_exposure_value.toLocaleString()}</div>
+                  <div className="label">At Risk · {dashboard.supplier_exposure_count} order(s)</div>
+                </div>
+              ) : (
+                <div className="metric"><div className="value">{dashboard.products_total}</div><div className="label">Products</div></div>
+              )}
               <div className="metric"><div className="value">{dashboard.pending_approvals}</div><div className="label">Approvals</div></div>
             </div>
           </section>

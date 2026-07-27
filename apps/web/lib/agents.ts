@@ -26,7 +26,13 @@ import {
   publishProductToShopify,
 } from "./store";
 import { getPnl, listLedger, postEntries, type PeriodKey } from "./ledger";
-import { estimatedCogs, getOrder, listOrders, unfulfillableLines } from "./orders";
+import {
+  estimatedCogs,
+  getOrder,
+  listOrders,
+  supplierExposure,
+  unfulfillableLines,
+} from "./orders";
 import { placeSupplierOrder, runFulfillmentCycle, syncShopifyOrders } from "./fulfillment";
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type { Product } from "./types";
@@ -773,6 +779,8 @@ const ceo: Agent = {
           awaiting_fulfillment: orders.filter((o) =>
             ["received", "awaiting_stock"].includes(o.stage),
           ).length,
+          // Cash already paid to the supplier for orders the customer cancelled.
+          supplier_exposure: supplierExposure(orders).slice(0, 10),
           blocked_orders: held.slice(0, 10).map((o) => ({
             id: o.id,
             order_number: o.order_number,
