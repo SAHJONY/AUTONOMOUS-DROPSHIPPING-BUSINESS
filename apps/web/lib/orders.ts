@@ -265,6 +265,62 @@ export function classifyOrder(
   return { stage: "received" };
 }
 
+/* ---------- money at risk on cancelled orders ---------- */
+
+export interface SupplierExposure {
+  order_id: string;
+  order_number: string;
+  supplier_order_id: string;
+  cost: number;
+  /** True while the parcel has no tracking — the window where cancelling still works. */
+  cancellable: boolean;
+  reason: string;
+}
+
+/**
+ * Orders the customer cancelled or refunded *after* we had already bought the
+ * goods.
+ *
+ * This is the quiet money leak in dropshipping: the customer gets their money
+ * back, the supplier keeps ours, and nothing in the system ever says so. The
+ * refund shows up in the books but the matching COGS just sits there as a loss
+ * nobody attributed. Surfacing it is the difference between a business that
+ * knows its margins and one that wonders where the money went.
+ *
+ * Whether it can still be stopped depends on the parcel: no tracking number
+ * means it has not shipped and the supplier order can usually be cancelled.
+ * Once it is moving, the money is spent and the entry is a loss report.
+ */
+export function supplierExposure(orders: Order[]): SupplierExposure[] {
+  return orders
+    .filter(
+      (o) =>
+        ["cancelled", "refunded"].includes(o.stage) &&
+        !!o.supplier_order_id &&
+        // A delivered parcel is a different problem — the customer has the goods.
+        o.stage !== "delivered",
+    )
+    .map((o) => {
+      const cancellable = !o.tracking_number;
+      return {
+        order_id: o.id,
+        order_number: o.order_number,
+        supplier_order_id: o.supplier_order_id as string,
+        cost: r2(o.cogs + o.supplier_shipping),
+        cancellable,
+        reason: cancellable
+          ? `${o.stage === "refunded" ? "Refunded" : "Cancelled"} before the supplier shipped — cancel supplier order ${o.supplier_order_id} to recover the cost.`
+          : `${o.stage === "refunded" ? "Refunded" : "Cancelled"} after the supplier shipped — the goods are in transit and this cost is unrecoverable.`,
+      };
+    })
+    .sort((a, b) => Number(b.cancellable) - Number(a.cancellable) || b.cost - a.cost);
+}
+
+/** Total cash sitting on cancelled orders we already paid the supplier for. */
+export function supplierExposureValue(orders: Order[]): number {
+  return r2(supplierExposure(orders).reduce((sum, e) => sum + e.cost, 0));
+}
+
 /* ---------- per-product performance ---------- */
 
 export interface ProductPerformance {
@@ -472,10 +528,22 @@ export async function recordRefund(
     },
   ]);
 
-  return updateOrder(
+  const updated = await updateOrder(
     orgId,
     order.id,
     { refunded, stage: fullyRefunded ? "refunded" : order.stage },
     { kind: "refunded", detail: `Refunded $${Math.abs(amount).toFixed(2)}${reason ? ` — ${reason}` : ""}.` },
   );
+
+  // If the goods were already bought, say so on the order itself — this is the
+  // moment the loss becomes real, and it is the last point anyone is looking.
+  if (updated && fullyRefunded && order.supplier_order_id) {
+    return updateOrder(orgId, order.id, {}, {
+      kind: "supplier_exposure",
+      detail: order.tracking_number
+        ? `Supplier order ${order.supplier_order_id} already shipped — $${(order.cogs + order.supplier_shipping).toFixed(2)} is unrecoverable.`
+        : `Supplier order ${order.supplier_order_id} was already placed — cancel it to recover $${(order.cogs + order.supplier_shipping).toFixed(2)}.`,
+    });
+  }
+  return updated;
 }

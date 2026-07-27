@@ -294,6 +294,9 @@ export interface Dashboard {
   orders_total: number;
   orders_awaiting_fulfillment: number;
   orders_on_hold: number;
+  /** Cancelled/refunded orders whose goods we already paid the supplier for. */
+  supplier_exposure_count: number;
+  supplier_exposure_value: number;
   revenue_30d: number;
   net_profit_30d: number;
   net_margin_30d: number;

@@ -29,7 +29,7 @@ import {
 import { generateImage, studioProductPrompt, type HiggsfieldCreds } from "./higgsfield";
 import { cjGetAccessToken, cjSearchProducts, type CJCreds } from "./suppliers/cj";
 import { getPnl } from "./ledger";
-import { listOrders } from "./orders";
+import { listOrders, supplierExposure, supplierExposureValue } from "./orders";
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type {
   AgentRun,
@@ -925,6 +925,8 @@ export async function buildDashboard(orgId: string): Promise<Dashboard> {
       ["received", "awaiting_stock"].includes(o.stage),
     ).length,
     orders_on_hold: orders.filter((o) => o.stage === "on_hold").length,
+    supplier_exposure_count: supplierExposure(orders).length,
+    supplier_exposure_value: supplierExposureValue(orders),
     revenue_30d: pnl.net_revenue,
     net_profit_30d: pnl.net_profit,
     net_margin_30d: pnl.net_margin_pct,

@@ -11,6 +11,8 @@ import {
   productPerformance,
   recordRefund,
   saleEntries,
+  supplierExposure,
+  supplierExposureValue,
   totalUnits,
   unfulfillableLines,
 } from "@/lib/orders";
@@ -382,5 +384,67 @@ describe("productPerformance", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].product_id).toBeNull();
     expect(rows[0].title).toBe("Mystery Item");
+  });
+});
+
+describe("supplierExposure", () => {
+  const paid = { supplier_order_id: "CJ-777", cogs: 20, supplier_shipping: 4.5 };
+
+  it("finds money spent on an order the customer then cancelled", () => {
+    const rows = supplierExposure([makeOrder({ stage: "cancelled", ...paid })]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].cost).toBe(24.5);
+    expect(rows[0].supplier_order_id).toBe("CJ-777");
+  });
+
+  it("marks it recoverable while the parcel has not shipped", () => {
+    const [row] = supplierExposure([makeOrder({ stage: "refunded", ...paid })]);
+    expect(row.cancellable).toBe(true);
+    expect(row.reason).toMatch(/cancel supplier order CJ-777 to recover/i);
+  });
+
+  it("marks it unrecoverable once the parcel is moving", () => {
+    const [row] = supplierExposure([
+      makeOrder({ stage: "refunded", ...paid, tracking_number: "T-1" }),
+    ]);
+    expect(row.cancellable).toBe(false);
+    expect(row.reason).toMatch(/unrecoverable/i);
+  });
+
+  it("ignores cancelled orders we never paid the supplier for", () => {
+    expect(supplierExposure([makeOrder({ stage: "cancelled" })])).toHaveLength(0);
+  });
+
+  it("ignores live orders — nothing is at risk while the customer still wants them", () => {
+    expect(
+      supplierExposure([
+        makeOrder({ id: "a", stage: "awaiting_stock", ...paid }),
+        makeOrder({ id: "b", stage: "shipped", ...paid }),
+        makeOrder({ id: "c", stage: "received" }),
+      ]),
+    ).toHaveLength(0);
+  });
+
+  it("puts the still-recoverable money first, then the largest losses", () => {
+    const rows = supplierExposure([
+      makeOrder({ id: "lost_big", stage: "refunded", ...paid, cogs: 500, tracking_number: "T" }),
+      makeOrder({ id: "saveable", stage: "cancelled", ...paid, cogs: 10 }),
+    ]);
+    // The one you can still act on outranks the bigger one you cannot.
+    expect(rows[0].order_id).toBe("saveable");
+    expect(rows[1].order_id).toBe("lost_big");
+  });
+
+  it("totals the cash at risk", () => {
+    expect(
+      supplierExposureValue([
+        makeOrder({ id: "a", stage: "cancelled", ...paid }),
+        makeOrder({ id: "b", stage: "refunded", ...paid, cogs: 30, supplier_shipping: 5 }),
+      ]),
+    ).toBe(59.5);
+  });
+
+  it("reports nothing when the business is healthy", () => {
+    expect(supplierExposureValue([makeOrder(), makeOrder({ id: "b", stage: "delivered" })])).toBe(0);
   });
 });
