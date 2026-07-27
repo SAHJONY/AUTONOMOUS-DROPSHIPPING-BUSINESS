@@ -29,7 +29,13 @@ import {
   getOrderRiskRecommendation,
   listShopifyOrders,
 } from "./shopify";
-import { cjCreateOrder, cjGetOrderStatus, cjGetVariant, trackingUrl } from "./suppliers/cj";
+import {
+  cjCreateOrder,
+  cjGetOrderStatus,
+  cjGetTracking,
+  cjGetVariant,
+  trackingUrl,
+} from "./suppliers/cj";
 import {
   getCJCreds,
   listProducts,
@@ -332,12 +338,43 @@ export async function pushFulfillment(orgId: string, orderId: string): Promise<S
   return { ok: true, detail: `${order.order_number} marked shipped with tracking.` };
 }
 
+/**
+ * Close a shipped order out once the carrier says it arrived.
+ *
+ * `delivered` is the point the sale is genuinely finished: the customer has the
+ * goods, the money is earned rather than merely collected, and the order stops
+ * being polled. Until this ran, orders sat at `shipped` forever and the stage
+ * existed in name only.
+ */
+export async function confirmDelivery(orgId: string, orderId: string): Promise<StepResult> {
+  const order = await getOrder(orgId, orderId);
+  if (!order) return { ok: false, detail: "Order not found." };
+  if (order.stage === "delivered") return { ok: true, detail: "Already delivered." };
+  if (!order.tracking_number) return { ok: false, detail: "No tracking number to check." };
+
+  const token = await resolveCJToken(orgId);
+  if (!token.ok || !token.token) return { ok: false, detail: token.error ?? "Supplier auth failed." };
+
+  const tracking = await cjGetTracking(token.token, order.tracking_number);
+  if (!tracking.ok) return { ok: false, detail: tracking.error ?? "Could not read tracking." };
+  if (!tracking.delivered) {
+    return { ok: true, detail: `In transit${tracking.status ? ` — ${tracking.status}` : ""}.` };
+  }
+
+  await updateOrder(orgId, order.id, { stage: "delivered" }, {
+    kind: "delivered",
+    detail: `Carrier confirmed delivery${tracking.status ? ` — ${tracking.status}` : ""}.`,
+  });
+  return { ok: true, detail: `${order.order_number} delivered.` };
+}
+
 /* ---------- the loop ---------- */
 
 export interface FulfillmentCycle {
   synced: { imported: number; updated: number };
   placed: number;
   shipped: number;
+  delivered: number;
   awaiting_approval: number;
   on_hold: number;
   failures: string[];
@@ -356,6 +393,7 @@ export async function runFulfillmentCycle(
     synced: { imported: 0, updated: 0 },
     placed: 0,
     shipped: 0,
+    delivered: 0,
     awaiting_approval: 0,
     on_hold: 0,
     failures: [],
@@ -394,6 +432,15 @@ export async function runFulfillmentCycle(
       const result = await syncTracking(orgId, order.id);
       if (result.ok && /shipped/i.test(result.detail)) cycle.shipped++;
       else if (!result.ok) cycle.failures.push(`${order.order_number}: ${result.detail}`);
+      continue;
+    }
+
+    // Follow parcels the rest of the way so orders finish at `delivered` rather
+    // than sitting at `shipped` indefinitely.
+    if (order.stage === "shipped" && order.tracking_number) {
+      handled++;
+      const result = await confirmDelivery(orgId, order.id);
+      if (result.ok && /delivered\./i.test(result.detail)) cycle.delivered++;
     }
   }
 

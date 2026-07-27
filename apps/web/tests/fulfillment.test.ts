@@ -11,6 +11,7 @@ import { makeOrder, makeProduct, resetStore } from "./helpers";
 const cjCreateOrder = vi.fn();
 const cjGetOrderStatus = vi.fn();
 const cjGetVariant = vi.fn();
+const cjGetTracking = vi.fn();
 const fulfillShopifyOrder = vi.fn();
 const listShopifyOrders = vi.fn();
 const getOrderRiskRecommendation = vi.fn();
@@ -20,6 +21,7 @@ vi.mock("@/lib/suppliers/cj", async (importOriginal) => ({
   cjCreateOrder: (...args: unknown[]) => cjCreateOrder(...args),
   cjGetOrderStatus: (...args: unknown[]) => cjGetOrderStatus(...args),
   cjGetVariant: (...args: unknown[]) => cjGetVariant(...args),
+  cjGetTracking: (...args: unknown[]) => cjGetTracking(...args),
 }));
 
 vi.mock("@/lib/shopify", async (importOriginal) => ({
@@ -42,9 +44,8 @@ vi.mock("@/lib/store", async (importOriginal) => ({
   updateProduct: async () => null,
 }));
 
-const { placeSupplierOrder, pushFulfillment, syncTracking, runFulfillmentCycle } = await import(
-  "@/lib/fulfillment"
-);
+const { placeSupplierOrder, pushFulfillment, syncTracking, runFulfillmentCycle, confirmDelivery } =
+  await import("@/lib/fulfillment");
 const { getOrder, saveOrder, listOrders } = await import("@/lib/orders");
 const { getPnl } = await import("@/lib/ledger");
 const { AUTOPILOT_MAX_ORDER_COST } = await import("@/lib/config");
@@ -63,6 +64,7 @@ beforeEach(() => {
   fulfillShopifyOrder.mockResolvedValue({ ok: true, fulfillment_id: 1 });
   listShopifyOrders.mockResolvedValue({ ok: true, orders: [] });
   getOrderRiskRecommendation.mockResolvedValue("accept");
+  cjGetTracking.mockResolvedValue({ ok: true, delivered: false, status: "In transit" });
 });
 
 describe("placeSupplierOrder", () => {
@@ -350,5 +352,76 @@ describe("runFulfillmentCycle", () => {
     expect(cycle.shipped).toBe(0);
     expect(cjCreateOrder).not.toHaveBeenCalled();
     expect(await listOrders("org1")).toHaveLength(1);
+  });
+});
+
+describe("isDeliveredStatus", () => {
+  it("recognizes the wordings carriers actually use for arrival", async () => {
+    const { isDeliveredStatus } = await import("@/lib/suppliers/cj");
+    expect(isDeliveredStatus("Delivered")).toBe(true);
+    expect(isDeliveredStatus("DELIVERED - left with resident")).toBe(true);
+    expect(isDeliveredStatus("Signed for by D REYES")).toBe(true);
+    expect(isDeliveredStatus("Parcel received by customer")).toBe(true);
+  });
+
+  it("does not mistake an in-progress status for arrival", async () => {
+    const { isDeliveredStatus } = await import("@/lib/suppliers/cj");
+    // The dangerous near-misses: these must never close an order out.
+    expect(isDeliveredStatus("Out for delivery")).toBe(false);
+    expect(isDeliveredStatus("Delivery attempted — no answer")).toBe(false);
+    expect(isDeliveredStatus("Delivery failed")).toBe(false);
+    expect(isDeliveredStatus("Not delivered")).toBe(false);
+    expect(isDeliveredStatus("Ready for pickup")).toBe(false);
+    expect(isDeliveredStatus("In transit")).toBe(false);
+    expect(isDeliveredStatus("")).toBe(false);
+    expect(isDeliveredStatus(undefined)).toBe(false);
+  });
+});
+
+describe("confirmDelivery", () => {
+  it("closes the order out once the carrier confirms arrival", async () => {
+    cjGetTracking.mockResolvedValue({ ok: true, delivered: true, status: "Delivered" });
+    await saveOrder(
+      makeOrder({ stage: "shipped", supplier_order_id: "CJ-777", tracking_number: "T-1" }),
+    );
+
+    const result = await confirmDelivery("org1", "order_1");
+    expect(result.ok).toBe(true);
+
+    const order = await getOrder("org1", "order_1");
+    expect(order?.stage).toBe("delivered");
+    expect(order?.events.some((e) => e.kind === "delivered")).toBe(true);
+  });
+
+  it("leaves an in-transit parcel alone", async () => {
+    cjGetTracking.mockResolvedValue({ ok: true, delivered: false, status: "In transit" });
+    await saveOrder(
+      makeOrder({ stage: "shipped", supplier_order_id: "CJ-777", tracking_number: "T-1" }),
+    );
+
+    const result = await confirmDelivery("org1", "order_1");
+    expect(result.ok).toBe(true);
+    expect((await getOrder("org1", "order_1"))?.stage).toBe("shipped");
+  });
+
+  it("stops polling an order that is already delivered", async () => {
+    await saveOrder(
+      makeOrder({ stage: "delivered", supplier_order_id: "CJ-777", tracking_number: "T-1" }),
+    );
+    const result = await confirmDelivery("org1", "order_1");
+
+    expect(result.ok).toBe(true);
+    expect(cjGetTracking).not.toHaveBeenCalled();
+  });
+
+  it("advances shipped orders to delivered inside the cycle", async () => {
+    cjGetTracking.mockResolvedValue({ ok: true, delivered: true, status: "Delivered" });
+    await saveOrder(
+      makeOrder({ stage: "shipped", supplier_order_id: "CJ-777", tracking_number: "T-1" }),
+    );
+
+    const cycle = await runFulfillmentCycle("org1");
+    expect(cycle.delivered).toBe(1);
+    expect((await getOrder("org1", "order_1"))?.stage).toBe("delivered");
   });
 });

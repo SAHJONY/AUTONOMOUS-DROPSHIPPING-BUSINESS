@@ -212,6 +212,70 @@ export function trackingUrl(trackingNumber: string): string {
   return `https://www.17track.net/en/track?nums=${encodeURIComponent(trackingNumber)}`;
 }
 
+/**
+ * Carrier words that mean the parcel reached the customer. Carriers phrase this
+ * differently and CJ passes their wording through, so the check is on substrings
+ * rather than an enum — and it is deliberately narrow: "delivery attempted" or
+ * "out for delivery" must NOT read as delivered.
+ */
+const DELIVERED_PATTERNS = [
+  /\bdelivered\b/i,
+  /\bsigned[ _-]?(for|by)?\b/i,
+  /\bcollected by (the )?customer\b/i,
+  /\bparcel (has been )?received\b/i,
+];
+
+const NOT_DELIVERED_PATTERNS = [
+  /\battempted\b/i,
+  /\bfailed\b/i,
+  /\bout for delivery\b/i,
+  /\bready for (pick ?up|collection)\b/i,
+  /\bawaiting\b/i,
+  /\bnot delivered\b/i,
+];
+
+/** Decide whether a carrier status line means the parcel actually arrived. */
+export function isDeliveredStatus(status: string | undefined | null): boolean {
+  const s = (status ?? "").trim();
+  if (!s) return false;
+  if (NOT_DELIVERED_PATTERNS.some((re) => re.test(s))) return false;
+  return DELIVERED_PATTERNS.some((re) => re.test(s));
+}
+
+export interface CJTracking {
+  ok: boolean;
+  delivered?: boolean;
+  status?: string;
+  error?: string;
+}
+
+/**
+ * Ask the carrier where a parcel is. Used to close orders out at `delivered`,
+ * which is the point the sale is genuinely complete.
+ */
+export async function cjGetTracking(token: string, trackingNumber: string): Promise<CJTracking> {
+  try {
+    const res = await cjFetch(
+      token,
+      `/logistic/trackInfo?trackNumber=${encodeURIComponent(trackingNumber)}`,
+    );
+    if (!cjOk(res)) return { ok: false, error: cjError(res, "Could not read tracking.") };
+
+    const data = res?.data;
+    const record = Array.isArray(data) ? data[0] : data;
+    // The freshest event is the current state; CJ returns them oldest-first.
+    const events: any[] = record?.trackDetailList ?? record?.trackDetails ?? [];
+    const latest = events.length ? events[events.length - 1] : null;
+    const status = String(
+      record?.trackStatus ?? latest?.trackDescription ?? latest?.status ?? "",
+    ).trim();
+
+    return { ok: true, status: status || undefined, delivered: isDeliveredStatus(status) };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
 /** Search CJ's catalog and return mapped products with real media. */
 export async function cjSearchProducts(
   token: string,
