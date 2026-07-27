@@ -425,3 +425,37 @@ describe("confirmDelivery", () => {
     expect((await getOrder("org1", "order_1"))?.stage).toBe("delivered");
   });
 });
+
+describe("clampSinceDays", () => {
+  it("keeps a sensible window as given", async () => {
+    const { clampSinceDays } = await import("@/lib/fulfillment");
+    expect(clampSinceDays(7)).toBe(7);
+    expect(clampSinceDays(30)).toBe(30);
+    expect(clampSinceDays("14")).toBe(14);
+  });
+
+  it("falls back rather than throwing on values a model might invent", async () => {
+    const { clampSinceDays } = await import("@/lib/fulfillment");
+    // Previously these produced new Date(NaN).toISOString() → RangeError → 500.
+    for (const bad of ["last week", undefined, null, NaN, {}, []]) {
+      expect(clampSinceDays(bad)).toBe(7);
+    }
+  });
+
+  it("never looks into the future, which would silently return no orders", async () => {
+    const { clampSinceDays } = await import("@/lib/fulfillment");
+    expect(clampSinceDays(0)).toBe(1);
+    expect(clampSinceDays(-5)).toBe(1);
+    expect(clampSinceDays(-99999)).toBe(1);
+  });
+
+  it("caps an absurd window instead of building an invalid date", async () => {
+    const { clampSinceDays } = await import("@/lib/fulfillment");
+    expect(clampSinceDays(1e20)).toBe(90);
+    expect(clampSinceDays(Infinity)).toBe(7);
+    // Whatever comes out must always produce a valid timestamp.
+    for (const v of [1e20, -1, "x", Infinity]) {
+      expect(() => new Date(Date.now() - clampSinceDays(v) * 86_400_000).toISOString()).not.toThrow();
+    }
+  });
+});

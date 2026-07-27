@@ -1,5 +1,5 @@
 import { error, json, requireOrgRole } from "@/lib/api";
-import { runFulfillmentCycle, syncShopifyOrders } from "@/lib/fulfillment";
+import { clampSinceDays, runFulfillmentCycle, syncShopifyOrders } from "@/lib/fulfillment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,13 +18,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   const auth = await requireOrgRole(req, orgId);
   if ("response" in auth) return auth.response;
 
-  const body = (await req.json().catch(() => ({}))) as { fulfill?: boolean; days?: number };
+  const body = (await req.json().catch(() => ({}))) as { fulfill?: boolean; days?: unknown };
 
   if (body.fulfill) {
     return json({ ok: true, cycle: await runFulfillmentCycle(orgId) });
   }
 
-  const result = await syncShopifyOrders(orgId, { sinceDays: Number(body.days ?? 7) });
+  const result = await syncShopifyOrders(orgId, { sinceDays: clampSinceDays(body.days) });
   if (!result.ok) return error(result.error ?? "Order sync failed.", 502);
   return json({ ok: true, imported: result.imported, updated: result.updated });
 }

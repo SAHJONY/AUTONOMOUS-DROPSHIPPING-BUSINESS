@@ -33,7 +33,12 @@ import {
   supplierExposure,
   unfulfillableLines,
 } from "./orders";
-import { placeSupplierOrder, runFulfillmentCycle, syncShopifyOrders } from "./fulfillment";
+import {
+  clampSinceDays,
+  placeSupplierOrder,
+  runFulfillmentCycle,
+  syncShopifyOrders,
+} from "./fulfillment";
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type { Product } from "./types";
 
@@ -359,7 +364,7 @@ const supplier: Agent = {
         properties: { days: { type: "number", description: "How far back to look (default 7)" } },
       },
       handler: async (ctx, a) => {
-        const res = await syncShopifyOrders(ctx.orgId, { sinceDays: Number(a.days ?? 7) });
+        const res = await syncShopifyOrders(ctx.orgId, { sinceDays: clampSinceDays(a.days) });
         return res.ok
           ? `Synced orders: ${res.imported} new, ${res.updated} updated.`
           : `Order sync failed: ${res.error}`;

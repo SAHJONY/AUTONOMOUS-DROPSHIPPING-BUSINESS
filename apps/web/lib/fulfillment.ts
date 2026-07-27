@@ -61,6 +61,29 @@ export interface StepResult {
  * manual "Sync orders" action; the webhook path is the real-time equivalent.
  * `since` defaults to the last 7 days, which comfortably covers any webhook gap.
  */
+/**
+ * Clamp the lookback window to something a Shopify query can actually express.
+ *
+ * This value reaches here from two places that cannot be trusted to send a sane
+ * number: a request body, and an agent tool where the model chooses it. Left
+ * unguarded, a non-numeric value produced `new Date(NaN).toISOString()`, which
+ * throws RangeError and 500s the endpoint — and a negative value silently
+ * queried the *future*, returning nothing and looking like "no new orders",
+ * which is the more dangerous of the two failures.
+ */
+export function clampSinceDays(value: unknown, fallback = 7): number {
+  // Absent or non-numeric means "not specified", so the default applies. Note
+  // Number(null) and Number([]) are both 0, which would otherwise read as a
+  // deliberate zero-day window rather than as a missing value.
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "object") return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  // A real but nonsensical number is clamped rather than discarded — the caller
+  // did mean a window, they just named an impossible one.
+  return Math.min(Math.max(Math.floor(n), 1), 90);
+}
+
 export async function syncShopifyOrders(
   orgId: string,
   opts: { sinceDays?: number; limit?: number } = {},
@@ -69,7 +92,9 @@ export async function syncShopifyOrders(
   if (!resolved.ok || !resolved.token || !resolved.shop) {
     return { ok: false, imported: 0, updated: 0, error: resolved.error ?? "Shopify not connected." };
   }
-  const since = new Date(Date.now() - (opts.sinceDays ?? 7) * 86_400_000).toISOString();
+  const since = new Date(
+    Date.now() - clampSinceDays(opts.sinceDays) * 86_400_000,
+  ).toISOString();
   const page = await listShopifyOrders(resolved.shop, resolved.token, {
     since,
     limit: opts.limit ?? 50,
