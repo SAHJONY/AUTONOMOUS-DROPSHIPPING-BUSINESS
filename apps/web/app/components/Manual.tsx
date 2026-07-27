@@ -35,12 +35,12 @@ function Prompt({ children, gated }: { children: string; gated?: boolean }) {
 const AGENTS: { name: string; role: string; gate?: string; ceo?: boolean }[] = [
   { name: "CEO", role: "Reviews the business, coordinates the whole fleet, and files structured reports. Your single point of command.", gate: "Killing a product", ceo: true },
   { name: "Product Hunter", role: "Discovers and scores product opportunities on a deterministic model. Only 85+ becomes launch-ready." },
-  { name: "Supplier", role: "Sources across CJ Dropshipping, AliExpress, Spocket & Zendrop; compares landed cost and shipping; logs quotes." },
+  { name: "Supplier", role: "Sources across CJ Dropshipping, AliExpress, Spocket & Zendrop, and fulfills paid orders — buying the goods, tracking the shipment, and shipping it to the customer.", gate: "Buying goods above the cost cap" },
   { name: "Store Builder", role: "Builds storefronts and writes high-converting listings, SEO copy, and policies.", gate: "Creating a store" },
   { name: "Marketing", role: "Designs ad angles, hooks, and creative briefs for TikTok, Meta, and email." },
   { name: "Advertising", role: "Analyzes ROAS/CPA/CTR and proposes budgets.", gate: "Setting an ad budget" },
-  { name: "Finance", role: "Computes unit economics and tracks profitability with exact margin math." },
-  { name: "Support", role: "Drafts empathetic, on-brand customer replies.", gate: "Issuing a refund" },
+  { name: "Finance", role: "Owns the books. Reads the real P&L from the ledger, computes unit economics, and records actual ad spend." },
+  { name: "Support", role: "Looks up real orders — stage, tracking, timeline — and drafts empathetic, on-brand replies from what actually happened.", gate: "Issuing a refund" },
 ];
 
 export default function Manual({ onBack }: { onBack: () => void }) {
@@ -81,7 +81,9 @@ export default function Manual({ onBack }: { onBack: () => void }) {
         <div className="doc-step"><div className="num">1</div><div className="body"><b>Discover &amp; score</b><p>The Product Hunter finds opportunities and scores each one deterministically — demand 30%, competition 20%, margin 25%, trend 15%, risk 10%. Only products scoring 85+ are marked launch-ready.</p></div></div>
         <div className="doc-step"><div className="num">2</div><div className="body"><b>Build &amp; validate</b><p>Store Builder writes listings, Supplier sources the product, and Finance verifies the unit economics — all before a dollar is spent.</p></div></div>
         <div className="doc-step"><div className="num">3</div><div className="body"><b>Launch &amp; optimize</b><p>Marketing designs the creative, Advertising proposes budgets, and the CEO keeps the whole operation coordinated and reported.</p></div></div>
-        <div className="doc-step"><div className="num">4</div><div className="body"><b>Compound</b><p>Every learning, quote, and report is written to Business Memory and recalled in future runs. The operation gets smarter over time.</p></div></div>
+        <div className="doc-step"><div className="num">4</div><div className="body"><b>Sell &amp; fulfill</b><p>A customer buys. The order arrives here within seconds, the engine buys the goods from the supplier, and the tracking number is pushed back to your store so the customer gets a real shipping email. You do nothing.</p></div></div>
+        <div className="doc-step"><div className="num">5</div><div className="body"><b>Account for every dollar</b><p>Revenue, discounts, refunds, cost of goods, supplier shipping, payment fees and ad spend are all written to a ledger. <b>The Books</b> is a real profit &amp; loss statement — not a projection.</p></div></div>
+        <div className="doc-step"><div className="num">6</div><div className="body"><b>Compound</b><p>Every learning, quote, and report is written to Business Memory and recalled in future runs. The operation gets smarter over time.</p></div></div>
       </section>
 
       <section id="fleet" className="doc-section">
@@ -106,16 +108,30 @@ export default function Manual({ onBack }: { onBack: () => void }) {
         <p>High-risk actions appear in the <b>Approvals</b> section. Each shows the agent, the action, and the exact parameters. <b>Approve</b> executes the stored action immediately; <b>Reject</b> cancels it. Until you decide, the action has not happened.</p>
         <h3>Read the deck</h3>
         <ul>
-          <li><b>Est. Margin Pool</b> — projected per-unit margin across launched products.</li>
-          <li><b>Products / Stores / Agent Runs</b> — the size and activity of your operation.</li>
-          <li><b>Approvals</b> — decisions waiting on you.</li>
-          <li><b>Tokens</b> — how much thinking the engine has done for you.</li>
+          <li><b>Revenue / Net Profit · 30d</b> — real settled money from real orders, straight off the ledger.</li>
+          <li><b>Orders</b> — everything customers have bought, and <b>Need Attention</b> is the count stuck waiting on you.</li>
+          <li><b>Products / Approvals</b> — the size of your catalog and the decisions waiting on you.</li>
+          <li><b>The Books</b> — a full profit &amp; loss statement across five windows, with every ledger entry behind it.</li>
           <li><b>Operations Log</b> — the latest runs with status and output.</li>
           <li><b>Business Memory</b> — everything the fleet has learned and reported.</li>
         </ul>
+
+        <h3>Work the order queue</h3>
+        <p>
+          Orders arrive on their own. Each one shows its stage: <b>Paid — to order</b>, <b>Ordered — in transit</b>,
+          <b> Shipped</b>, or <b>Needs attention</b>. Open any order to see its items, margin, supplier order,
+          tracking number, and a full timeline of everything that happened to it.
+        </p>
+        <p>
+          With <b>auto-fulfillment</b> on, you never touch this — the engine buys and ships every order within the
+          cost cap, hourly. An order only lands in <b>Needs attention</b> when a human genuinely has to decide:
+          a product it can&apos;t source, an unusable address, a payment that never captured, a fraud flag, or a cost
+          above the cap. Clear the blocker and hit <b>Clear hold</b> to put it back in the queue.
+        </p>
         <div className="doc-note"><b>Tip:</b> the sharper your task, the sharper the result. Put real specifics (product, price, channel, budget) into the prompt.</div>
         <h3>Connect Shopify (publish products live)</h3>
-        <p>In Shopify → <b>Settings → Apps and sales channels → Develop apps</b> (the Dev Dashboard) → create an app, add the <code>write_products</code> scope, and release it. Copy the app&apos;s <b>Client ID</b> and <b>Client Secret</b> and paste them into the <b>Shopify Connection</b> panel with your store domain. The platform mints short-lived tokens automatically. Then hit <b>Publish</b> on any product in the Catalog, or ask the Store Builder to <i>&quot;publish our best product to Shopify.&quot;</i> Shopify doesn&apos;t allow creating brand-new stores by API — connect an existing store.</p>
+        <p>In Shopify → <b>Settings → Apps and sales channels → Develop apps</b> (the Dev Dashboard) → create an app, add the <code>write_products</code>, <code>read_orders</code>, and <code>write_fulfillments</code> scopes, and release it. Copy the app&apos;s <b>Client ID</b> and <b>Client Secret</b> and paste them into the <b>Shopify Connection</b> panel with your store domain. The platform mints short-lived tokens automatically. Then hit <b>Publish</b> on any product in the Catalog, or ask the Store Builder to <i>&quot;publish our best product to Shopify.&quot;</i> Shopify doesn&apos;t allow creating brand-new stores by API — connect an existing store.</p>
+        <div className="doc-note"><b>The order scopes matter.</b> Without <code>read_orders</code> the business can publish products but never learn that any of them sold, and without <code>write_fulfillments</code> it can buy the goods but never tell your customer their package is on the way.</div>
       </section>
 
       <section id="owner" className="doc-section">
@@ -133,14 +149,11 @@ export default function Manual({ onBack }: { onBack: () => void }) {
 
       <section id="autonomous" className="doc-section">
         <h2>5 · The 24/7 Cycle</h2>
-        <p>
-          A scheduled autonomous cycle runs on its own every day. The CEO reviews each organization, then <b>moves the
-          business forward</b> — hunting new products when the pipeline is thin, drafting listings, verifying economics,
-          briefing creative, and queuing any high-risk actions for your approval. It never waits on a human to keep
-          going; it parks anything risky in your Approvals queue and files a report to memory.
-        </p>
-        <p>These operating prompts are for when you want to drive manually. The autonomous cycle handles the rest.</p>
-        <div className="doc-note"><b>Autopilot (98% autonomous).</b> With Autopilot engaged (the bar at the top of your deck), the engine auto-approves routine gated actions within safe limits — creating stores, killing products, ad budgets up to $50/day, and refunds up to $50. Only larger budgets and refunds escalate to you. Switch to Manual anytime to gate everything again.</div>
+        <p>Two schedules run on their own, at very different speeds.</p>
+        <div className="doc-step"><div className="num">⏱</div><div className="body"><b>Every hour — the fulfillment heartbeat</b><p>Pulls new orders from your store, buys the goods from the supplier for everything within the cost cap, polls for tracking numbers, and pushes shipping confirmations to your customers. No agent, no thinking — just the operational loop that a customer actually feels. This is the clock your business runs on.</p></div></div>
+        <div className="doc-step"><div className="num">☀</div><div className="body"><b>Every day — the CEO cycle</b><p>The CEO reviews the whole business and <b>moves it forward</b>: clearing the order pipeline first, then reading the real P&amp;L and acting on whatever is eating the margin, then growth — new products, listings, economics, creative. It never waits on a human; anything risky is parked in your Approvals queue and reported to memory.</p></div></div>
+        <p>The operating prompts below are for when you want to drive manually. The two cycles handle the rest.</p>
+        <div className="doc-note"><b>Autopilot (98% autonomous).</b> With Autopilot engaged (the bar at the top of your deck), the engine auto-approves routine gated actions within safe limits — creating stores, killing products, ad budgets up to $50/day, refunds up to $50, and supplier orders up to $150. Only larger amounts escalate to you. Switch to Manual anytime to gate everything again.</div>
       </section>
 
       <section id="prompts" className="doc-section">
@@ -164,8 +177,11 @@ export default function Manual({ onBack }: { onBack: () => void }) {
         <Prompt>Score this opportunity and save it: portable neck fan — demand 82, competition 60, margin 70, trend 88, risk 20.</Prompt>
         <Prompt>List our catalog and rank everything by score.</Prompt>
 
-        <h3>Supplier</h3>
+        <h3>Supplier &amp; Fulfillment</h3>
         <Prompt>Evaluate sourcing options for our best product across CJ Dropshipping, AliExpress, Spocket, and Zendrop. Compare landed cost and shipping, and record the best quote to memory.</Prompt>
+        <Prompt>Run a full fulfillment sweep, then tell me exactly which orders are still stuck and what each one needs from me.</Prompt>
+        <Prompt>Sync the latest orders and give me a one-line status for every order that isn&apos;t shipped yet.</Prompt>
+        <Prompt gated>Place the supplier order for our largest pending order and confirm the landed cost.</Prompt>
 
         <h3>Store Builder</h3>
         <Prompt>Write a high-converting product listing for our best product: title, description, and price. Update the product.</Prompt>
@@ -179,26 +195,34 @@ export default function Manual({ onBack }: { onBack: () => void }) {
         <Prompt gated>Set the TikTok daily ad budget to $50 for our best launch and record why.</Prompt>
 
         <h3>Finance</h3>
+        <Prompt>Read the last 30 days of the P&amp;L and tell me plainly whether we made money, and which single line item moved the needle most.</Prompt>
+        <Prompt>Compare this week&apos;s P&amp;L to the last 30 days. Is our margin improving or eroding, and why?</Prompt>
+        <Prompt>Record $240 of TikTok ad spend for yesterday, then re-read the P&amp;L and tell me our true net margin.</Prompt>
         <Prompt>Compute unit economics for price 39.99, cost 9.50, ad cost per order 8. Tell me profit per order and net margin.</Prompt>
         <Prompt>Run the margin math on our launch-ready products and tell me which has the strongest unit economics.</Prompt>
         <Prompt>Build a 12-month financial forecast from our current catalog and unit economics.</Prompt>
         <div className="doc-note"><b>Live Forecast tab.</b> The <b>Forecast</b> button in the nav opens a 12-month projection built from your real catalog — three scenarios, unit economics, and monthly revenue/profit. It updates as your catalog grows.</div>
 
         <h3>Support</h3>
-        <Prompt>Draft an empathetic reply to a customer whose order is 5 days late and asking for an update.</Prompt>
+        <Prompt>Look up order #1042 and draft a reply to the customer with the real tracking number and a realistic delivery window.</Prompt>
+        <Prompt>Draft an empathetic reply to a customer whose order is 5 days late — look the order up first and be specific about where it actually is.</Prompt>
         <Prompt gated>Issue a $39.99 refund for order #12345 — item arrived damaged.</Prompt>
       </section>
 
       <section id="guardrails" className="doc-section">
         <h2>7 · Guardrails</h2>
-        <p>Four actions are irreversible or move money, so they always stop for your approval — no matter which agent requests them:</p>
+        <p>Five actions are irreversible or move money, so they stop for your approval — no matter which agent requests them:</p>
         <ul>
+          <li><b>Buying goods from the supplier</b> above the cost cap (Supplier)</li>
           <li><b>Creating a store</b> (Store Builder)</li>
           <li><b>Setting an ad budget</b> (Advertising)</li>
           <li><b>Issuing a refund</b> (Support)</li>
           <li><b>Killing a product</b> (CEO)</li>
         </ul>
         <p>Everything else — research, scoring, listings, briefs, economics, drafts — runs autonomously. The engine makes reasonable assumptions and acts rather than stalling, and it never asks you for information it can look up itself.</p>
+        <div className="doc-note"><b>Spending real cash has its own limit.</b> Placing a supplier order is the only autonomous action that sends money to an outside company, so it is gated twice: auto-fulfillment has to be on at all, and the individual order has to cost no more than <code>AUTOPILOT_MAX_ORDER_COST</code> (default $150). Anything larger waits in your queue. An order is also never bought twice — a retry after a network failure recognizes the order was already placed.</div>
+        <div className="doc-note"><b>The books cannot be double-counted.</b> Every ledger entry carries a key derived from what it represents, so a redelivered webhook, a repeated sync, or a retried fulfillment can never post the same revenue or cost twice.</div>
+        <div className="doc-note"><b>Orders are verified, not trusted.</b> Every webhook is checked against your Shopify signing secret before a single number reaches the ledger. Unsigned or altered deliveries are rejected outright.</div>
         <div className="doc-note"><b>Scoring is deterministic.</b> Agents can&apos;t invent launch scores — they compute them with the platform&apos;s fixed model, so launch decisions are reproducible and auditable.</div>
       </section>
 

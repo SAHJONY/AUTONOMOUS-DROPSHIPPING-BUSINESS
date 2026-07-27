@@ -1,6 +1,7 @@
 import { json, error } from "@/lib/api";
 import { CRON_SECRET } from "@/lib/config";
 import { autoApprovePending, runAgent } from "@/lib/brain";
+import { runFulfillmentCycle } from "@/lib/fulfillment";
 import {
   autoPublishReady,
   autonomousSource,
@@ -39,22 +40,30 @@ async function handle(req: Request) {
       // Only run the heavy CEO cycle for orgs with real integrations connected.
       if (!shop && !cjc) continue;
 
-      // 1. Source real products from the supplier (CJ) when stock is thin.
+      // 1. Ship what's already sold. Paid orders outrank everything else, so
+      //    this runs before any model call — even if the CEO cycle later fails,
+      //    customers still get their packages.
+      const fulfillment = shop ? await runFulfillmentCycle(org.id) : null;
+
+      // 2. Source real products from the supplier (CJ) when stock is thin.
       const sourced = await autonomousSource(org.id);
 
-      // 2. Run the CEO cycle to advance the business.
+      // 3. Run the CEO cycle to advance the business.
       const run = await runAgent({
         orgId: org.id,
         agentName: "ceo",
         task:
-          "Autonomous 24/7 cycle. Move the business forward, don't just report. Review the snapshot and " +
-          "catalog; if a supplier is connected, ensure the store is stocked; for the best ready_to_launch " +
-          "products write listings and verify unit economics; dispatch marketing for a creative brief on " +
-          "the top product; queue any high-risk actions for owner approval — never wait on them; file a " +
+          "Autonomous 24/7 cycle. Move the business forward, don't just report. Start with the business " +
+          "snapshot. Clear the order pipeline first: dispatch the supplier agent to fulfill anything " +
+          "pending and to explain every on_hold order. Then read the real P&L — if it shows a loss, " +
+          "name the line item causing it and act on it before spending anywhere else. Then growth: if a " +
+          "supplier is connected ensure the store is stocked, write listings for the best " +
+          "ready_to_launch products, verify unit economics, and dispatch marketing for a creative brief " +
+          "on the top seller. Queue high-risk actions for owner approval — never wait on them. File a " +
           "concise report to memory. Make reasonable assumptions; never stop to ask a human.",
       });
 
-      // 3. Auto-approve within thresholds, then publish everything ready.
+      // 4. Auto-approve within thresholds, then publish everything ready.
       const autoApproved = await autoApprovePending(org.id);
       const published = await autoPublishReady(org.id);
       results.push({
@@ -62,6 +71,7 @@ async function handle(req: Request) {
         name: org.name,
         run_id: run.id,
         status: run.status,
+        fulfillment,
         sourced: sourced.imported,
         source_error: sourced.error,
         auto_approved: autoApproved,

@@ -1,6 +1,17 @@
 import { error, json, requireOrg } from "@/lib/api";
-import { clearShopifyCreds, getShopifyCreds, setShopifyCreds } from "@/lib/store";
-import { mintAccessToken, normalizeShop, testShopifyToken } from "@/lib/shopify";
+import { PUBLIC_BASE_URL, SHOPIFY_WEBHOOK_SECRET } from "@/lib/config";
+import {
+  clearShopifyCreds,
+  getShopifyCreds,
+  resolveShopifyToken,
+  setShopifyCreds,
+} from "@/lib/store";
+import {
+  mintAccessToken,
+  normalizeShop,
+  registerShopifyWebhooks,
+  testShopifyToken,
+} from "@/lib/shopify";
 import type { ShopifyCreds } from "@/lib/shopify";
 
 export const runtime = "nodejs";
@@ -64,5 +75,42 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   if (!test.ok) return error(`Connected to Shopify but the token was rejected: ${test.error}`, 400);
 
   await setShopifyCreds(orgId, creds);
-  return json({ connected: true, shop, name: test.name });
+
+  // Subscribe to the order feed straight away. Without this the business can
+  // publish products but never learn that any of them sold.
+  const webhooks = await subscribeToOrderFeed(orgId);
+
+  return json({ connected: true, shop, name: test.name, webhooks });
+}
+
+/**
+ * Register (or refresh) this store's order webhooks. Reported rather than
+ * enforced: a store with no public callback URL or no webhook secret still
+ * connects fine and falls back to the polling sync in the fulfillment cron.
+ */
+async function subscribeToOrderFeed(orgId: string) {
+  if (!PUBLIC_BASE_URL) {
+    return { registered: false, reason: "PUBLIC_BASE_URL is not set — using polling sync instead." };
+  }
+  if (!SHOPIFY_WEBHOOK_SECRET) {
+    return {
+      registered: false,
+      reason: "SHOPIFY_WEBHOOK_SECRET is not set — deliveries could not be verified, using polling sync instead.",
+    };
+  }
+  const resolved = await resolveShopifyToken(orgId);
+  if (!resolved.ok || !resolved.token || !resolved.shop) {
+    return { registered: false, reason: resolved.error ?? "Could not resolve an admin token." };
+  }
+  const result = await registerShopifyWebhooks(
+    resolved.shop,
+    resolved.token,
+    `${PUBLIC_BASE_URL}/api/webhooks/shopify`,
+  );
+  return {
+    registered: result.ok,
+    created: result.created,
+    existing: result.existing,
+    errors: result.errors,
+  };
 }

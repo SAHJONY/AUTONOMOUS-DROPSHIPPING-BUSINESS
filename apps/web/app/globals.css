@@ -932,3 +932,216 @@ code { color: var(--grey); font-size: 0.78rem; word-break: break-word; font-fami
 .agent-doc .ad .gate { color: var(--amber); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
 
 .doc-cta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 40px; }
+
+/* =========================================================================
+   Orders & the Books — the back half of the business
+   ========================================================================= */
+
+/* Real-money metrics read differently from activity counters. */
+.metric .value.profit { color: var(--green); }
+.metric .value.loss { color: var(--red); }
+
+.chip-on {
+  color: var(--white);
+  border-color: var(--accent);
+  background: rgba(91, 140, 255, 0.14);
+}
+.chip-alert { color: var(--amber); border-color: rgba(240, 182, 74, 0.4); }
+.chip-alert.chip-on { background: rgba(240, 182, 74, 0.14); border-color: var(--amber); }
+
+.stage-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+
+/* ---------- Order list ---------- */
+
+.orders { display: flex; flex-direction: column; gap: 10px; }
+
+.order {
+  border-radius: 14px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  overflow: hidden;
+}
+.order-alert { box-shadow: inset 0 0 0 1px rgba(240, 182, 74, 0.38); }
+
+.order-head {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, auto) 1fr minmax(0, auto);
+  gap: 16px;
+  align-items: center;
+  padding: 16px 18px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.order-head:hover { background: rgba(255, 255, 255, 0.025); }
+
+.oh-main { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.oh-num { font-weight: 600; letter-spacing: 0.04em; color: var(--white); }
+.oh-meta { color: var(--grey-dim); font-size: 0.8rem; display: flex; gap: 8px; flex-wrap: wrap; }
+.oh-sep { color: var(--grey-dark); }
+.oh-total {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.02rem;
+  color: var(--white);
+  white-space: nowrap;
+  text-align: right;
+}
+.oh-refund { color: var(--red); font-size: 0.78rem; margin-left: 8px; }
+
+.order-hold {
+  color: var(--amber);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  padding: 0 18px 15px;
+  background: rgba(240, 182, 74, 0.05);
+}
+
+.order-body { padding: 4px 18px 18px; border-top: 1px solid var(--hairline); }
+
+.order-lines { margin: 16px 0 18px; display: flex; flex-direction: column; gap: 8px; }
+.order-line { display: flex; gap: 12px; align-items: baseline; font-size: 0.86rem; }
+.ol-qty { color: var(--grey-dark); font-variant-numeric: tabular-nums; min-width: 28px; }
+.ol-title { color: var(--white); flex: 1; min-width: 0; }
+.ol-cost { color: var(--grey); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ol-margin { color: var(--grey-dark); font-size: 0.78rem; }
+
+.order-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px;
+  padding: 16px 0;
+  border-top: 1px solid var(--hairline);
+}
+.of-k {
+  display: block;
+  color: var(--grey-dark);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.of-v { color: var(--grey); font-size: 0.85rem; word-break: break-word; }
+.of-v a { color: var(--accent); text-decoration: none; }
+.of-v a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.order-timeline { border-top: 1px solid var(--hairline); padding: 14px 0 4px; }
+.ot-row {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(0, 120px) 1fr;
+  gap: 12px;
+  font-size: 0.78rem;
+  padding: 5px 0;
+}
+.ot-when { color: var(--grey-dark); font-variant-numeric: tabular-nums; }
+.ot-kind { color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; font-size: 10px; }
+.ot-detail { color: var(--grey); line-height: 1.5; }
+
+.order-actions { display: flex; gap: 10px; flex-wrap: wrap; padding-top: 14px; }
+
+/* Pipeline stages reuse the status pill, with their own colour language. */
+.status.shipped, .status.delivered { color: var(--green); border-color: rgba(70, 209, 158, 0.4); }
+.status.on_hold { color: var(--amber); border-color: rgba(240, 182, 74, 0.45); }
+.status.cancelled, .status.refunded { color: var(--red); border-color: rgba(255, 107, 107, 0.35); }
+.status.awaiting_stock { color: var(--accent); border-color: rgba(91, 140, 255, 0.4); }
+
+/* ---------- Profit & loss ---------- */
+
+.pnl-periods { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+
+.pnl-headline {
+  display: flex;
+  gap: 30px;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  padding: 26px;
+  border-radius: var(--radius);
+  background: linear-gradient(130deg, rgba(91, 140, 255, 0.1), rgba(157, 107, 255, 0.06));
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  margin-bottom: 16px;
+}
+.ph-value {
+  font-size: clamp(2.2rem, 5vw, 3.2rem);
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--green);
+  line-height: 1;
+}
+.ph-value.ph-loss, .phs-v.ph-loss { color: var(--red); }
+.ph-label {
+  color: var(--grey-dim);
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-top: 10px;
+}
+.pnl-hero-side { display: flex; gap: 30px; flex-wrap: wrap; }
+.phs-v { font-size: 1.3rem; font-weight: 400; font-variant-numeric: tabular-nums; color: var(--white); }
+.phs-l {
+  color: var(--grey-dark);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+
+.pnl-statement {
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  padding: 8px 22px;
+}
+.pnl-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: baseline;
+  padding: 12px 0;
+  font-size: 0.9rem;
+}
+.pnl-line + .pnl-line { border-top: 1px solid var(--hairline); }
+.pl-label { color: var(--grey); }
+.pl-note { color: var(--grey-dark); font-size: 0.76rem; margin-left: 10px; }
+.pl-value { color: var(--white); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pl-cost { color: var(--grey-dim); }
+.pnl-strong { padding: 15px 0; }
+.pnl-strong .pl-label { color: var(--white); font-weight: 600; letter-spacing: 0.02em; }
+.pnl-strong .pl-value { font-size: 1.06rem; color: var(--green); }
+.pnl-strong .pl-value.pl-loss { color: var(--red); }
+
+.pnl-footnote {
+  color: var(--grey-dark);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  margin-top: 14px;
+  max-width: 640px;
+}
+
+.pnl-ledger { margin-top: 18px; }
+.pnl-ledger summary {
+  color: var(--grey-dim);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 12px 0;
+}
+.pnl-ledger summary:hover { color: var(--white); }
+.table-wrap {
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+  overflow-x: auto;
+}
+
+@media (max-width: 640px) {
+  .order-head { grid-template-columns: 1fr; gap: 8px; }
+  .oh-total { text-align: left; }
+  .ot-row { grid-template-columns: 1fr; gap: 2px; }
+}

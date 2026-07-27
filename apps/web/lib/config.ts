@@ -62,6 +62,51 @@ export const AUTOPILOT_DEFAULT = (process.env.AUTOPILOT ?? "true") !== "false";
 export const AUTOPILOT_MAX_AD_BUDGET = Number(process.env.AUTOPILOT_MAX_AD_BUDGET ?? 50);
 /** Refunds at/below this ($) auto-approve; above it, the owner decides. */
 export const AUTOPILOT_MAX_REFUND = Number(process.env.AUTOPILOT_MAX_REFUND ?? 50);
+/**
+ * Supplier orders costing at/below this ($) are placed automatically. Above it,
+ * the owner approves before any money leaves the account. This is the single
+ * most important safety valve in the system: it is the only autonomous action
+ * that spends real cash on an external platform.
+ */
+export const AUTOPILOT_MAX_ORDER_COST = Number(process.env.AUTOPILOT_MAX_ORDER_COST ?? 150);
+
+/**
+ * Fulfil paid orders at the supplier without being asked. Default ON — a
+ * dropshipping business that doesn't ship is not a business.
+ */
+export const AUTO_FULFILL_DEFAULT = (process.env.AUTO_FULFILL ?? "true") !== "false";
+
+/**
+ * An order is held for review rather than auto-placed when Shopify flags it as
+ * high fraud risk. Shopify's recommendation values are "accept" | "investigate" | "cancel".
+ */
+export const HOLD_RISKY_ORDERS = (process.env.HOLD_RISKY_ORDERS ?? "true") !== "false";
+
+/* --- Payment processing cost model ------------------------------------------
+ * Shopify's order payload does not carry the processing fee, so the books model
+ * it at the standard online card rate (2.9% + $0.30). Override per deployment to
+ * match your actual processor agreement.
+ */
+export const PAYMENT_FEE_RATE = Number(process.env.PAYMENT_FEE_RATE ?? 0.029);
+export const PAYMENT_FEE_FIXED = Number(process.env.PAYMENT_FEE_FIXED ?? 0.3);
+
+/**
+ * Shared secret Shopify signs webhooks with (the app's client secret, or the
+ * secret shown when a webhook is created manually). Without it, webhook
+ * deliveries are rejected — an unauthenticated order feed would let anyone
+ * write revenue into the books.
+ */
+export const SHOPIFY_WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET ?? "";
+
+/**
+ * Public origin of this deployment, used to register Shopify webhook callbacks.
+ * Vercel provides VERCEL_PROJECT_PRODUCTION_URL on production deployments.
+ */
+export const PUBLIC_BASE_URL =
+  process.env.PUBLIC_BASE_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "");
 
 export function isOwnerEmail(email: string | null | undefined): boolean {
   return !!email && email.trim().toLowerCase() === OWNER_EMAIL;

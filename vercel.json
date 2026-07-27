@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/autonomous",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/fulfillment",
+      "schedule": "0 * * * *"
     }
   ]
 }
