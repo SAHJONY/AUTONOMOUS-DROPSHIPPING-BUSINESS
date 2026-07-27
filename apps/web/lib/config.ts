@@ -101,6 +101,11 @@ export const PAYMENT_FEE_FIXED = Number(process.env.PAYMENT_FEE_FIXED ?? 0.3);
  * secret shown when a webhook is created manually). Without it, webhook
  * deliveries are rejected — an unauthenticated order feed would let anyone
  * write revenue into the books.
+ *
+ * Note this is per-deployment, not per-organization: it verifies webhooks from
+ * one Shopify app. Deliveries signed with any other app's secret are rejected
+ * rather than mis-attributed, so this is a single-app limitation, not a hole —
+ * but a genuinely multi-tenant deployment would need a secret per store.
  */
 export const SHOPIFY_WEBHOOK_SECRET = process.env.SHOPIFY_WEBHOOK_SECRET ?? "";
 

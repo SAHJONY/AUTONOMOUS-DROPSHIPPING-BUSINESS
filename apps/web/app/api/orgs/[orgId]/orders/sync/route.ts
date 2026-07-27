@@ -1,4 +1,4 @@
-import { error, json, requireOrg } from "@/lib/api";
+import { error, json, requireOrgRole } from "@/lib/api";
 import { runFulfillmentCycle, syncShopifyOrders } from "@/lib/fulfillment";
 
 export const runtime = "nodejs";
@@ -13,7 +13,9 @@ export const maxDuration = 300;
  */
 export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
-  const auth = await requireOrg(req, orgId);
+  // Owner/admin only: `fulfill` buys goods from the supplier, so this is a
+  // spending endpoint, not a read.
+  const auth = await requireOrgRole(req, orgId);
   if ("response" in auth) return auth.response;
 
   const body = (await req.json().catch(() => ({}))) as { fulfill?: boolean; days?: number };

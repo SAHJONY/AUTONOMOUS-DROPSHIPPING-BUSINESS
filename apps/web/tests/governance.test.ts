@@ -17,6 +17,8 @@ import { POST as register } from "../app/api/auth/register/route";
 import { GET as autonomousCron } from "../app/api/cron/autonomous/route";
 import { GET as stockCron } from "../app/api/cron/stock/route";
 import { GET as fulfillmentCron } from "../app/api/cron/fulfillment/route";
+import { POST as syncOrders } from "../app/api/orgs/[orgId]/orders/sync/route";
+import { POST as driveOrder } from "../app/api/orgs/[orgId]/orders/[orderId]/route";
 import { requireOrgRole } from "../lib/api";
 import { createToken } from "../lib/auth";
 import { OWNER_EMAIL } from "../lib/config";
@@ -130,6 +132,20 @@ test("members cannot execute any privileged organization route", async () => {
     path: string;
     params: Record<string, string>;
   }> = [
+    {
+      // Spends real cash at the supplier for every eligible order.
+      name: "run the fulfillment cycle",
+      handler: asRoute(syncOrders),
+      path: `/api/orgs/${org.id}/orders/sync`,
+      params: { orgId: org.id },
+    },
+    {
+      // `place` bypasses the autonomous cost cap outright.
+      name: "place a supplier order by hand",
+      handler: asRoute(driveOrder),
+      path: `/api/orgs/${org.id}/orders/order_1`,
+      params: { orgId: org.id, orderId: "order_1" },
+    },
     {
       name: "run costly agents",
       handler: asRoute(runAgent),
