@@ -1,4 +1,4 @@
-import { error, json, requireOrg } from "@/lib/api";
+import { error, json, requireOrg, requireOrgRole } from "@/lib/api";
 import { placeSupplierOrder, pushFulfillment, syncTracking } from "@/lib/fulfillment";
 import { estimatedCogs, getOrder, updateOrder } from "@/lib/orders";
 
@@ -33,7 +33,10 @@ export async function POST(
   { params }: { params: Promise<{ orgId: string; orderId: string }> },
 ) {
   const { orgId, orderId } = await params;
-  const auth = await requireOrg(req, orgId);
+  // Owner/admin only. `place` deliberately bypasses the autonomous cost cap —
+  // a human pressing the button IS the approval — so it must not be reachable
+  // by an ordinary member, let alone a read-only viewer.
+  const auth = await requireOrgRole(req, orgId);
   if ("response" in auth) return auth.response;
 
   const order = await getOrder(orgId, orderId);
