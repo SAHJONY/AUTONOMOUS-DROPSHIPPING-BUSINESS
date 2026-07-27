@@ -1,4 +1,4 @@
-import { error, json, requireOrg } from "@/lib/api";
+import { error, json, requireOrgRole } from "@/lib/api";
 import { importFromSupplier } from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -8,7 +8,7 @@ export const maxDuration = 120;
 /** Import real products (with real images + video) from the connected supplier. */
 export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
   const { orgId } = await params;
-  const auth = await requireOrg(req, orgId);
+  const auth = await requireOrgRole(req, orgId);
   if ("response" in auth) return auth.response;
 
   const body = await req.json().catch(() => ({}));

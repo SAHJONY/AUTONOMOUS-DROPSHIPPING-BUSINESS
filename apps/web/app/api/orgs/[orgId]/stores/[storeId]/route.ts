@@ -1,4 +1,4 @@
-import { error, json, requireOrg } from "@/lib/api";
+import { error, json, requireOrgRole } from "@/lib/api";
 import { updateStore } from "@/lib/store";
 import type { Store } from "@/lib/types";
 
@@ -11,7 +11,7 @@ export async function POST(
   { params }: { params: Promise<{ orgId: string; storeId: string }> },
 ) {
   const { orgId, storeId } = await params;
-  const auth = await requireOrg(req, orgId);
+  const auth = await requireOrgRole(req, orgId);
   if ("response" in auth) return auth.response;
 
   const body = await req.json().catch(() => ({}));

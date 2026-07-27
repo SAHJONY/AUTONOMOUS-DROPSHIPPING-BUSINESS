@@ -18,6 +18,9 @@ interface KVDriver {
   smembers(key: string): Promise<string[]>;
   incr(key: string): Promise<number>;
   expire(key: string, seconds: number): Promise<void>;
+  setIfAbsent(key: string, value: Json, seconds: number): Promise<boolean>;
+  append(key: string, value: Json): Promise<void>;
+  range<T = Json>(key: string, start: number, stop: number): Promise<T[]>;
 }
 
 const UPSTASH_URL =
@@ -34,11 +37,13 @@ type MemGlobal = {
   __commerceKV?: Map<string, string>;
   __commerceSets?: Map<string, Set<string>>;
   __commerceExpiry?: Map<string, number>;
+  __commerceLists?: Map<string, string[]>;
 };
 const g = globalThis as unknown as MemGlobal;
 g.__commerceKV ??= new Map();
 g.__commerceSets ??= new Map();
 g.__commerceExpiry ??= new Map();
+g.__commerceLists ??= new Map();
 
 function purgeExpired(key: string): void {
   const expiresAt = g.__commerceExpiry!.get(key);
@@ -46,6 +51,7 @@ function purgeExpired(key: string): void {
     g.__commerceKV!.delete(key);
     g.__commerceSets!.delete(key);
     g.__commerceExpiry!.delete(key);
+    g.__commerceLists!.delete(key);
   }
 }
 
@@ -63,6 +69,7 @@ const memoryDriver: KVDriver = {
     g.__commerceKV!.delete(key);
     g.__commerceSets!.delete(key);
     g.__commerceExpiry!.delete(key);
+    g.__commerceLists!.delete(key);
   },
   async sadd(key: string, member: string): Promise<void> {
     purgeExpired(key);
@@ -84,6 +91,25 @@ const memoryDriver: KVDriver = {
   },
   async expire(key: string, seconds: number): Promise<void> {
     g.__commerceExpiry!.set(key, Date.now() + Math.max(1, seconds) * 1000);
+  },
+  async setIfAbsent(key: string, value: Json, seconds: number): Promise<boolean> {
+    purgeExpired(key);
+    if (g.__commerceKV!.has(key)) return false;
+    g.__commerceKV!.set(key, JSON.stringify(value));
+    g.__commerceExpiry!.set(key, Date.now() + Math.max(1, seconds) * 1000);
+    return true;
+  },
+  async append(key: string, value: Json): Promise<void> {
+    purgeExpired(key);
+    const list = g.__commerceLists!.get(key) ?? [];
+    list.push(JSON.stringify(value));
+    g.__commerceLists!.set(key, list);
+  },
+  async range<T>(key: string, start: number, stop: number): Promise<T[]> {
+    purgeExpired(key);
+    const list = g.__commerceLists!.get(key) ?? [];
+    const normalizedStop = stop < 0 ? list.length + stop : stop;
+    return list.slice(start, normalizedStop + 1).map((value) => JSON.parse(value) as T);
   },
 };
 
@@ -117,6 +143,19 @@ const upstashDriver: KVDriver = {
   },
   async expire(key: string, seconds: number): Promise<void> {
     await client().expire(key, Math.max(1, seconds));
+  },
+  async setIfAbsent(key: string, value: Json, seconds: number): Promise<boolean> {
+    const result = await client().set(key, value as never, {
+      nx: true,
+      ex: Math.max(1, seconds),
+    });
+    return result === "OK";
+  },
+  async append(key: string, value: Json): Promise<void> {
+    await client().rpush(key, value as never);
+  },
+  async range<T>(key: string, start: number, stop: number): Promise<T[]> {
+    return (await client().lrange<T>(key, start, stop)) as T[];
   },
 };
 

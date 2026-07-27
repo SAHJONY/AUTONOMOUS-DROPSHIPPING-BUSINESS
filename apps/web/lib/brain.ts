@@ -21,7 +21,9 @@ import {
 import { getAgent, OPERATING_DIRECTIVE, type Agent, type AgentContext, type ToolDef } from "./agents";
 import {
   autoPublishReady,
-  getApproval,
+  appendApprovalAudit,
+  claimApproval,
+  finalizeApproval,
   getOrgSettings,
   isAutoApprovable,
   listApprovals,
@@ -30,10 +32,9 @@ import {
   remember,
   saveApproval,
   saveRun,
-  updateApproval,
   updateRun,
 } from "./store";
-import type { AgentRun, ApprovalRequest } from "./types";
+import type { AgentRun, ApprovalRequest, Role } from "./types";
 
 let anthropic: Anthropic | null = null;
 function client(): Anthropic {
@@ -304,7 +305,7 @@ export async function autoApprovePending(orgId: string): Promise<number> {
   for (const a of pending) {
     if (isAutoApprovable(a.action, a.payload)) {
       try {
-        await decideApproval(orgId, a.id, "approve", "autopilot");
+        await decideApproval(orgId, a.id, "approve", "autopilot", "owner");
         approved++;
       } catch {
         /* skip on error */
@@ -319,34 +320,82 @@ export async function decideApproval(
   approvalId: string,
   decision: "approve" | "reject",
   userId: string,
+  actorRole: Role,
   reason = "",
 ): Promise<ApprovalRequest> {
-  const approval = await getApproval(orgId, approvalId);
-  if (!approval) throw new Error("Approval request not found");
-  if (approval.status !== "pending") throw new Error("Approval request has already been decided.");
+  const { approval, executionToken } = await claimApproval(
+    orgId,
+    approvalId,
+    userId,
+    actorRole,
+  );
 
   if (decision === "approve") {
-    const agent = getAgent(approval.agent_name);
-    const tool = agent?.tools().find((t) => t.name === approval.action);
-    if (!tool) throw new Error(`Action '${approval.action}' is no longer available.`);
-    const ctx: AgentContext = { orgId, depth: 0, runId: approval.agent_run_id };
-    const result = await tool.handler(ctx, approval.payload);
-    const patch = {
-      status: "approved" as const,
-      result,
-      decided_by: userId,
-      decided_at: nowISO(),
-    };
-    await updateApproval(orgId, approvalId, patch);
-    return { ...approval, ...patch };
+    try {
+      const agent = getAgent(approval.agent_name);
+      const tool = agent?.tools().find((t) => t.name === approval.action);
+      if (!tool) throw new Error(`Action '${approval.action}' is no longer available.`);
+      const ctx: AgentContext = { orgId, depth: 0, runId: approval.agent_run_id };
+      const result = await tool.handler(ctx, approval.payload);
+      const finalized = await finalizeApproval(orgId, approvalId, executionToken, {
+        status: "approved",
+        result,
+        decided_by: userId,
+        decided_at: nowISO(),
+      });
+      await appendApprovalAudit({
+        orgId,
+        requestId: approvalId,
+        actorId: userId,
+        actorRole,
+        action: approval.action,
+        previousState: "executing",
+        nextState: "approved",
+        result: "executed",
+        executionToken,
+      });
+      return finalized;
+    } catch (cause) {
+      const failure = (cause as Error).message;
+      await finalizeApproval(orgId, approvalId, executionToken, {
+        status: "failed",
+        result: "",
+        execution_failure: failure,
+        decided_by: userId,
+        decided_at: nowISO(),
+      });
+      await appendApprovalAudit({
+        orgId,
+        requestId: approvalId,
+        actorId: userId,
+        actorRole,
+        action: approval.action,
+        previousState: "executing",
+        nextState: "failed",
+        result: "failed",
+        failure,
+        executionToken,
+      });
+      throw cause;
+    }
   }
 
-  const patch = {
-    status: "rejected" as const,
+  const finalized = await finalizeApproval(orgId, approvalId, executionToken, {
+    status: "rejected",
     result: reason || "Rejected by the owner.",
     decided_by: userId,
     decided_at: nowISO(),
-  };
-  await updateApproval(orgId, approvalId, patch);
-  return { ...approval, ...patch };
+  });
+  await appendApprovalAudit({
+    orgId,
+    requestId: approvalId,
+    actorId: userId,
+    actorRole,
+    action: approval.action,
+    previousState: "executing",
+    nextState: "rejected",
+    result: "rejected",
+    executionToken,
+  });
+  return finalized;
 }

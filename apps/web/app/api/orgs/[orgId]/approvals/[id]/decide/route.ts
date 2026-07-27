@@ -1,4 +1,4 @@
-import { error, json, requireOrg } from "@/lib/api";
+import { error, json, requireOrgRole } from "@/lib/api";
 import { decideApproval } from "@/lib/brain";
 
 export const runtime = "nodejs";
@@ -9,7 +9,7 @@ export async function POST(
   { params }: { params: Promise<{ orgId: string; id: string }> },
 ) {
   const { orgId, id } = await params;
-  const auth = await requireOrg(req, orgId);
+  const auth = await requireOrgRole(req, orgId);
   if ("response" in auth) return auth.response;
 
   const body = await req.json().catch(() => ({}));
@@ -17,7 +17,14 @@ export async function POST(
   if (!decision) return error("decision must be 'approve' or 'reject'.", 422);
 
   try {
-    const approval = await decideApproval(orgId, id, decision, auth.user.id, String(body.reason ?? ""));
+    const approval = await decideApproval(
+      orgId,
+      id,
+      decision,
+      auth.user.id,
+      auth.role,
+      String(body.reason ?? ""),
+    );
     return json(approval);
   } catch (e) {
     const msg = (e as Error).message;

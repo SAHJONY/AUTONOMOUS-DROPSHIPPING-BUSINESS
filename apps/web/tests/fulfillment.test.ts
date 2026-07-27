@@ -34,6 +34,10 @@ vi.mock("@/lib/store", async (importOriginal) => ({
   resolveShopifyToken: async () => ({ ok: true, shop: "acme.myshopify.com", token: "shpat_x" }),
   resolveCJToken: async () => ({ ok: true, token: "cj_token" }),
   getCJCreds: async () => ({ email: "a@b.c", api_key: "k", connected_at: "" }),
+  // These tests exercise the cycle as it behaves once the owner has unlocked
+  // autonomous fulfillment; the locked-by-default posture is covered by the
+  // governance suite.
+  getOrgSettings: async () => ({ autopilot: true, auto_publish: true, auto_fulfill: true }),
   listProducts: async () => [makeProduct()],
   updateProduct: async () => null,
 }));
