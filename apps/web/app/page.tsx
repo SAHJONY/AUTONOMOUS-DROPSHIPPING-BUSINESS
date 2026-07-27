@@ -926,7 +926,7 @@ export default function Home() {
                   </b>
                   <p>
                     {dashboard.auto_fulfill
-                      ? "Every hour the engine buys the goods for each paid order within the cost cap, then pushes the tracking number to the customer. Orders above the cap wait for you."
+                      ? "On every scheduled pass the engine buys the goods for each paid order within the cost cap, then pushes the tracking number to the customer. Orders above the cap wait for you."
                       : "Nothing is bought from the supplier without you pressing the button. Turn this on to let the business run itself."}
                   </p>
                 </div>

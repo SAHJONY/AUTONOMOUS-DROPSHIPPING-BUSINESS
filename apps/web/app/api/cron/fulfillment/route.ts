@@ -10,10 +10,13 @@ export const maxDuration = 300;
 /**
  * The fulfillment heartbeat.
  *
- * Runs far more often than the daily CEO cycle because it is the clock the
- * customer experiences: every pass pulls new orders, buys the goods for anything
- * within the cost cap, and pushes tracking numbers out. No agent, no model calls
- * — just the operational loop, so it is cheap enough to run hourly.
+ * This is the clock the customer experiences: every pass pulls new orders, buys
+ * the goods for anything within the cost cap, and pushes tracking numbers out.
+ * The daily CEO cycle runs a pass too, so the queue is worked twice a day even
+ * on the default schedule. No agent, no model calls
+ * — just the operational loop, so it is cheap enough to run as often as the
+ * hosting plan allows (hourly on Vercel Pro; twice daily on Hobby, which only
+ * permits daily schedules).
  */
 async function handle(req: Request) {
   if (CRON_SECRET) {
