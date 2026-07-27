@@ -1,5 +1,6 @@
 import { json, error } from "@/lib/api";
-import { CRON_SECRET } from "@/lib/config";
+import { AUTONOMY_ENABLED, CRON_SECRET } from "@/lib/config";
+import { cronGovernanceStatus } from "@/lib/governance";
 import { runFulfillmentCycle } from "@/lib/fulfillment";
 import { getShopifyCreds, listAllOrgs } from "@/lib/store";
 
@@ -19,12 +20,17 @@ export const maxDuration = 300;
  * permits daily schedules).
  */
 async function handle(req: Request) {
-  if (CRON_SECRET) {
-    const header = req.headers.get("authorization") ?? "";
-    const secret = new URL(req.url).searchParams.get("secret") ?? "";
-    if (header !== `Bearer ${CRON_SECRET}` && secret !== CRON_SECRET) {
-      return error("Unauthorized", 401);
-    }
+  // Same fail-closed governance as the other crons: an unconfigured secret
+  // disables the endpoint rather than leaving it open, and the release gate can
+  // stop it spending money even when the secret is right.
+  const header = req.headers.get("authorization") ?? "";
+  const governanceStatus = cronGovernanceStatus(header, CRON_SECRET, AUTONOMY_ENABLED);
+  if (governanceStatus === 503) {
+    return error("Fulfillment cron is disabled: CRON_SECRET is not configured.", 503);
+  }
+  if (governanceStatus === 401) return error("Unauthorized", 401);
+  if (governanceStatus === 423) {
+    return error("Autonomous fulfillment is disabled by the release governance gate.", 423);
   }
 
   const results = [];

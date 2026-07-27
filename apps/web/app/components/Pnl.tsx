@@ -33,9 +33,20 @@ export type LedgerRow = {
   occurred_at: string;
 };
 
+export type ProductRow = {
+  product_id: string | null;
+  title: string;
+  units: number;
+  revenue: number;
+  cogs: number;
+  gross_profit: number;
+  margin_pct: number;
+};
+
 export type PnlData = {
   periods: Record<string, PnlPeriod>;
   entries: LedgerRow[];
+  top_products?: ProductRow[];
 };
 
 const PERIODS = ["today", "7d", "30d", "90d", "all"] as const;
@@ -164,6 +175,38 @@ export default function Pnl({ data }: { data: PnlData }) {
             </p>
           )}
         </>
+      )}
+
+      {!!data.top_products?.length && (
+        <div className="pnl-products">
+          <div className="pp-head">Per product · last 30 days</div>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Units</th>
+                  <th>Revenue</th>
+                  <th>Cost</th>
+                  <th>Gross profit</th>
+                  <th>Margin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.top_products.map((p) => (
+                  <tr key={p.product_id ?? p.title}>
+                    <td>{p.title}</td>
+                    <td>{p.units}</td>
+                    <td>{money(p.revenue)}</td>
+                    <td className="pl-cost">{money(p.cogs)}</td>
+                    <td className={p.gross_profit < 0 ? "pl-loss" : ""}>{money(p.gross_profit)}</td>
+                    <td>{p.margin_pct.toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
 
       {data.entries.length > 0 && (

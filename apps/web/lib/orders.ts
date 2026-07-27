@@ -265,6 +265,61 @@ export function classifyOrder(
   return { stage: "received" };
 }
 
+/* ---------- per-product performance ---------- */
+
+export interface ProductPerformance {
+  product_id: string | null;
+  title: string;
+  units: number;
+  revenue: number;
+  cogs: number;
+  gross_profit: number;
+  margin_pct: number;
+}
+
+/**
+ * What each product actually earned, derived from the orders themselves.
+ *
+ * The ledger is the authority on totals, but it records money per order rather
+ * than per line, so the per-product view is computed here from the persisted
+ * order lines — the same frozen costs the books were built from, which keeps the
+ * two consistent by construction.
+ */
+export function productPerformance(orders: Order[], sinceDays?: number): ProductPerformance[] {
+  const cutoff = sinceDays ? Date.now() - sinceDays * 86_400_000 : null;
+  const rows = new Map<string, ProductPerformance>();
+
+  for (const order of orders) {
+    if (["cancelled", "refunded"].includes(order.stage)) continue;
+    if (cutoff && new Date(order.placed_at).getTime() < cutoff) continue;
+
+    for (const line of order.lines) {
+      const key = line.product_id ?? `title:${line.title}`;
+      const row = rows.get(key) ?? {
+        product_id: line.product_id,
+        title: line.title,
+        units: 0,
+        revenue: 0,
+        cogs: 0,
+        gross_profit: 0,
+        margin_pct: 0,
+      };
+      row.units += line.quantity;
+      row.revenue = r2(row.revenue + line.unit_price * line.quantity);
+      row.cogs = r2(row.cogs + line.unit_cost * line.quantity);
+      rows.set(key, row);
+    }
+  }
+
+  return [...rows.values()]
+    .map((row) => ({
+      ...row,
+      gross_profit: r2(row.revenue - row.cogs),
+      margin_pct: row.revenue > 0 ? r2(((row.revenue - row.cogs) / row.revenue) * 100) : 0,
+    }))
+    .sort((a, b) => b.gross_profit - a.gross_profit);
+}
+
 /* ---------- ingestion ---------- */
 
 /**

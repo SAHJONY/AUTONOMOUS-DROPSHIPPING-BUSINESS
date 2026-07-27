@@ -1,4 +1,4 @@
-import { error, json, requireOrg } from "@/lib/api";
+import { error, json, requireOrgRole } from "@/lib/api";
 import { getAgent } from "@/lib/agents";
 import { runAgent } from "@/lib/brain";
 
@@ -14,7 +14,7 @@ export async function POST(
   { params }: { params: Promise<{ orgId: string; agent: string }> },
 ) {
   const { orgId, agent } = await params;
-  const auth = await requireOrg(req, orgId);
+  const auth = await requireOrgRole(req, orgId);
   if ("response" in auth) return auth.response;
   if (!getAgent(agent)) return error(`Unknown agent '${agent}'`, 404);
 

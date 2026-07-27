@@ -1,4 +1,4 @@
-export type Role = "owner" | "admin" | "member";
+export type Role = "owner" | "admin" | "member" | "viewer";
 
 export type ProductStatus =
   | "discovered"
@@ -14,7 +14,7 @@ export type RunStatus =
   | "completed"
   | "failed";
 
-export type ApprovalStatus = "pending" | "approved" | "rejected";
+export type ApprovalStatus = "pending" | "executing" | "approved" | "failed" | "rejected";
 
 /**
  * Where an order sits in the dropshipping pipeline. This is *our* state, not
@@ -250,6 +250,24 @@ export interface ApprovalRequest {
   decided_by: string | null;
   created_at: string;
   decided_at: string | null;
+  execution_token?: string | null;
+  execution_started_at?: string | null;
+  execution_failure?: string | null;
+}
+
+export interface ApprovalAuditEvent {
+  id: string;
+  org_id: string;
+  request_id: string;
+  actor_id: string;
+  actor_role: Role | "system";
+  action: string;
+  previous_state: ApprovalStatus | null;
+  next_state: ApprovalStatus;
+  result: string;
+  failure: string | null;
+  execution_token: string | null;
+  timestamp: string;
 }
 
 export interface MemoryEntry {
@@ -285,6 +303,8 @@ export interface Dashboard {
   autopilot: boolean;
   auto_publish: boolean;
   auto_fulfill: boolean;
+  autonomy_enabled: boolean;
+  commerce_release_enabled: boolean;
   autonomy_pct: number;
 }
 

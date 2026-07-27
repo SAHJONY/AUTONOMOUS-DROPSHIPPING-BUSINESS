@@ -39,7 +39,7 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npm run typecheck --workspace apps/web
-      - name: Test
+      - name: Test (money loop + governance)
         run: npm run test --workspace apps/web
       - name: Build
         run: npm run build --workspace apps/web

@@ -1,5 +1,5 @@
 import { error, json, requireUser } from "@/lib/api";
-import { createOrg, listOrgsForUser } from "@/lib/store";
+import { createOrg, getUserOrgRole, listOrgsForUser } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -7,7 +7,12 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const auth = await requireUser(req);
   if ("response" in auth) return auth.response;
-  return json(await listOrgsForUser(auth.user));
+  const orgs = await listOrgsForUser(auth.user);
+  return json(
+    await Promise.all(
+      orgs.map(async (org) => ({ ...org, role: await getUserOrgRole(auth.user, org.id) })),
+    ),
+  );
 }
 
 export async function POST(req: Request) {

@@ -155,6 +155,7 @@ export default function Manual({ onBack }: { onBack: () => void }) {
         <div className="doc-note"><b>Want faster fulfillment?</b> Vercel&apos;s Hobby plan only allows cron jobs to run once a day, so an order placed just after a pass can wait up to twelve hours. On the Pro plan, change the fulfillment schedule in <code>vercel.json</code> to <code>0 * * * *</code> and it runs hourly instead. Either way you can hit <b>✦ Fulfill now</b> on the Orders panel to run a pass immediately.</div>
         <p>The operating prompts below are for when you want to drive manually. The two cycles handle the rest.</p>
         <div className="doc-note"><b>Autopilot (98% autonomous).</b> With Autopilot engaged (the bar at the top of your deck), the engine auto-approves routine gated actions within safe limits — creating stores, killing products, ad budgets up to $50/day, refunds up to $50, and supplier orders up to $150. Only larger amounts escalate to you. Switch to Manual anytime to gate everything again.</div>
+        <div className="doc-note"><b>Governance lock.</b> Autonomous approvals and automatic publishing remain disabled until the security, commerce-safety, and accounting release gates pass. Privileged actions require an owner or administrator, and while the lock is on none of the schedules below will spend money or publish anything.</div>
       </section>
 
       <section id="prompts" className="doc-section">

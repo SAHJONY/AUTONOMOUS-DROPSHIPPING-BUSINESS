@@ -57,7 +57,12 @@ export const AGENT_MAX_TOKENS = Number(process.env.AGENT_MAX_TOKENS ?? 16000);
  * gated actions within safe thresholds and only escalates genuinely large or
  * risky ones (big ad budgets, big refunds) to the owner. Default ON.
  */
-export const AUTOPILOT_DEFAULT = (process.env.AUTOPILOT ?? "true") !== "false";
+export const AUTOPILOT_DEFAULT = (process.env.AUTOPILOT ?? "false") === "true";
+/** Master release gate. Keep false until security, commerce and accounting gates pass. */
+export const AUTONOMY_ENABLED = process.env.ENABLE_AUTONOMY === "true";
+/** Hard server-side publishing gate. PR B owns enabling this safely. */
+export const COMMERCE_RELEASE_ENABLED = process.env.COMMERCE_RELEASE_ENABLED === "true";
+
 /** Ad budgets at/below this ($/day) auto-approve; above it, the owner decides. */
 export const AUTOPILOT_MAX_AD_BUDGET = Number(process.env.AUTOPILOT_MAX_AD_BUDGET ?? 50);
 /** Refunds at/below this ($) auto-approve; above it, the owner decides. */
@@ -71,10 +76,11 @@ export const AUTOPILOT_MAX_REFUND = Number(process.env.AUTOPILOT_MAX_REFUND ?? 5
 export const AUTOPILOT_MAX_ORDER_COST = Number(process.env.AUTOPILOT_MAX_ORDER_COST ?? 150);
 
 /**
- * Fulfil paid orders at the supplier without being asked. Default ON — a
- * dropshipping business that doesn't ship is not a business.
+ * Fulfil paid orders at the supplier without being asked. Fail-closed, in line
+ * with the master release gates: this is the one loop that spends real cash on
+ * an external platform, so it stays off until the owner turns it on.
  */
-export const AUTO_FULFILL_DEFAULT = (process.env.AUTO_FULFILL ?? "true") !== "false";
+export const AUTO_FULFILL_DEFAULT = process.env.AUTO_FULFILL === "true";
 
 /**
  * An order is held for review rather than auto-placed when Shopify flags it as
