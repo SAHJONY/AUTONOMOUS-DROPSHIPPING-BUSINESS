@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/cron/fulfillment",
-      "schedule": "0 * * * *"
+      "schedule": "0 20 * * *"
     }
   ]
 }

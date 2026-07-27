@@ -124,7 +124,7 @@ export default function Manual({ onBack }: { onBack: () => void }) {
         </p>
         <p>
           With <b>auto-fulfillment</b> on, you never touch this — the engine buys and ships every order within the
-          cost cap, hourly. An order only lands in <b>Needs attention</b> when a human genuinely has to decide:
+          cost cap, on every scheduled pass. An order only lands in <b>Needs attention</b> when a human genuinely has to decide:
           a product it can&apos;t source, an unusable address, a payment that never captured, a fraud flag, or a cost
           above the cap. Clear the blocker and hit <b>Clear hold</b> to put it back in the queue.
         </p>
@@ -150,8 +150,9 @@ export default function Manual({ onBack }: { onBack: () => void }) {
       <section id="autonomous" className="doc-section">
         <h2>5 · The 24/7 Cycle</h2>
         <p>Two schedules run on their own, at very different speeds.</p>
-        <div className="doc-step"><div className="num">⏱</div><div className="body"><b>Every hour — the fulfillment heartbeat</b><p>Pulls new orders from your store, buys the goods from the supplier for everything within the cost cap, polls for tracking numbers, and pushes shipping confirmations to your customers. No agent, no thinking — just the operational loop that a customer actually feels. This is the clock your business runs on.</p></div></div>
-        <div className="doc-step"><div className="num">☀</div><div className="body"><b>Every day — the CEO cycle</b><p>The CEO reviews the whole business and <b>moves it forward</b>: clearing the order pipeline first, then reading the real P&amp;L and acting on whatever is eating the margin, then growth — new products, listings, economics, creative. It never waits on a human; anything risky is parked in your Approvals queue and reported to memory.</p></div></div>
+        <div className="doc-step"><div className="num">☀</div><div className="body"><b>08:00 UTC — the CEO cycle</b><p>The CEO reviews the whole business and <b>moves it forward</b>: clearing the order pipeline first, then reading the real P&amp;L and acting on whatever is eating the margin, then growth — new products, listings, economics, creative. It never waits on a human; anything risky is parked in your Approvals queue and reported to memory.</p></div></div>
+        <div className="doc-step"><div className="num">⏱</div><div className="body"><b>20:00 UTC — the fulfillment heartbeat</b><p>Pulls new orders from your store, buys the goods from the supplier for everything within the cost cap, polls for tracking numbers, and pushes shipping confirmations to your customers. No agent, no thinking — just the operational loop that a customer actually feels. The CEO cycle runs a pass too, so orders are worked twice a day, twelve hours apart.</p></div></div>
+        <div className="doc-note"><b>Want faster fulfillment?</b> Vercel&apos;s Hobby plan only allows cron jobs to run once a day, so an order placed just after a pass can wait up to twelve hours. On the Pro plan, change the fulfillment schedule in <code>vercel.json</code> to <code>0 * * * *</code> and it runs hourly instead. Either way you can hit <b>✦ Fulfill now</b> on the Orders panel to run a pass immediately.</div>
         <p>The operating prompts below are for when you want to drive manually. The two cycles handle the rest.</p>
         <div className="doc-note"><b>Autopilot (98% autonomous).</b> With Autopilot engaged (the bar at the top of your deck), the engine auto-approves routine gated actions within safe limits — creating stores, killing products, ad budgets up to $50/day, refunds up to $50, and supplier orders up to $150. Only larger amounts escalate to you. Switch to Manual anytime to gate everything again.</div>
       </section>

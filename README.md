@@ -10,9 +10,9 @@ tracking, and accounting for every dollar.** High-risk decisions — budget chan
 creation, killing products, and spending above the supplier cost cap — stop for human approval.
 
 The production app runs **entirely on Vercel** — Next.js route handlers are the backend, Upstash
-Redis (with an in-memory fallback) is the datastore, and two Vercel Crons drive the operation: an
-hourly fulfillment heartbeat and a daily CEO cycle. Sign in and manage the whole operation from an
-ultra-premium cinematic command deck.
+Redis (with an in-memory fallback) is the datastore, and two Vercel Crons drive the operation: a
+fulfillment heartbeat and a CEO cycle. Sign in and manage the whole operation from an ultra-premium
+cinematic command deck.
 
 ## The full loop
 
@@ -121,7 +121,7 @@ Key design decisions:
   recall them in later runs — the operation compounds.
 - **Graceful degradation**: with no `ANTHROPIC_API_KEY` the brain runs in deterministic
   **simulation mode**, so the platform is fully usable out of the box; set the key to go live.
-  Without webhook configuration, orders are still collected by the hourly polling sync.
+  Without webhook configuration, orders are still collected by the polling sync on each cron pass.
 
 ## Deploy on Vercel
 
@@ -133,10 +133,29 @@ Key design decisions:
      (Vercel's Upstash marketplace integration also provides `KV_REST_API_URL/TOKEN`).
    - `CRON_SECRET` — authorizes both crons.
    - `SHOPIFY_WEBHOOK_SECRET` + `PUBLIC_BASE_URL` — real-time orders. Without them the app falls
-     back to polling Shopify hourly, which still works but is not instant.
+     back to polling Shopify on each cron pass, which still works but is not instant.
 3. Deploy. Two crons run from `vercel.json`:
-   - `/api/cron/fulfillment` **hourly** — pulls orders, buys the goods, ships with tracking.
-   - `/api/cron/autonomous` **daily** — the CEO cycle: clear the pipeline, read the books, grow.
+   - `/api/cron/autonomous` at **08:00 UTC** — the CEO cycle: clear the pipeline, read the books, grow.
+   - `/api/cron/fulfillment` at **20:00 UTC** — pulls orders, buys the goods, ships with tracking.
+
+   The autonomous cycle runs a fulfillment pass before anything else, so orders are worked **twice a
+   day, twelve hours apart**, on the default schedule.
+
+### Fulfillment cadence and your Vercel plan
+
+Vercel's **Hobby** plan only permits *daily* cron schedules, which is why fulfillment is pinned to a
+fixed time rather than running hourly. That is a real product constraint: on Hobby, an order placed
+just after a run waits up to twelve hours before the supplier is paid and the customer is told their
+package is moving.
+
+On **Pro**, change one line in `vercel.json` to close that gap:
+
+```json
+{ "path": "/api/cron/fulfillment", "schedule": "0 * * * *" }
+```
+
+Nothing else needs to change — the cycle is idempotent and safe to run as often as you like. You can
+also press **✦ Fulfill now** on the Orders panel at any time, on any plan, to run a pass immediately.
 
 ### Connecting a Shopify store
 
@@ -176,7 +195,7 @@ Without any env vars the app boots in simulation + in-memory mode. Add `.env.loc
 | `GET /api/orgs/{org}/dashboard` | Metrics summary |
 | `GET /api/orgs/{org}/memory` | Business memory |
 | `GET /api/admin/overview` | **Owner-only** platform god-mode |
-| `GET/POST /api/cron/fulfillment` | Hourly fulfillment heartbeat (cron-secured) |
+| `GET/POST /api/cron/fulfillment` | Fulfillment heartbeat (cron-secured) |
 | `GET/POST /api/cron/autonomous` | Daily CEO cycle (cron-secured) |
 
 ## Tests
