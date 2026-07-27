@@ -1145,3 +1145,12 @@ code { color: var(--grey); font-size: 0.78rem; word-break: break-word; font-fami
   .oh-total { text-align: left; }
   .ot-row { grid-template-columns: 1fr; gap: 2px; }
 }
+
+.pnl-products { margin-top: 20px; }
+.pp-head {
+  color: var(--grey-dim);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 12px 0;
+}

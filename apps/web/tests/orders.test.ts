@@ -8,6 +8,7 @@ import {
   listOrders,
   mapShopifyOrder,
   matchProduct,
+  productPerformance,
   recordRefund,
   saleEntries,
   totalUnits,
@@ -306,5 +307,80 @@ describe("recordRefund (persisted)", () => {
 
   it("ignores a refund for an order we never saw", async () => {
     expect(await recordRefund("org1", "does-not-exist", 10, "refund_x")).toBeNull();
+  });
+});
+
+describe("productPerformance", () => {
+  it("attributes units, revenue, cost and margin to each product", () => {
+    const rows = productPerformance([
+      makeOrder({ id: "a" }),
+      makeOrder({
+        id: "b",
+        lines: [
+          { ...makeOrder().lines[0], quantity: 1 },
+          {
+            sku: "prod_2",
+            title: "Halo Neck Fan",
+            quantity: 3,
+            unit_price: 20,
+            product_id: "prod_2",
+            unit_cost: 5,
+          },
+        ],
+      }),
+    ]);
+
+    const lamp = rows.find((r) => r.product_id === "prod_1")!;
+    // 2 units at 29.99 plus 1 more = 3 units, cost 9 each.
+    expect(lamp.units).toBe(3);
+    expect(lamp.revenue).toBe(89.97);
+    expect(lamp.cogs).toBe(27);
+    expect(lamp.gross_profit).toBe(62.97);
+
+    const fan = rows.find((r) => r.product_id === "prod_2")!;
+    expect(fan.units).toBe(3);
+    expect(fan.gross_profit).toBe(45);
+    expect(fan.margin_pct).toBe(75);
+  });
+
+  it("ranks by gross profit, not revenue", () => {
+    const rows = productPerformance([
+      makeOrder({
+        id: "a",
+        lines: [
+          { ...makeOrder().lines[0], quantity: 1, unit_price: 100, unit_cost: 95 },
+          {
+            sku: "b",
+            title: "Better margin",
+            quantity: 1,
+            unit_price: 50,
+            product_id: "p2",
+            unit_cost: 5,
+          },
+        ],
+      }),
+    ]);
+    expect(rows[0].title).toBe("Better margin");
+  });
+
+  it("excludes cancelled and refunded orders from product performance", () => {
+    expect(
+      productPerformance([
+        makeOrder({ id: "a", stage: "cancelled" }),
+        makeOrder({ id: "b", stage: "refunded" }),
+      ]),
+    ).toHaveLength(0);
+  });
+
+  it("groups unmatched lines by title so nothing sold goes unreported", () => {
+    const rows = productPerformance([
+      makeOrder({
+        id: "a",
+        lines: [{ ...makeOrder().lines[0], product_id: null, title: "Mystery Item" }],
+      }),
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].product_id).toBeNull();
+    expect(rows[0].title).toBe("Mystery Item");
   });
 });
