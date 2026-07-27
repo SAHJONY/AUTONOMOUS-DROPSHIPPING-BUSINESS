@@ -52,6 +52,8 @@ type Product = {
   storefront_url?: string; image_url?: string; video_url?: string; images?: string[];
   supplier?: string; created_at: string;
 };
+type ReadinessCheck = { id: string; label: string; level: "blocker" | "warning" | "ok"; detail: string; fix?: string };
+type Readiness = { ready: boolean; blockers: number; warnings: number; checks: ReadinessCheck[] };
 type ShopifyStatus = { connected: boolean; shop: string | null };
 type HiggsfieldStatus = { connected: boolean };
 type StoreItem = { id: string; name: string; platform: string; url: string; status: string; created_at: string };
@@ -114,6 +116,7 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [pnl, setPnl] = useState<PnlData | null>(null);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
   const [orderBusy, setOrderBusy] = useState<string | null>(null);
   const [fulfilling, setFulfilling] = useState(false);
   const [stores, setStores] = useState<StoreItem[]>([]);
@@ -215,6 +218,7 @@ export default function Home() {
       setShopify(shop);
       setOrders(ords);
       setPnl(books);
+      api(`/orgs/${orgId}/readiness`).then(setReadiness).catch(() => {});
       api(`/orgs/${orgId}/integrations/higgsfield`).then(setHiggs).catch(() => {});
       api(`/orgs/${orgId}/integrations/cj`).then(setCj).catch(() => {});
       if (me?.is_owner) {
@@ -271,6 +275,7 @@ export default function Home() {
     setProducts([]);
     setOrders([]);
     setPnl(null);
+    setReadiness(null);
     setStores([]);
     setAdmin(null);
     setShowManual(false);
@@ -815,6 +820,36 @@ export default function Home() {
               </p>
             </div>
           </div>
+        )}
+
+        {readiness && (readiness.blockers > 0 || readiness.warnings > 0) && (
+          <section>
+            <div className="section-head">
+              <h2>Go-live checklist</h2>
+              <span className="hint">
+                {readiness.blockers > 0
+                  ? `${readiness.blockers} blocker(s) — not safe to trade`
+                  : `${readiness.warnings} thing(s) to look at`}
+              </span>
+            </div>
+            <div className="checks">
+              {readiness.checks
+                .filter((c) => c.level !== "ok")
+                .map((c) => (
+                  <div className={`check check-${c.level}`} key={c.id}>
+                    <div className="ck-top">
+                      <span className="ck-icon">{c.level === "blocker" ? "■" : "▲"}</span>
+                      <b>{c.label}</b>
+                      <span className={`status ${c.level === "blocker" ? "failed" : "pending"}`}>
+                        {c.level}
+                      </span>
+                    </div>
+                    <p>{c.detail}</p>
+                    {c.fix && <p className="ck-fix">Fix: {c.fix}</p>}
+                  </div>
+                ))}
+            </div>
+          </section>
         )}
 
         {dashboard && (

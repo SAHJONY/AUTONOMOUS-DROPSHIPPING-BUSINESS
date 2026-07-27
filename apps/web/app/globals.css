@@ -1154,3 +1154,21 @@ code { color: var(--grey); font-size: 0.78rem; word-break: break-word; font-fami
   text-transform: uppercase;
   padding: 12px 0;
 }
+
+/* ---------- Go-live checklist ---------- */
+
+.checks { display: flex; flex-direction: column; gap: 10px; }
+.check {
+  border-radius: 14px;
+  padding: 16px 18px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--hairline);
+}
+.check-blocker { box-shadow: inset 0 0 0 1px rgba(255, 107, 107, 0.45); background: rgba(255, 107, 107, 0.05); }
+.check-warning { box-shadow: inset 0 0 0 1px rgba(240, 182, 74, 0.38); }
+.ck-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.ck-top b { font-size: 0.95rem; letter-spacing: 0.02em; }
+.check-blocker .ck-icon { color: var(--red); }
+.check-warning .ck-icon { color: var(--amber); }
+.check p { color: var(--grey); font-size: 0.85rem; line-height: 1.6; max-width: 760px; }
+.ck-fix { color: var(--accent); margin-top: 8px; font-size: 0.82rem; }
