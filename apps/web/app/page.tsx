@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Manual from "./components/Manual";
 import Forecast, { type ForecastData } from "./components/Forecast";
+import Orders, { type OrderRow } from "./components/Orders";
+import Pnl, { type PnlData } from "./components/Pnl";
 
 const API = "/api";
 
@@ -16,10 +18,18 @@ type Dashboard = {
   total_tokens_used: number;
   memory_entries: number;
   revenue_estimate: number;
+  orders_total: number;
+  orders_awaiting_fulfillment: number;
+  orders_on_hold: number;
+  revenue_30d: number;
+  net_profit_30d: number;
+  net_margin_30d: number;
+  aov_30d: number;
   engine: string;
   engine_online: boolean;
   autopilot: boolean;
   auto_publish: boolean;
+  auto_fulfill: boolean;
   autonomy_pct: number;
 };
 type AgentInfo = { name: string; description: string; tools: string[]; high_risk_tools: string[] };
@@ -97,6 +107,10 @@ export default function Home() {
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [memory, setMemory] = useState<MemoryEntry[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [pnl, setPnl] = useState<PnlData | null>(null);
+  const [orderBusy, setOrderBusy] = useState<string | null>(null);
+  const [fulfilling, setFulfilling] = useState(false);
   const [stores, setStores] = useState<StoreItem[]>([]);
   const [admin, setAdmin] = useState<AdminOverview | null>(null);
   const [selectedAgent, setSelectedAgent] = useState("ceo");
@@ -171,16 +185,19 @@ export default function Home() {
   const refresh = useCallback(async () => {
     if (!token || !orgId) return;
     try {
-      const [dash, agentList, runList, approvalList, mem, prods, strs, shop] = await Promise.all([
-        api(`/orgs/${orgId}/dashboard`),
-        api(`/agents`),
-        api(`/orgs/${orgId}/runs`),
-        api(`/orgs/${orgId}/approvals`),
-        api(`/orgs/${orgId}/memory`),
-        api(`/orgs/${orgId}/products`),
-        api(`/orgs/${orgId}/stores`),
-        api(`/orgs/${orgId}/integrations/shopify`),
-      ]);
+      const [dash, agentList, runList, approvalList, mem, prods, strs, shop, ords, books] =
+        await Promise.all([
+          api(`/orgs/${orgId}/dashboard`),
+          api(`/agents`),
+          api(`/orgs/${orgId}/runs`),
+          api(`/orgs/${orgId}/approvals`),
+          api(`/orgs/${orgId}/memory`),
+          api(`/orgs/${orgId}/products`),
+          api(`/orgs/${orgId}/stores`),
+          api(`/orgs/${orgId}/integrations/shopify`),
+          api(`/orgs/${orgId}/orders`),
+          api(`/orgs/${orgId}/pnl`),
+        ]);
       setDashboard(dash);
       setAgents(agentList);
       setRuns(runList);
@@ -189,6 +206,8 @@ export default function Home() {
       setProducts(prods);
       setStores(strs);
       setShopify(shop);
+      setOrders(ords);
+      setPnl(books);
       api(`/orgs/${orgId}/integrations/higgsfield`).then(setHiggs).catch(() => {});
       api(`/orgs/${orgId}/integrations/cj`).then(setCj).catch(() => {});
       if (me?.is_owner) {
@@ -242,6 +261,8 @@ export default function Home() {
     setApprovals([]);
     setMemory([]);
     setProducts([]);
+    setOrders([]);
+    setPnl(null);
     setStores([]);
     setAdmin(null);
     setShowManual(false);
@@ -467,6 +488,54 @@ export default function Home() {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setReimaging(false);
+    }
+  }
+
+  /** Drive a single order forward by hand: buy it, check tracking, ship it, or clear a hold. */
+  async function orderAction(orderId: string, action: "place" | "track" | "ship" | "release") {
+    setOrderBusy(orderId);
+    setError("");
+    try {
+      const res = await api(`/orgs/${orgId}/orders/${orderId}`, {
+        method: "POST",
+        body: JSON.stringify({ action }),
+      });
+      if (!res.ok) setError(res.detail ?? "The action did not complete.");
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOrderBusy(null);
+    }
+  }
+
+  /** One full pass of the back half of the business. */
+  async function runFulfillment() {
+    setFulfilling(true);
+    setError("");
+    try {
+      const { cycle } = await api(`/orgs/${orgId}/orders/sync`, {
+        method: "POST",
+        body: JSON.stringify({ fulfill: true }),
+      });
+      if (cycle?.failures?.length) setError(`Some orders need attention: ${cycle.failures[0]}`);
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setFulfilling(false);
+    }
+  }
+
+  async function toggleAutoFulfill() {
+    try {
+      await api(`/orgs/${orgId}/settings`, {
+        method: "POST",
+        body: JSON.stringify({ auto_fulfill: !dashboard?.auto_fulfill }),
+      });
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -723,13 +792,27 @@ export default function Home() {
 
         {dashboard && (
           <section>
+            {/* Real money first. Everything below it is activity, not income. */}
             <div className="metrics">
-              <div className="metric"><div className="value accent">${dashboard.revenue_estimate.toLocaleString()}</div><div className="label">Est. Margin Pool</div></div>
+              <div className="metric">
+                <div className="value accent">${dashboard.revenue_30d.toLocaleString()}</div>
+                <div className="label">Revenue · 30d</div>
+              </div>
+              <div className="metric">
+                <div className={`value ${dashboard.net_profit_30d < 0 ? "loss" : "profit"}`}>
+                  ${dashboard.net_profit_30d.toLocaleString()}
+                </div>
+                <div className="label">Net Profit · 30d</div>
+              </div>
+              <div className="metric"><div className="value">{dashboard.orders_total}</div><div className="label">Orders</div></div>
+              <div className="metric">
+                <div className={`value ${dashboard.orders_on_hold > 0 ? "loss" : ""}`}>
+                  {dashboard.orders_on_hold}
+                </div>
+                <div className="label">Need Attention</div>
+              </div>
               <div className="metric"><div className="value">{dashboard.products_total}</div><div className="label">Products</div></div>
-              <div className="metric"><div className="value">{dashboard.stores_total}</div><div className="label">Stores</div></div>
-              <div className="metric"><div className="value">{dashboard.runs_total}</div><div className="label">Agent Runs</div></div>
               <div className="metric"><div className="value">{dashboard.pending_approvals}</div><div className="label">Approvals</div></div>
-              <div className="metric"><div className="value">{dashboard.total_tokens_used.toLocaleString()}</div><div className="label">Tokens</div></div>
             </div>
           </section>
         )}
@@ -805,6 +888,69 @@ export default function Home() {
                 </div>
               </div>
             ))
+          )}
+        </section>
+
+        <section>
+          <div className="section-head">
+            <h2>Orders</h2>
+            <span className="hint" style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              {dashboard && dashboard.orders_awaiting_fulfillment > 0
+                ? `${dashboard.orders_awaiting_fulfillment} awaiting fulfillment`
+                : `${orders.length} order(s)`}
+              <button
+                className="btn btn-accent btn-small"
+                onClick={runFulfillment}
+                disabled={fulfilling || !shopify.connected}
+                title={
+                  shopify.connected
+                    ? "Pull new orders, buy the goods, and push tracking to customers"
+                    : "Connect Shopify to receive orders"
+                }
+              >
+                {fulfilling ? <span className="spinner" /> : "✦ Fulfill now"}
+              </button>
+            </span>
+          </div>
+          {dashboard && shopify.connected && (
+            <div className={`auto-bar ${dashboard.auto_fulfill ? "" : "off"}`} style={{ marginBottom: 18 }}>
+              <div className="ab-left">
+                <div className="ab-pct" style={{ fontSize: "1.4rem" }}>
+                  {dashboard.auto_fulfill ? "AUTO" : "MANUAL"}
+                </div>
+                <div>
+                  <b>
+                    {dashboard.auto_fulfill
+                      ? "Auto-fulfillment on — paid orders ship themselves"
+                      : "Auto-fulfillment off — you place every supplier order"}
+                  </b>
+                  <p>
+                    {dashboard.auto_fulfill
+                      ? "Every hour the engine buys the goods for each paid order within the cost cap, then pushes the tracking number to the customer. Orders above the cap wait for you."
+                      : "Nothing is bought from the supplier without you pressing the button. Turn this on to let the business run itself."}
+                  </p>
+                </div>
+              </div>
+              <button
+                className={`btn ${dashboard.auto_fulfill ? "btn-ghost" : "btn-accent"} btn-small`}
+                onClick={toggleAutoFulfill}
+              >
+                {dashboard.auto_fulfill ? "Switch to Manual" : "Enable Auto-fulfill"}
+              </button>
+            </div>
+          )}
+          <Orders orders={orders} onAction={orderAction} busyId={orderBusy} />
+        </section>
+
+        <section>
+          <div className="section-head">
+            <h2>The Books</h2>
+            <span className="hint">Real money, from real orders</span>
+          </div>
+          {pnl ? (
+            <Pnl data={pnl} />
+          ) : (
+            <div className="card"><p className="empty">Loading the ledger…</p></div>
           )}
         </section>
 
