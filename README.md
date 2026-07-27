@@ -30,6 +30,38 @@ Both halves run unattended. What a human is actually for is the short list of th
 deliberately refuses to decide alone: an order it can't source, an address it can't ship to, a
 payment that never captured, a fraud flag, or a purchase larger than the cost cap.
 
+Parcels are followed the rest of the way too — the cycle polls the carrier and closes orders out at
+`delivered`, which is the point the sale is genuinely finished.
+
+## Locked by default
+
+Two master gates ship **off**, and nothing autonomous happens until they are deliberately turned on:
+
+| Gate | While off |
+|---|---|
+| `ENABLE_AUTONOMY` | Nothing is auto-approved, and not a cent is spent at the supplier |
+| `COMMERCE_RELEASE_ENABLED` | Publishing is locked; the publish route returns `423` |
+
+Six agent actions are approval-gated whatever the gates say — placing a supplier order, publishing a
+product, creating a store, setting an ad budget, issuing a refund, and killing a product. That set is
+locked by a test, so adding a money-moving tool without a gate fails CI rather than production.
+
+## Know before you trade
+
+`GET /api/orgs/{org}/readiness` (and the **Go-live checklist** on the deck) reports whether this
+deployment is actually fit to run a business. It exists because the most dangerous facts are the
+quietest ones:
+
+- **No Upstash credentials → in-memory storage.** On serverless that is not a degraded mode, it is
+  data loss on a loop: orders, ledger entries, products and accounts reset on the next cold start
+  while the books appear to work the whole time. Reported as a **blocker**.
+- **Default `JWT_SECRET`.** It is public in the source, so anyone could mint a token for any account
+  including the owner. Also a **blocker**.
+
+Operational gaps (no `CRON_SECRET`, no supplier, no webhook secret) are warnings carrying their own
+fix. Release-gate posture is reported as information, never as a problem — a deployment deliberately
+running locked down shows zero warnings.
+
 ## Real money, real books
 
 Revenue is not estimated from the catalog. Every sale, discount, refund, cost of goods, supplier
@@ -46,6 +78,12 @@ P&L is derived from that ledger and nothing else.
   revenue and profit.
 - **The forecast follows reality.** Below five settled orders it projects from catalog pricing;
   above that it refits itself to the AOV and landed cost the business actually achieves.
+- **Money at risk is named.** When a customer cancels or refunds after the goods were already bought,
+  the refund lands in the books and the matching COGS would otherwise sit there as a loss nobody
+  attributed. Those orders are surfaced as **At Risk**, split by whether the supplier order can still
+  be cancelled — recoverable ones ranked ahead of larger unrecoverable losses.
+- **Per-product truth.** Units, revenue, cost, gross profit and margin per product, derived from the
+  stored order lines using the same frozen costs the ledger was built from.
 
 ## The owner
 
@@ -78,6 +116,8 @@ vercel.json          Vercel build + cron configuration.
 | `lib/fulfillment.ts` | Supplier placement, tracking sync, Shopify fulfillment, the cycle |
 | `lib/suppliers/cj.ts` | CJ sourcing, variant resolution, order placement, tracking |
 | `lib/shopify.ts` | Products, orders, fulfillments, webhook registration and HMAC verification |
+| `lib/readiness.ts` | Go-live preflight — what makes this deployment unfit to trade |
+| `lib/governance.ts` | Role capabilities and fail-closed cron authorization |
 | `lib/brain.ts` | The approval-gated agentic loop |
 | `lib/agents.ts` | The CEO and seven specialists, and the tools they hold |
 
@@ -190,7 +230,8 @@ Without any env vars the app boots in simulation + in-memory mode. Add `.env.loc
 | `GET /api/orgs/{org}/orders` | The order book, optionally filtered by stage |
 | `GET/POST /api/orgs/{org}/orders/{id}` | Order detail; `place` · `track` · `ship` · `release` |
 | `POST /api/orgs/{org}/orders/sync` | Pull orders from Shopify, or run a full fulfillment cycle |
-| `GET /api/orgs/{org}/pnl` | Real P&L across five windows + the ledger behind it |
+| `GET /api/orgs/{org}/pnl` | Real P&L across five windows, the ledger, and per-product performance |
+| `GET /api/orgs/{org}/readiness` | Go-live preflight (owner/admin) |
 | `POST /api/webhooks/shopify/{topic}` | HMAC-verified order feed (orders, cancellations, refunds) |
 | `GET /api/orgs/{org}/dashboard` | Metrics summary |
 | `GET /api/orgs/{org}/memory` | Business memory |
@@ -201,14 +242,20 @@ Without any env vars the app boots in simulation + in-memory mode. Add `.env.loc
 ## Tests
 
 ```bash
-npm run test --workspace apps/web        # 100 tests
+npm run test --workspace apps/web        # 157 tests
 npm run typecheck --workspace apps/web
 ```
 
 The suite concentrates on the parts where being wrong costs real money: ledger arithmetic and
 idempotency, Shopify order mapping and classification, refund handling, webhook signature
-enforcement, the supplier cost caps, and the fulfillment state machine. Integrations are stubbed,
-so the tests never touch a live store or spend anything.
+enforcement, the supplier cost caps, the fulfillment state machine, governance and role gates, the
+readiness rules, and the agent tool handlers. Integrations are stubbed, so the tests never touch a
+live store or spend anything.
+
+A few are deliberately adversarial rather than confirmatory — a truncated HMAC that starts correctly
+must still be rejected; `out for delivery` and `delivery attempted` must not read as delivered; a
+redelivered webhook must not double the revenue; and the set of approval-gated tools is pinned, so
+adding a money-moving tool without a gate fails CI.
 
 ## Legacy FastAPI backend
 
