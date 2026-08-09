@@ -15,12 +15,23 @@ type Product = {
   sku?: string;
 };
 
+type MigrationResult = {
+  ok?: boolean;
+  legacy_found?: number;
+  archived_count?: number;
+  botanica_drafts_created?: number;
+  final_active_legacy?: number;
+  final_botanica_products?: number;
+  errors?: string[];
+};
+
 export default function OwnerCatalogPage() {
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [migration, setMigration] = useState<MigrationResult | null>(null);
 
   useEffect(() => {
     setToken(localStorage.getItem("commerce_os_token") ?? "");
@@ -59,6 +70,29 @@ export default function OwnerCatalogPage() {
   }
 
   useEffect(() => { if (token) void refresh(); }, [token]);
+
+  async function runMigration() {
+    const confirmation = window.prompt(
+      "This archives non-BOTANICA Shopify products and seeds the curated BOTANICA starter catalog as drafts only. Type:\nMIGRATE BOTANICA CATALOG",
+    ) ?? "";
+    if (confirmation !== "MIGRATE BOTANICA CATALOG") return;
+
+    setBusy(true); setError(""); setMigration(null);
+    try {
+      const oid = await resolveOrg();
+      if (!oid) throw new Error("Owner organization could not be resolved.");
+      const res = await fetch(`/api/orgs/${oid}/owner-catalog/migrate`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ confirmation }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok && res.status !== 207) throw new Error(body.detail ?? `Request failed (${res.status})`);
+      setMigration(body);
+      await refresh();
+    } catch (err) { setError(err instanceof Error ? err.message : String(err)); }
+    finally { setBusy(false); }
+  }
 
   async function addProduct(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -111,6 +145,18 @@ export default function OwnerCatalogPage() {
     <h1 style={{fontSize:42,marginBottom:8}}>BOTANICA OCHOSI — Owner Catalog Control</h1>
     <p style={{opacity:.75}}>Create, publish, archive, or permanently delete products across the internal catalog and connected Shopify store. Archive is the recommended default.</p>
     {error && <div style={{padding:12,background:"#481b1b",borderRadius:10,margin:"16px 0"}}>{error}</div>}
+
+    <section style={{padding:20,background:"#10271c",border:"1px solid #4f704f",borderRadius:18,margin:"24px 0"}}>
+      <h2 style={{marginTop:0}}>Replace legacy Shopify catalog</h2>
+      <p style={{opacity:.78,maxWidth:820}}>Owner-only, idempotent migration. It archives non-BOTANICA products instead of deleting them, preserves historical Shopify references, and seeds the curated BOTANICA starter products as unpublished drafts with price and inventory still pending verification.</p>
+      <button disabled={busy || !token} onClick={runMigration} style={primary}>{busy ? "Working…" : "Archive legacy + seed BOTANICA drafts"}</button>
+      {!token && <div style={{marginTop:10,opacity:.65}}>Owner sign-in is required before migration.</div>}
+      {migration && <div style={{marginTop:16,padding:14,background:"#07130e",borderRadius:12}}>
+        <strong>{migration.ok ? "Migration completed" : "Migration completed with issues"}</strong>
+        <div style={{marginTop:8,opacity:.8}}>Legacy found: {migration.legacy_found ?? 0} · Archived: {migration.archived_count ?? 0} · BOTANICA drafts created: {migration.botanica_drafts_created ?? 0} · Remaining active legacy: {migration.final_active_legacy ?? 0} · BOTANICA products: {migration.final_botanica_products ?? 0}</div>
+        {!!migration.errors?.length && <div style={{marginTop:8,color:"#ffb5b5"}}>{migration.errors.join(" | ")}</div>}
+      </div>}
+    </section>
 
     <form onSubmit={addProduct} style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:12,padding:20,background:"#0d2118",border:"1px solid #294634",borderRadius:18,margin:"24px 0"}}>
       <input name="title" required placeholder="Product title" style={input}/>
