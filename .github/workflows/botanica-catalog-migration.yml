@@ -1,9 +1,13 @@
 name: BOTANICA catalog migration
 
+permissions:
+  contents: read
+  issues: write
+
 # Owner-authorized catalog replacement. Manual dispatch remains available, and
-# the specific merge commit used for this migration can trigger it once via push.
-# Shopify credentials never leave the deployed app; the workflow sends only the
-# existing CRON_SECRET to a verified READY Vercel deployment.
+# specific merge commits can trigger the idempotent migration once via push.
+# Shopify credentials never leave the deployed app; only sanitized result counts
+# are written back to GitHub for independent verification.
 on:
   workflow_dispatch:
     inputs:
@@ -16,7 +20,10 @@ on:
 
 jobs:
   migrate:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'Trigger BOTANICA catalog migration')
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, 'Trigger BOTANICA catalog migration') ||
+      contains(github.event.head_commit.message, 'Trigger BOTANICA migration result report')
     name: Archive legacy catalog and seed BOTANICA drafts
     runs-on: ubuntu-latest
     steps:
@@ -44,3 +51,40 @@ jobs:
             --request POST \
             --header "Authorization: Bearer $CRON_SECRET" \
             "$APP_URL/api/cron/botanica-catalog-migration" | tee migration-result.json
+
+      - name: Publish sanitized migration result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          jq '{
+            migration,
+            orgs: [.orgs[] | {
+              org_name,
+              shop,
+              ok,
+              skipped,
+              reason,
+              legacy_found,
+              archived_count,
+              botanica_drafts_created,
+              final_active_legacy,
+              final_botanica_products,
+              error_count: ((.errors // []) | length)
+            }]
+          }' migration-result.json > migration-result-sanitized.json
+
+          {
+            echo '## BOTANICA OCHOSI catalog migration verification'
+            echo
+            echo '```json'
+            cat migration-result-sanitized.json
+            echo '```'
+            echo
+            echo "Source workflow run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > migration-result.md
+
+          gh issue create \
+            --repo "$GH_REPO" \
+            --title "BOTANICA catalog migration result — $GITHUB_RUN_ID" \
+            --body-file migration-result.md
