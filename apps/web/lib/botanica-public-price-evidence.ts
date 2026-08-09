@@ -167,3 +167,11 @@ export const BOTANICA_NGN_USD_FX_SNAPSHOT = {
   source: "live currency conversion snapshot",
   usage: "Research normalization only; refresh before any Council economics or purchase decision."
 } as const;
+
+export function getPublicPriceEvidenceForSupplier(supplierId: string) {
+  return BOTANICA_PUBLIC_PRICE_EVIDENCE.filter((record) => record.supplierId === supplierId);
+}
+
+export function getPricedPublicEvidence() {
+  return BOTANICA_PUBLIC_PRICE_EVIDENCE.filter((record) => record.observedPrice !== null);
+}
