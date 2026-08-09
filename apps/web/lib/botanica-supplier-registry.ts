@@ -50,10 +50,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     status: "REQUIRES_ACCOUNT",
     categories: ["Orisha tools", "soperas", "statues", "candles", "colognes", "oils", "caracoles", "wood items"],
     strengths: ["Miami importer/distributor", "wholesale account flow", "domestic and international shipping"],
-    sourceEvidence: [
-      "https://religionuniverse.com/",
-      "https://religionuniverse.com/pages/wholesale-signup-form"
-    ],
+    sourceEvidence: ["https://religionuniverse.com/", "https://religionuniverse.com/pages/wholesale-signup-form"],
     sourcingPolicy: "CORE_RELIGIOUS",
     researchPriority: 1
   },
@@ -67,10 +64,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     status: "REQUIRES_CONTACT",
     categories: ["Santeria supplies", "Yoruba tools", "traditional spiritual items", "Nigeria-sourced traditional items"],
     strengths: ["Afro-Cuban/Yoruba specialization", "three South Florida locations", "wholesale and retail"],
-    sourceEvidence: [
-      "https://www.inshemiami.com/en/pages/about-inshe-miami",
-      "https://www.inshemiami.com/en/pages/botanica-miami-inshe-miami-santeria-supplies-yoruba-tools-spiritual-articles"
-    ],
+    sourceEvidence: ["https://www.inshemiami.com/en/pages/about-inshe-miami", "https://www.inshemiami.com/en/pages/botanica-miami-inshe-miami-santeria-supplies-yoruba-tools-spiritual-articles"],
     sourcingPolicy: "CORE_RELIGIOUS",
     researchPriority: 1
   },
@@ -103,6 +97,20 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     researchPriority: 1
   },
   {
+    id: "yoruba-imports-miami-gardens",
+    name: "Yoruba Imports",
+    region: "MIAMI",
+    location: "Miami Gardens, Florida",
+    website: "https://yorubaimports.com/",
+    wholesale: true,
+    status: "VERIFIED_PUBLIC",
+    categories: ["Opon Ifa", "Obi", "Orogbo", "Ewe", "Yoruba cultural goods", "West African plant products"],
+    strengths: ["direct-from-source West African inventory", "wholesale program", "100+ country international shipping claimed", "special orders"],
+    sourceEvidence: ["https://yorubaimports.com/"],
+    sourcingPolicy: "NIGERIA_YORUBA",
+    researchPriority: 1
+  },
+  {
     id: "yoruba-distribuidores-houston",
     name: "Yoruba Distribuidores LLC",
     region: "USA",
@@ -117,6 +125,20 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     researchPriority: 1
   },
   {
+    id: "rush-of-ase-california",
+    name: "Rush of Ase",
+    region: "USA",
+    location: "Los Angeles County, California",
+    website: "https://rushofase.com/",
+    wholesale: true,
+    status: "VERIFIED_PUBLIC",
+    categories: ["Iyerosun", "Obi", "plants", "herbs", "incense", "traditional African items imported from Oyo State"],
+    strengths: ["bulk orders accepted", "traditional African items imported from Oyo State", "US replenishment option"],
+    sourceEvidence: ["https://rushofase.com/"],
+    sourcingPolicy: "NIGERIA_YORUBA",
+    researchPriority: 1
+  },
+  {
     id: "mas-alla-usa",
     name: "Distribuidora Mas Alla",
     region: "USA",
@@ -126,10 +148,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     status: "VERIFIED_PUBLIC",
     categories: ["7-day candles", "spiritual baths", "oils", "perfumes", "soaps", "incense", "statues", "herbs"],
     strengths: ["5,000+ products claimed", "30+ years claimed", "US-wide shipping", "broad botanica consumables coverage"],
-    sourceEvidence: [
-      "https://www.el-masalla.com/",
-      "https://www.el-masalla.com/wholesale-customers/wholesale-catalog/"
-    ],
+    sourceEvidence: ["https://www.el-masalla.com/", "https://www.el-masalla.com/wholesale-customers/wholesale-catalog/"],
     sourcingPolicy: "CONSUMABLES",
     researchPriority: 1
   },
@@ -143,11 +162,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     status: "REQUIRES_CONTACT",
     categories: ["Santeria tools", "incense", "charcoal", "sage", "Palo Santo", "amulets", "cast iron", "gemstones"],
     strengths: ["B2B wholesale only", "$100 minimum publicly stated", "broad botanica/metaphysical inventory"],
-    sourceEvidence: [
-      "https://www.babonsono.com/",
-      "https://www.babonsono.com/products",
-      "https://www.babonsono.com/about-us"
-    ],
+    sourceEvidence: ["https://www.babonsono.com/", "https://www.babonsono.com/products", "https://www.babonsono.com/about-us"],
     sourcingPolicy: "GENERAL_SUPPORT",
     researchPriority: 2
   },
@@ -175,12 +190,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     status: "REQUIRES_CONTACT",
     categories: ["Iroke Ifa", "Ajere Ifa", "Igba Aje", "Bata drums", "Yoruba/Ifa books", "divination and spiritual items"],
     strengths: ["Nigeria-based Yoruba/Ifa inventory", "public NGN pricing", "physical Akure pickup location documented", "broad Isese/Ifa catalog"],
-    sourceEvidence: [
-      "https://www.getabetterlifetv.com/",
-      "https://www.getabetterlifetv.com/collections/all",
-      "https://www.getabetterlifetv.com/products/iroke-ifa",
-      "https://www.getabetterlifetv.com/products/ajere-ifa"
-    ],
+    sourceEvidence: ["https://www.getabetterlifetv.com/", "https://www.getabetterlifetv.com/collections/all", "https://www.getabetterlifetv.com/products/iroke-ifa", "https://www.getabetterlifetv.com/products/ajere-ifa"],
     sourcingPolicy: "NIGERIA_YORUBA",
     researchPriority: 1
   },
