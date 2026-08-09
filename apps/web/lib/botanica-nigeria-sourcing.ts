@@ -35,11 +35,7 @@ export const BOTANICA_NIGERIA_SOURCING: NigeriaSourcingRecord[] = [
     wholesaleStatus: "REQUIRES_CONTACT",
     tradition: "YORUBA_IFA_ISESE",
     categories: ["Iroke Ifa", "Ajere Ifa", "Yoruba books", "divination tools", "spiritual items"],
-    evidence: [
-      "https://www.getabetterlifetv.com/",
-      "https://www.getabetterlifetv.com/products/iroke-ifa",
-      "https://www.getabetterlifetv.com/products/ajere-ifa"
-    ],
+    evidence: ["https://www.getabetterlifetv.com/", "https://www.getabetterlifetv.com/products/iroke-ifa", "https://www.getabetterlifetv.com/products/ajere-ifa"],
     allowedUse: ["direct-origin product research", "quote request", "maker/material verification", "export-term research"],
     blockedAssumptions: ["wholesale pricing", "bulk availability", "Lucumi equivalence", "ritual preparation", "exportability"],
     researchPriority: 1
