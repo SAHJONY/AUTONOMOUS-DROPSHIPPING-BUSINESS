@@ -22,5 +22,7 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install locked dependencies
         run: npm ci
-      - name: Print npm audit JSON
+      - name: Print full npm audit JSON
         run: npm audit --json || true
+      - name: Print production-only npm audit JSON
+        run: npm audit --omit=dev --json || true
