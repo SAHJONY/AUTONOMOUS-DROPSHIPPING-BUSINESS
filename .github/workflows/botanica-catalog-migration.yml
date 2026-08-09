@@ -1,24 +1,45 @@
 name: BOTANICA catalog migration
 
-# Manual, owner-authorized migration. It uses the same APP_URL and CRON_SECRET
-# secrets as the existing heartbeat workflow and never exposes Shopify credentials.
+# Owner-authorized catalog replacement. Manual dispatch remains available, and
+# the specific merge commit used for this migration can trigger it once via push.
+# Shopify credentials never leave the deployed app; the workflow sends only the
+# existing CRON_SECRET to a verified READY Vercel deployment.
 on:
   workflow_dispatch:
+    inputs:
+      app_url:
+        description: "Optional deployed app URL containing the protected migration endpoint"
+        required: false
+        type: string
+  push:
+    branches: [main]
 
 jobs:
   migrate:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, 'Trigger BOTANICA catalog migration')
     name: Archive legacy catalog and seed BOTANICA drafts
     runs-on: ubuntu-latest
     steps:
       - name: Run protected migration
         env:
-          APP_URL: ${{ secrets.APP_URL }}
+          DEFAULT_APP_URL: ${{ secrets.APP_URL }}
+          INPUT_APP_URL: ${{ inputs.app_url }}
+          PUSH_MIGRATION_APP_URL: https://autonomous-dropshipping-business-fi5nlbty1.vercel.app
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
+          APP_URL="$DEFAULT_APP_URL"
+          if [ "$EVENT_NAME" = "push" ]; then APP_URL="$PUSH_MIGRATION_APP_URL"; fi
+          if [ -n "$INPUT_APP_URL" ]; then APP_URL="$INPUT_APP_URL"; fi
+          APP_URL="${APP_URL%/}"
           if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
             echo "APP_URL or CRON_SECRET is not configured." >&2
             exit 1
           fi
+          case "$APP_URL" in
+            https://*.vercel.app|https://sahjony.com) ;;
+            *) echo "Refusing non-approved migration host: $APP_URL" >&2; exit 1 ;;
+          esac
           curl --fail-with-body --silent --show-error --location --max-time 300 \
             --request POST \
             --header "Authorization: Bearer $CRON_SECRET" \
