@@ -24,7 +24,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   try {
     const result = await migrateShopifyToBotanicaCatalog(resolved.shop, resolved.token);
     return json({
-      ok: result.ok,
       migration: "BOTANICA_OCHOSI_2026_08",
       shop: resolved.shop,
       ...result,
