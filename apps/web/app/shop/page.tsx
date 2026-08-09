@@ -19,14 +19,7 @@ type Product = {
 };
 
 type CartLine = Product & { quantity: number };
-
-type CatalogResponse = {
-  ok: boolean;
-  shop: string | null;
-  products: Product[];
-  count?: number;
-  detail?: string;
-};
+type CatalogResponse = { ok: boolean; shop: string | null; products: Product[]; count?: number; detail?: string };
 
 const SITE_URL = "https://www.botanicaochosi.com";
 const CART_KEY = "botanica_ochosi_cart_v1";
@@ -51,7 +44,12 @@ export default function ShopPage() {
     try {
       const saved = localStorage.getItem(CART_KEY);
       if (saved) setCart(JSON.parse(saved) as CartLine[]);
-    } catch {}
+    } catch {
+      localStorage.removeItem(CART_KEY);
+    }
+
+    if (new URLSearchParams(window.location.search).get("cart") === "1") setCartOpen(true);
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -93,27 +91,37 @@ export default function ShopPage() {
   }
 
   function checkout() {
-    if (!catalog.shop || cart.length === 0) return;
-    const items = cart.map((line) => `${encodeURIComponent(line.variantId)}:${line.quantity}`).join(",");
-    window.location.href = `https://${catalog.shop}/cart/${items}`;
+    if (!catalog.shop || cart.length === 0 || cart.some((line) => !/^\d+$/.test(line.variantId))) return;
+    const items = cart.map((line) => `${line.variantId}:${line.quantity}`).join(",");
+    window.location.href = `https://${catalog.shop}/cart/${items}?ref=botanica-ochosi-web`;
   }
 
-  async function shareStore() {
-    const data = {
-      title: "BOTANICA OCHOSI",
-      text: "Botánica cubana online · productos espirituales auténticos · compra segura en línea.",
-      url: SITE_URL,
-    };
+  async function share(title: string, text: string, url: string) {
     try {
       if (navigator.share) {
-        await navigator.share(data);
+        await navigator.share({ title, text, url });
         setShareNotice("Compartido");
       } else {
-        await navigator.clipboard.writeText(SITE_URL);
+        await navigator.clipboard.writeText(url);
         setShareNotice("Enlace copiado");
       }
-    } catch {}
+    } catch {
+      return;
+    }
     window.setTimeout(() => setShareNotice(""), 1800);
+  }
+
+  function shareStore() {
+    return share(
+      "BOTANICA OCHOSI",
+      "Botánica cubana online · productos espirituales auténticos · compra segura en línea.",
+      SITE_URL,
+    );
+  }
+
+  function shareProduct(product: Product) {
+    const url = `${SITE_URL}/shop?product=${encodeURIComponent(product.handle)}`;
+    return share(`${product.title} · BOTANICA OCHOSI`, `Mira ${product.title} en BOTANICA OCHOSI.`, url);
   }
 
   return (
@@ -152,7 +160,7 @@ export default function ShopPage() {
 
       <section className={styles.trust} id="confianza">
         <div><strong>Compra segura</strong><span>Checkout administrado por Shopify</span></div>
-        <div><strong>Catálogo real</strong><span>Solo productos activos y publicados</span></div>
+        <div><strong>Catálogo real</strong><span>Solo productos activos, publicados y BOTANICA</span></div>
         <div><strong>Envíos discretos</strong><span>Información mostrada en checkout</span></div>
         <div><strong>Atención online</strong><span>Sin llamadas telefónicas</span></div>
       </section>
@@ -169,11 +177,11 @@ export default function ShopPage() {
         </div>
 
         {!catalog.ok && <div className={styles.stateCard}><strong>La tienda se está preparando.</strong><p>{catalog.detail ?? "Shopify todavía no ha confirmado un catálogo público."}</p></div>}
-        {catalog.ok && products.length === 0 && <div className={styles.stateCard}><strong>No hay productos activos todavía.</strong><p>Los productos HOLD o draft permanecen ocultos hasta completar aprobación, inventario y publicación.</p></div>}
+        {catalog.ok && products.length === 0 && <div className={styles.stateCard}><strong>No hay productos activos BOTANICA todavía.</strong><p>Legacy, HOLD y draft permanecen ocultos hasta completar aprobación, inventario y publicación.</p></div>}
 
         <div className={styles.grid}>
           {products.map((product) => (
-            <article className={styles.productCard} key={product.variantId}>
+            <article className={styles.productCard} key={product.variantId} id={`product-${product.handle}`}>
               <div className={styles.imageWrap}>
                 {product.image ? <img src={product.image} alt={product.title} loading="lazy" /> : <div className={styles.placeholder}>O</div>}
                 <span className={styles.category}>{product.category}</span>
@@ -189,6 +197,7 @@ export default function ShopPage() {
                 <div className={styles.productActions}>
                   <button className={styles.primary} onClick={() => add(product)}>Añadir</button>
                   <a className={styles.secondary} href={product.productUrl}>Ver producto</a>
+                  <button className={styles.productShare} onClick={() => shareProduct(product)}>Compartir</button>
                 </div>
               </div>
             </article>
@@ -197,7 +206,7 @@ export default function ShopPage() {
       </section>
 
       <section className={styles.shareBand}>
-        <div><span className={styles.eyebrow}>COMPÁRTELO</span><h2>BOTANICA OCHOSI viaja contigo.</h2><p>Comparte la tienda por mensaje, redes sociales, email o copiando el enlace. Toda comunicación permanece online.</p></div>
+        <div><span className={styles.eyebrow}>COMPÁRTELO</span><h2>BOTANICA OCHOSI viaja contigo.</h2><p>Comparte la tienda o cualquier producto por mensaje, redes sociales, email o copiando el enlace. Toda comunicación permanece online.</p></div>
         <button className={styles.primary} onClick={shareStore}>Compartir www.botanicaochosi.com</button>
       </section>
 
@@ -220,7 +229,7 @@ export default function ShopPage() {
         </div>
         <div className={styles.cartSummary}><span>Subtotal</span><strong>${subtotal.toFixed(2)}</strong></div>
         <p className={styles.cartNote}>Impuestos, disponibilidad final y envío se confirman en Shopify.</p>
-        <button className={styles.checkout} onClick={checkout} disabled={!catalog.shop || cart.length === 0}>Continuar a checkout seguro</button>
+        <button className={styles.checkout} onClick={checkout} disabled={!catalog.shop || cart.length === 0 || cart.some((line) => !/^\d+$/.test(line.variantId))}>Continuar a checkout seguro</button>
       </aside>
       {cartOpen && <button className={styles.backdrop} onClick={() => setCartOpen(false)} aria-label="Cerrar carrito" />}
     </main>
