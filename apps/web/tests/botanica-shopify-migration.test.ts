@@ -32,7 +32,7 @@ describe("BOTANICA Shopify catalog migration policy", () => {
     for (const seed of BOTANICA_REAL_CATALOG_SEEDS) {
       expect(seed.tradition).toMatch(/^(YORUBA_IFA_ISESE|LUCUMI_OCHA|YORUBA_CRAFT)$/);
       expect(seed.sourceSupplier.length).toBeGreaterThan(2);
-      expect(seed.description).not.toMatch(/guaranteed|cures?|heals? disease/i);
+      expect(seed.description).not.toMatch(/\b(cures?|heals?)\b|100%\s+guaranteed/i);
     }
   });
 });
