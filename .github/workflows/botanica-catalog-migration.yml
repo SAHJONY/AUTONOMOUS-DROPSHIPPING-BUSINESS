@@ -1,9 +1,15 @@
 name: BOTANICA catalog migration
 
-# Manual, owner-authorized migration. It uses the same APP_URL and CRON_SECRET
-# secrets as the existing heartbeat workflow and never exposes Shopify credentials.
+# Manual, owner-authorized migration. Uses CRON_SECRET and defaults to APP_URL,
+# but permits an explicitly supplied READY Vercel preview URL when production
+# promotion is delayed. Shopify credentials never leave the deployed app.
 on:
   workflow_dispatch:
+    inputs:
+      app_url:
+        description: "Optional deployed app URL containing the protected migration endpoint"
+        required: false
+        type: string
 
 jobs:
   migrate:
@@ -12,13 +18,21 @@ jobs:
     steps:
       - name: Run protected migration
         env:
-          APP_URL: ${{ secrets.APP_URL }}
+          DEFAULT_APP_URL: ${{ secrets.APP_URL }}
+          INPUT_APP_URL: ${{ inputs.app_url }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          APP_URL="$DEFAULT_APP_URL"
+          if [ -n "$INPUT_APP_URL" ]; then APP_URL="$INPUT_APP_URL"; fi
+          APP_URL="${APP_URL%/}"
           if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
             echo "APP_URL or CRON_SECRET is not configured." >&2
             exit 1
           fi
+          case "$APP_URL" in
+            https://*.vercel.app|https://sahjony.com) ;;
+            *) echo "Refusing non-approved migration host: $APP_URL" >&2; exit 1 ;;
+          esac
           curl --fail-with-body --silent --show-error --location --max-time 300 \
             --request POST \
             --header "Authorization: Bearer $CRON_SECRET" \
