@@ -1,23 +1,23 @@
 name: Refresh Next.js lockfile
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/botanica-next-security
-    paths:
-      - apps/web/package.json
+      - main
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
 
 jobs:
   refresh-lock:
-    if: github.actor != 'github-actions[bot]'
+    if: github.head_ref == 'agent/botanica-next-security' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           ref: agent/botanica-next-security
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
