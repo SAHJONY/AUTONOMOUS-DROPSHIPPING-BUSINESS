@@ -1,0 +1,49 @@
+name: BOTANICA catalog execute once
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  migrate:
+    if: github.head_ref == 'agent/botanica-catalog-execute-once'
+    name: Execute and verify authorized BOTANICA catalog migration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute protected idempotent migration and print sanitized counts
+        env:
+          APP_URL: https://autonomous-dropshipping-business-fi5nlbty1.vercel.app
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not configured." >&2
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --location --max-time 300 \
+            --request POST \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "$APP_URL/api/cron/botanica-catalog-migration" \
+            -o migration-result.json
+
+          jq '{
+            migration,
+            orgs: [.orgs[] | {
+              org_name,
+              shop,
+              ok,
+              skipped,
+              reason,
+              legacy_found,
+              archived_count,
+              botanica_drafts_created,
+              final_active_legacy,
+              final_botanica_products,
+              error_count: ((.errors // []) | length)
+            }]
+          }' migration-result.json | tee migration-result-sanitized.json
+
+          jq -e 'all(.orgs[]; (.skipped == true) or ((.final_active_legacy == 0) and (.final_botanica_products >= 10) and (.error_count == 0)))' migration-result-sanitized.json
