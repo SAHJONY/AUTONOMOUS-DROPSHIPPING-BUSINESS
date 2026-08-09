@@ -11,7 +11,15 @@ type Dashboard = {
 };
 type ReadinessCheck = { id: string; label: string; level: "blocker" | "warning" | "ok"; detail: string; fix?: string };
 type Readiness = { ready: boolean; blockers: number; warnings: number; checks: ReadinessCheck[] };
-type ShopifyStatus = { connected: boolean; shop: string | null };
+type ShopifyStatus = {
+  connected: boolean;
+  status?: "verified" | "credentials_stale" | "not_configured";
+  shop: string | null;
+  store_name?: string | null;
+  mode?: "token" | "dev_dashboard" | null;
+  verified_at?: string | null;
+  detail?: string;
+};
 type CatalogProduct = { id: string; title: string; status: string; price: number; cost: number; shopify_id?: number };
 type Approval = { id: string; action: string; risk_level: string; status: string; agent_name?: string };
 
@@ -21,7 +29,7 @@ export default function BotanicaOwnerOS() {
   const [me, setMe] = useState<Me | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [readiness, setReadiness] = useState<Readiness | null>(null);
-  const [shopify, setShopify] = useState<ShopifyStatus>({ connected: false, shop: null });
+  const [shopify, setShopify] = useState<ShopifyStatus>({ connected: false, status: "not_configured", shop: null });
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [approvals, setApprovals] = useState<Approval[]>([]);
   const [error, setError] = useState("");
@@ -66,6 +74,15 @@ export default function BotanicaOwnerOS() {
 
   const pendingApprovals = approvals.filter((a) => a.status === "pending").length;
   const managedProducts = products.filter((p) => p.status !== "killed").length;
+  const shopifyLabel = shopify.connected
+    ? `Shopify verified · ${shopify.shop}`
+    : shopify.status === "credentials_stale"
+      ? `Shopify credentials need attention · ${shopify.shop ?? "store unresolved"}`
+      : "Shopify not configured";
+  const shopifyMetric = shopify.connected ? "VERIFIED" : shopify.status === "credentials_stale" ? "STALE" : "OFF";
+  const shopifyNote = shopify.connected
+    ? `${shopify.store_name ?? shopify.shop ?? "Shopify"}${shopify.verified_at ? ` · checked ${new Date(shopify.verified_at).toLocaleTimeString()}` : ""}`
+    : shopify.detail ?? shopify.shop ?? "No Shopify credentials configured";
 
   return <main className={styles.shell}>
     <nav className={styles.nav}>
@@ -86,14 +103,14 @@ export default function BotanicaOwnerOS() {
 
       <div className={styles.statusStrip}>
         <span className={styles.statusPill}><i className={readiness?.ready ? styles.dotLive : styles.dotWarn}/>{readiness?.ready ? "Operationally ready" : `${readiness?.blockers ?? 0} readiness blocker(s)`}</span>
-        <span className={styles.statusPill}><i className={shopify.connected ? styles.dotLive : styles.dotWarn}/>{shopify.connected ? `Shopify · ${shopify.shop}` : "Shopify not connected"}</span>
+        <span className={styles.statusPill}><i className={shopify.connected ? styles.dotLive : styles.dotWarn}/>{shopifyLabel}</span>
         <span className={styles.statusPill}><i className={styles.dotLocked}/>Autonomous purchasing locked</span>
         <span className={styles.statusPill}><i className={styles.dotLocked}/>Pipeline auto-publish locked</span>
       </div>
 
       <section className={styles.metricGrid}>
         <Metric label="Readiness" value={readiness ? (readiness.ready ? "READY" : `${readiness.blockers} BLOCKER${readiness.blockers === 1 ? "" : "S"}`) : "—"} note={`${readiness?.warnings ?? 0} warning(s)`}/>
-        <Metric label="Shopify" value={shopify.connected ? "LIVE" : "OFF"} note={shopify.shop ?? "No shop resolved"}/>
+        <Metric label="Shopify" value={shopifyMetric} note={shopifyNote}/>
         <Metric label="Catalog" value={String(products.length)} note={`${managedProducts} managed records`}/>
         <Metric label="Approvals" value={String(pendingApprovals)} note="pending owner decisions"/>
         <Metric label="Orders" value={String(dashboard?.orders_total ?? 0)} note={`${dashboard?.orders_on_hold ?? 0} on hold`}/>
