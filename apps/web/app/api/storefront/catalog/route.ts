@@ -14,12 +14,22 @@ type PublicProduct = {
   category: string;
 };
 
-const BOTANICA_TERMS = [
-  "botanica", "ochosi", "orisha", "santeria", "lukumi", "lucumi", "ifa",
-  "vela", "candle", "hierba", "herb", "cascarilla", "aceite", "oil",
-  "incienso", "incense", "collar", "eleke", "ide", "baño", "bath",
-  "estatua", "statue", "religious", "spiritual",
-];
+/**
+ * Public Botanica catalog policy.
+ *
+ * The commerce OS may contain products from previous stores, QA runs, or generic
+ * dropshipping experiments. The public BOTANICA OCHOSI storefront must fail
+ * closed: a product is eligible only when its own title/description explicitly
+ * identifies it as Botanica / Lucumi / Orisha / spiritual-religious inventory.
+ * Generic words such as "oil", "bath", "bracelet", or "candle" are intentionally
+ * NOT sufficient on their own because they create false positives.
+ */
+const BOTANICA_PRODUCT_RE =
+  /\b(botanica|ochosi|oshosi|orisha|santer[ií]a|lukum[ií]|lucum[ií]|if[aá]|cascarilla|eleke|ide de santo|id[eé] de santo|religious candle|spiritual candle|ritual candle|spiritual bath|ritual bath|spiritual oil|ritual oil|orisha statue|orisha figure|santeria supplies|lucumi supplies|lukumi supplies)\b/i;
+
+function isBotanicaProduct(title: string, description: string): boolean {
+  return BOTANICA_PRODUCT_RE.test(`${title} ${description}`);
+}
 
 function categoryFor(text: string): string {
   const t = text.toLowerCase();
@@ -28,7 +38,7 @@ function categoryFor(text: string): string {
   if (/baño|bath/.test(t)) return "Baños";
   if (/aceite|oil|perfume|colonia/.test(t)) return "Aceites & Colonias";
   if (/incienso|incense/.test(t)) return "Inciensos";
-  if (/collar|eleke|idé|ide|bracelet/.test(t)) return "Collares & Idés";
+  if (/collar|eleke|id[eé]|bracelet/.test(t)) return "Collares & Idés";
   if (/estatua|statue|imagen|figure/.test(t)) return "Imágenes & Estatuas";
   if (/cascarilla/.test(t)) return "Cascarilla";
   if (/libro|book/.test(t)) return "Libros";
@@ -37,7 +47,7 @@ function categoryFor(text: string): string {
 
 export async function GET() {
   const orgs = await listAllOrgs();
-  const candidates: Array<{ orgId: string; orgName: string; shop: string; products: PublicProduct[] }> = [];
+  const connectedStores: Array<{ orgId: string; orgName: string; shop: string; products: PublicProduct[] }> = [];
 
   for (const org of orgs) {
     const creds = await getShopifyCreds(org.id);
@@ -45,38 +55,48 @@ export async function GET() {
 
     const products = await listProducts(org.id);
     const publicProducts = products
-      .filter((product) => product.status !== "killed" && !!product.storefront_url)
+      .filter(
+        (product) =>
+          product.status !== "killed" &&
+          !!product.storefront_url &&
+          Number(product.price || 0) > 0 &&
+          isBotanicaProduct(product.title, product.description),
+      )
       .map((product) => ({
         id: product.id,
         title: product.title,
         description: product.description,
-        price: Number(product.price || 0),
+        price: Number(product.price),
         image_url: product.image_url,
         storefront_url: product.storefront_url,
         category: categoryFor(`${product.title} ${product.description}`),
       }));
 
-    if (publicProducts.length) {
-      candidates.push({ orgId: org.id, orgName: org.name, shop: creds.shop, products: publicProducts });
-    }
+    connectedStores.push({ orgId: org.id, orgName: org.name, shop: creds.shop, products: publicProducts });
   }
 
-  if (!candidates.length) {
+  if (!connectedStores.length) {
     return json({
       connected: false,
       products: [],
-      message: "Shopify is not exposing any published catalog products yet.",
+      message: "No Shopify store is connected to the commerce OS yet.",
     });
   }
 
-  candidates.sort((a, b) => {
-    const aBotanica = BOTANICA_TERMS.some((term) => `${a.orgName} ${a.products.map((p) => p.title).join(" ")}`.toLowerCase().includes(term));
-    const bBotanica = BOTANICA_TERMS.some((term) => `${b.orgName} ${b.products.map((p) => p.title).join(" ")}`.toLowerCase().includes(term));
-    if (aBotanica !== bBotanica) return aBotanica ? -1 : 1;
-    return b.products.length - a.products.length;
-  });
+  connectedStores.sort((a, b) => b.products.length - a.products.length);
+  const selected = connectedStores[0];
 
-  const selected = candidates[0];
+  if (!selected.products.length) {
+    return json({
+      connected: true,
+      shop: selected.shop,
+      store_name: selected.orgName,
+      products: [],
+      message:
+        "Shopify is connected, but no products are explicitly approved for the BOTANICA OCHOSI public catalog yet.",
+    });
+  }
+
   return json({
     connected: true,
     shop: selected.shop,
