@@ -32,6 +32,9 @@ export type BotanicaSupplier = {
  * - Nigerian/Yoruba suppliers are tracked separately from Cuban/Lucumi suppliers.
  *   A product being made or sold in Nigeria is not, by itself, proof that it is the
  *   correct object for a Lucumi/Ocha/Ifa use case; cultural qualification is required.
+ * - Nigeria-direct religious goods require verification of maker/source, intended
+ *   tradition (Isese/Ifa/Yoruba vs. Lucumi/Ocha), exportability, materials, and any
+ *   restrictions before catalog publication or purchase commitment.
  * - China/global factory-direct sourcing must be restricted to verified components,
  *   packaging, generic vessels/accessories, and approved private-label work unless a
  *   culturally qualified supplier is separately verified.
