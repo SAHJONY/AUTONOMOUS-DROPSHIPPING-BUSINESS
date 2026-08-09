@@ -13,6 +13,10 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["shopping", "lifestyle"],
     lang: "es",
     scope: "/",
+    icons: [
+      { src: "/botanica-icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any" },
+      { src: "/botanica-icon-maskable.svg", sizes: "any", type: "image/svg+xml", purpose: "maskable" },
+    ],
     shortcuts: [
       { name: "Comprar", short_name: "Tienda", url: "/shop#catalogo" },
       { name: "Carrito", short_name: "Carrito", url: "/shop?cart=1" },
