@@ -84,7 +84,7 @@ export function calculateLandedCostPerUnitUsd(quote: SupplierQuote) {
     quote.insuranceTotal,
     quote.domesticShippingTotal,
     quote.otherLandedCostsTotal
-  ].reduce((sum, value) => sum + (value ?? 0), 0);
+  ].reduce<number>((sum, value) => sum + (value ?? 0), 0);
 
   return unitCostUsd + adders / quote.quantity;
 }
@@ -137,8 +137,6 @@ export function evaluateSupplierQuote(
     reasons.push("tradition-specific cultural use is not verified");
   }
 
-  // Owner approval is deliberately not required to evaluate a quote or send it to the Council.
-  // It is required before any purchase or irreversible supplier commitment.
   const eligibleForCouncil = reasons.length === 0;
 
   return {
