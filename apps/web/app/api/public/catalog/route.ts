@@ -7,6 +7,9 @@ export const dynamic = "force-dynamic";
 const PUBLIC_STORE_ORG_ID =
   process.env.PUBLIC_STORE_ORG_ID ?? "4c5dcff7503b4b68adbc5a7bffaf60d8";
 
+const BOTANICA_PRODUCT_RE =
+  /\b(botanica|ochosi|oshosi|orisha|santer[ií]a|lukum[ií]|lucum[ií]|if[aá]|cascarilla|eleke|id[eé]|collar|sopera|veladora|incienso|hierba|baño espiritual|spiritual bath|ritual bath|aceite espiritual|spiritual oil|ritual oil|religious candle|spiritual candle|ritual candle|orisha statue|orisha figure|santeria supplies|lucumi supplies|lukumi supplies|yoruba)\b/i;
+
 type ShopifyVariant = {
   id: number;
   title: string;
@@ -33,6 +36,12 @@ type ShopifyProduct = {
 
 function stripHtml(value = "") {
   return value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function isBotanicaProduct(product: ShopifyProduct): boolean {
+  return BOTANICA_PRODUCT_RE.test(
+    `${product.title} ${stripHtml(product.body_html)} ${product.product_type ?? ""} ${product.vendor ?? ""}`,
+  );
 }
 
 export async function GET() {
@@ -66,7 +75,12 @@ export async function GET() {
 
   const body = (await response.json()) as { products?: ShopifyProduct[] };
   const products = (body.products ?? [])
-    .filter((product) => product.status === "active" && product.published_at)
+    .filter(
+      (product) =>
+        product.status === "active" &&
+        !!product.published_at &&
+        isBotanicaProduct(product),
+    )
     .flatMap((product) => {
       const variant = (product.variants ?? []).find((item) => Number(item.price) > 0);
       if (!variant) return [];
