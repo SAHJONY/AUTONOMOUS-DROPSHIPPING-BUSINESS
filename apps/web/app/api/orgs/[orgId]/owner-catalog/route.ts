@@ -1,0 +1,120 @@
+import { error, json, requireOrgRole } from "@/lib/api";
+import { listGet, listReplace } from "@/lib/kv";
+import { newId, nowISO } from "@/lib/store";
+import type { Product } from "@/lib/types";
+import {
+  ownerArchiveShopifyProduct,
+  ownerCreateShopifyProduct,
+  ownerDeleteShopifyProduct,
+} from "@/lib/owner-catalog-shopify";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const productsKey = (orgId: string) => `products:${orgId}`;
+
+async function requireOwner(req: Request, orgId: string) {
+  return requireOrgRole(req, orgId, ["owner"]);
+}
+
+export async function GET(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params;
+  const auth = await requireOwner(req, orgId);
+  if ("response" in auth) return auth.response;
+  return json(await listGet<Product>(productsKey(orgId)));
+}
+
+export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params;
+  const auth = await requireOwner(req, orgId);
+  if ("response" in auth) return auth.response;
+
+  const body = await req.json().catch(() => ({}));
+  const title = String(body.title ?? "").trim();
+  if (!title) return error("Product title is required.", 422);
+  const syncShopify = body.sync_shopify !== false;
+  const publish = body.publish === true;
+  const price = Math.max(0, Number(body.price ?? 0));
+  const cost = Math.max(0, Number(body.cost ?? 0));
+  if (publish && price <= 0) return error("A positive price is required before publishing.", 422);
+
+  let shopify: Awaited<ReturnType<typeof ownerCreateShopifyProduct>> | undefined;
+  if (syncShopify) {
+    try {
+      shopify = await ownerCreateShopifyProduct(orgId, {
+        title,
+        description: String(body.description ?? ""),
+        price,
+        sku: String(body.sku ?? "").trim() || undefined,
+        productType: String(body.product_type ?? "Botanica"),
+        imageUrls: Array.isArray(body.images) ? body.images.map(String) : [],
+        publish,
+      });
+    } catch (e) {
+      return error((e as Error).message, 502);
+    }
+  }
+
+  const product: Product = {
+    id: newId(),
+    org_id: orgId,
+    title,
+    description: String(body.description ?? ""),
+    source: "owner_manual",
+    supplier_url: String(body.supplier_url ?? ""),
+    supplier: String(body.supplier ?? ""),
+    cost,
+    price,
+    status: publish ? "launched" : "discovered",
+    sku: String(body.sku ?? "").trim() || undefined,
+    images: Array.isArray(body.images) ? body.images.map(String).filter(Boolean) : [],
+    image_url: Array.isArray(body.images) && body.images.length ? String(body.images[0]) : undefined,
+    shopify_id: shopify?.id,
+    shopify_handle: shopify?.handle,
+    shopify_variant_id: shopify?.variantId,
+    storefront_url: publish ? shopify?.url : undefined,
+    created_at: nowISO(),
+  };
+  const products = await listGet<Product>(productsKey(orgId));
+  products.unshift(product);
+  await listReplace(productsKey(orgId), products.slice(0, 1000));
+  return json({ ok: true, product, shopify_status: shopify?.status ?? null }, 201);
+}
+
+export async function DELETE(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params;
+  const auth = await requireOwner(req, orgId);
+  if ("response" in auth) return auth.response;
+  const body = await req.json().catch(() => ({}));
+  const productId = String(body.product_id ?? "").trim();
+  const mode = String(body.mode ?? "archive");
+  if (!productId) return error("product_id is required.", 422);
+  if (!['archive','delete'].includes(mode)) return error("mode must be archive or delete.", 422);
+
+  const products = await listGet<Product>(productsKey(orgId));
+  const idx = products.findIndex((p) => p.id === productId);
+  if (idx < 0) return error("Product not found.", 404);
+  const product = products[idx];
+
+  if (mode === "archive") {
+    if (product.shopify_id) {
+      try { await ownerArchiveShopifyProduct(orgId, product.shopify_id); }
+      catch (e) { return error((e as Error).message, 502); }
+    }
+    products[idx] = { ...product, status: "killed", storefront_url: undefined };
+    await listReplace(productsKey(orgId), products);
+    return json({ ok: true, mode: "archive", product: products[idx] });
+  }
+
+  const confirmation = String(body.confirmation ?? "");
+  if (confirmation !== `DELETE ${product.title}`) {
+    return error(`Type DELETE ${product.title} to permanently delete this product.`, 409);
+  }
+  if (product.shopify_id) {
+    try { await ownerDeleteShopifyProduct(orgId, product.shopify_id); }
+    catch (e) { return error((e as Error).message, 502); }
+  }
+  products.splice(idx, 1);
+  await listReplace(productsKey(orgId), products);
+  return json({ ok: true, mode: "delete", deleted_id: productId });
+}
