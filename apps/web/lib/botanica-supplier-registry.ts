@@ -1,4 +1,4 @@
-export type BotanicaSupplierRegion = "MIAMI" | "USA" | "INTERNATIONAL";
+export type BotanicaSupplierRegion = "MIAMI" | "USA" | "NIGERIA" | "INTERNATIONAL";
 export type BotanicaSupplierStatus = "VERIFIED_PUBLIC" | "REQUIRES_ACCOUNT" | "REQUIRES_CONTACT";
 
 export type BotanicaSupplier = {
@@ -12,7 +12,12 @@ export type BotanicaSupplier = {
   categories: string[];
   strengths: string[];
   sourceEvidence: string[];
-  sourcingPolicy: "CORE_RELIGIOUS" | "CONSUMABLES" | "CUSTOM_MANUFACTURING" | "GENERAL_SUPPORT";
+  sourcingPolicy:
+    | "CORE_RELIGIOUS"
+    | "NIGERIA_YORUBA"
+    | "CONSUMABLES"
+    | "CUSTOM_MANUFACTURING"
+    | "GENERAL_SUPPORT";
   researchPriority: 1 | 2 | 3;
 };
 
@@ -24,6 +29,9 @@ export type BotanicaSupplier = {
  * - Never infer MOQ, landed cost, inventory, lead time, authenticity, or margins.
  * - Owner approval remains required before purchase orders, supplier commitments,
  *   private-label manufacturing, or irreversible imports.
+ * - Nigerian/Yoruba suppliers are tracked separately from Cuban/Lucumi suppliers.
+ *   A product being made or sold in Nigeria is not, by itself, proof that it is the
+ *   correct object for a Lucumi/Ocha/Ifa use case; cultural qualification is required.
  * - China/global factory-direct sourcing must be restricted to verified components,
  *   packaging, generic vessels/accessories, and approved private-label work unless a
  *   culturally qualified supplier is separately verified.
@@ -153,6 +161,67 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     sourceEvidence: ["https://www.vdimporters.com/about-us/"],
     sourcingPolicy: "CONSUMABLES",
     researchPriority: 2
+  },
+  {
+    id: "get-a-better-life-tv-akure",
+    name: "Get a Better Life TV Isese Bookshop & Divination/Spiritual Items Store",
+    region: "NIGERIA",
+    location: "Akure, Ondo State, Nigeria",
+    website: "https://www.getabetterlifetv.com/",
+    wholesale: false,
+    status: "REQUIRES_CONTACT",
+    categories: ["Iroke Ifa", "Ajere Ifa", "Igba Aje", "Bata drums", "Yoruba/Ifa books", "divination and spiritual items"],
+    strengths: ["Nigeria-based Yoruba/Ifa inventory", "public NGN pricing", "physical Akure pickup location documented", "broad Isese/Ifa catalog"],
+    sourceEvidence: [
+      "https://www.getabetterlifetv.com/",
+      "https://www.getabetterlifetv.com/collections/all",
+      "https://www.getabetterlifetv.com/products/iroke-ifa",
+      "https://www.getabetterlifetv.com/products/ajere-ifa"
+    ],
+    sourcingPolicy: "NIGERIA_YORUBA",
+    researchPriority: 1
+  },
+  {
+    id: "okin-ifa-temple-oyo",
+    name: "Okin Ifa Temple",
+    region: "NIGERIA",
+    location: "Eruwa, Oyo State, Nigeria",
+    website: "https://okinifatemple.com.ng/",
+    wholesale: false,
+    status: "REQUIRES_CONTACT",
+    categories: ["Ifa beads", "divination tools", "sacred Ifa products", "Yoruba spiritual items"],
+    strengths: ["Oyo-based Ifa source", "sacred-product catalog", "direct contact for culturally specific sourcing"],
+    sourceEvidence: ["https://okinifatemple.com.ng/"],
+    sourcingPolicy: "NIGERIA_YORUBA",
+    researchPriority: 1
+  },
+  {
+    id: "naijas-no1-wholesale-beads-lagos",
+    name: "Naijas No1 Wholesale Bead Store",
+    region: "NIGERIA",
+    location: "Amuwo Odofin, Lagos, Nigeria",
+    website: "https://ng.worldorgs.com/catalog/lagos/bead-store/naijasno1wholesalebeadstore",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["glass beads", "bead components", "necklace and bracelet components", "craft supplies"],
+    strengths: ["explicit wholesale bead-store listing", "Lagos trade-market location", "useful for locally sourced bead components"],
+    sourceEvidence: ["https://ng.worldorgs.com/catalog/lagos/bead-store/naijasno1wholesalebeadstore"],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 2
+  },
+  {
+    id: "bykessy-lagos",
+    name: "ByKessy",
+    region: "NIGERIA",
+    location: "Lagos, Nigeria",
+    website: "https://bykessy.com/",
+    wholesale: true,
+    status: "VERIFIED_PUBLIC",
+    categories: ["handcrafted beads", "African-print accessories", "custom beaded goods", "waist beads"],
+    strengths: ["retail and wholesale worldwide", "handcrafted in Nigeria", "Lagos-based custom bead capability"],
+    sourceEvidence: ["https://bykessy.com/pages/about-us"],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 2
   }
 ];
 
@@ -162,4 +231,8 @@ export function getBotanicaSuppliersByPriority(priority: 1 | 2 | 3) {
 
 export function getBotanicaSuppliersByPolicy(policy: BotanicaSupplier["sourcingPolicy"]) {
   return BOTANICA_SUPPLIERS.filter((supplier) => supplier.sourcingPolicy === policy);
+}
+
+export function getBotanicaSuppliersByRegion(region: BotanicaSupplierRegion) {
+  return BOTANICA_SUPPLIERS.filter((supplier) => supplier.region === region);
 }
