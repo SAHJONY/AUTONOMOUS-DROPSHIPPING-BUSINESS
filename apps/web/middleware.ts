@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(req: NextRequest) {
-  const response = NextResponse.next();
+  let response: NextResponse;
+
+  // Public visitors land on BOTANICA OCHOSI. The existing operational command
+  // center is preserved at /?command=1 so the rebuild does not discard the
+  // Shopify, fulfillment, ledger, agent, governance, or owner workflows.
+  if (req.nextUrl.pathname === "/" && req.nextUrl.searchParams.get("command") !== "1") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/store";
+    url.search = "";
+    response = NextResponse.rewrite(url);
+  } else {
+    response = NextResponse.next();
+  }
 
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");

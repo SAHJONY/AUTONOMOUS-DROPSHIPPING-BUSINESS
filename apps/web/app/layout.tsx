@@ -2,27 +2,27 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SAHJONY Commerce — Autonomous Commerce, Operated for You",
+  title: "BOTANICA OCHOSI — Botánica Cubana Inteligente",
   description:
-    "SAHJONY Commerce is an autonomous commerce operator. An AI CEO and seven specialists run your business 24/7 — you approve only what matters, from an ultra-premium command deck.",
-  metadataBase: new URL("https://sahjony.com"),
+    "BOTANICA OCHOSI is an AI-assisted Cuban botanica experience with a live Shopify catalog, intelligent discovery, autonomous commerce operations, and owner-controlled high-risk actions.",
+  metadataBase: new URL("https://autonomous-dropshipping-business.vercel.app"),
   openGraph: {
-    title: "SAHJONY Commerce",
+    title: "BOTANICA OCHOSI",
     description:
-      "Autonomous commerce, operated for you. You approve only what matters.",
+      "Tradición, catálogo real y una nueva experiencia digital para una botánica cubana.",
     type: "website",
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#050505",
+  themeColor: "#07110b",
   width: "device-width",
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body>{children}</body>
     </html>
   );
