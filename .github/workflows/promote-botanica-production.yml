@@ -1,0 +1,40 @@
+name: Promote BOTANICA Production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/promote-botanica-production.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require Vercel token
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "VERCEL_TOKEN secret is required"; exit 1; }
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@56.5.0
+
+      - name: Promote validated BOTANICA artifact
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel promote autonomous-dropshipping-business-azic4lrmd.vercel.app \
+            --token="$VERCEL_TOKEN" \
+            --scope="juan-gonzalezs-projects-94b6dfe9" \
+            --yes
+
+      - name: Verify production domain
+        run: |
+          curl --fail --silent --show-error --location https://www.botanicaochosi.com/shop >/dev/null
+          curl --fail --silent --show-error --location https://www.botanicaochosi.com/manifest.webmanifest >/dev/null
+          curl --fail --silent --show-error --location https://www.botanicaochosi.com/sw.js >/dev/null
