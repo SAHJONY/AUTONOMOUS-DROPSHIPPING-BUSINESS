@@ -1,16 +1,18 @@
 /**
- * Central configuration for SAHJONY Commerce (Vercel-native).
+ * Central configuration for BOTANICA OCHOSI (Vercel-native).
  *
  * The app runs entirely on Vercel: Next.js route handlers are the backend,
- * Upstash Redis (with an in-memory fallback) is the datastore, and the SAHJONY Autonomous Engine
+ * Upstash Redis (with an in-memory fallback) is the datastore, and the OCHOSI Intelligence Engine
  * is the brain behind every autonomous decision.
  */
 
 /** Brand identity. The engine internals are never exposed to end users. */
-export const BRAND = "SAHJONY";
-export const BRAND_DOMAIN = "sahjony.com";
-export const PRODUCT_NAME = "SAHJONY Commerce";
-export const ENGINE_NAME = "SAHJONY Autonomous Engine";
+export const BRAND = "BOTANICA OCHOSI";
+export const BRAND_DOMAIN =
+  process.env.BRAND_DOMAIN ??
+  "autonomous-dropshipping-busine-juan-gonzalezs-projects-94b6dfe9.vercel.app";
+export const PRODUCT_NAME = "BOTANICA OCHOSI Commerce OS";
+export const ENGINE_NAME = "OCHOSI Intelligence Engine";
 
 /** The unrestricted super-admin / owner of this deployment. */
 export const OWNER_EMAIL = "sahjonycapitalllc@outlook.com";
