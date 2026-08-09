@@ -1,4 +1,5 @@
 import { botanicaRelevantText } from "./botanica-policy";
+import type { ProductOpportunityResult } from "./botanica-product-opportunity";
 import { listProducts, remember, updateProduct } from "./store";
 import type { Product } from "./types";
 
@@ -17,6 +18,17 @@ export interface CouncilDecision {
     margin_floor: boolean;
     prohibited_claims: boolean;
   };
+  gross_margin_pct: number | null;
+  reasons: string[];
+}
+
+export interface SupplierOpportunityCouncilDecision {
+  opportunity_id: string;
+  product_name: string;
+  verdict: CouncilVerdict;
+  confidence: number;
+  opportunity_score: number;
+  opportunity_tier: ProductOpportunityResult["tier"];
   gross_margin_pct: number | null;
   reasons: string[];
 }
@@ -87,6 +99,45 @@ export function evaluateBotanicaProduct(product: Product): CouncilDecision {
       prohibited_claims: prohibitedClaims,
     },
     gross_margin_pct: margin === null ? null : Math.round(margin * 1000) / 10,
+    reasons,
+  };
+}
+
+/**
+ * Supplier/Product Opportunity Council adapter.
+ * A numeric opportunity score can improve ranking and confidence, but cannot override
+ * the quote/provenance/export/cultural hard gates enforced upstream.
+ */
+export function evaluateBotanicaSupplierOpportunity(
+  opportunity: ProductOpportunityResult,
+): SupplierOpportunityCouncilDecision {
+  const reasons = [...opportunity.hardGateReasons];
+  let verdict: CouncilVerdict = opportunity.eligibleForCouncil ? "APPROVE" : "HOLD";
+
+  // Extremely weak economics/evidence remain a hold even if upstream inputs were malformed.
+  if (opportunity.components.economics < 70) {
+    verdict = "HOLD";
+    reasons.push("Opportunity economics do not meet the BOTANICA margin threshold.");
+  }
+  if (opportunity.components.evidence < 60) {
+    verdict = "HOLD";
+    reasons.push("Supplier evidence quality is below the Council threshold.");
+  }
+
+  const confidence = clampConfidence(
+    opportunity.score * 0.7 +
+      opportunity.components.evidence * 0.15 +
+      opportunity.components.provenance * 0.15,
+  );
+
+  return {
+    opportunity_id: opportunity.id,
+    product_name: opportunity.productName,
+    verdict,
+    confidence,
+    opportunity_score: opportunity.score,
+    opportunity_tier: opportunity.tier,
+    gross_margin_pct: opportunity.quoteEvaluation.grossMarginPct,
     reasons,
   };
 }
