@@ -3,14 +3,23 @@ import { NextRequest, NextResponse } from "next/server";
 export function middleware(req: NextRequest) {
   let response: NextResponse;
 
-  // Public visitors land on BOTANICA OCHOSI. The existing operational command
-  // center is preserved at /?command=1 so the rebuild does not discard the
-  // Shopify, fulfillment, ledger, agent, governance, or owner workflows.
-  if (req.nextUrl.pathname === "/" && req.nextUrl.searchParams.get("command") !== "1") {
-    const url = req.nextUrl.clone();
-    url.pathname = "/store";
-    url.search = "";
-    response = NextResponse.rewrite(url);
+  // BOTANICA OCHOSI is now the canonical application surface.
+  // - /              -> public storefront
+  // - /?command=1    -> Owner OS (compatibility for old bookmarks)
+  // - /?legacy=1     -> inherited SAHJONY Commerce console, retained only as a
+  //                     technical fallback while remaining workflows migrate.
+  if (req.nextUrl.pathname === "/") {
+    const legacy = req.nextUrl.searchParams.get("legacy") === "1";
+    const ownerCommand = req.nextUrl.searchParams.get("command") === "1";
+
+    if (!legacy) {
+      const url = req.nextUrl.clone();
+      url.pathname = ownerCommand ? "/owner" : "/store";
+      url.search = "";
+      response = NextResponse.rewrite(url);
+    } else {
+      response = NextResponse.next();
+    }
   } else {
     response = NextResponse.next();
   }
