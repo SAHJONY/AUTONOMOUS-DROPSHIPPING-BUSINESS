@@ -1,0 +1,25 @@
+name: BOTANICA catalog migration
+
+# Manual, owner-authorized migration. It uses the same APP_URL and CRON_SECRET
+# secrets as the existing heartbeat workflow and never exposes Shopify credentials.
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    name: Archive legacy catalog and seed BOTANICA drafts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run protected migration
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "APP_URL or CRON_SECRET is not configured." >&2
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --location --max-time 300 \
+            --request POST \
+            --header "Authorization: Bearer $CRON_SECRET" \
+            "$APP_URL/api/cron/botanica-catalog-migration" | tee migration-result.json
