@@ -6,7 +6,6 @@ const APEX_HOST = "botanicaochosi.com";
 export function middleware(req: NextRequest) {
   const host = req.headers.get("host")?.toLowerCase() ?? "";
 
-  // Production canonicalization: apex always redirects to www.
   if (host === APEX_HOST) {
     const url = req.nextUrl.clone();
     url.protocol = "https:";
@@ -16,22 +15,26 @@ export function middleware(req: NextRequest) {
 
   let response: NextResponse;
 
-  // BOTANICA OCHOSI is the canonical application surface.
-  // - /              -> public storefront
-  // - /?command=1    -> Owner OS compatibility
-  // - /?legacy=1     -> inherited technical console only
+  // Canonical BOTANICA surfaces:
+  // - / and /store -> shareable ecommerce storefront
+  // - /?command=1  -> Owner OS compatibility
+  // - /?legacy=1   -> inherited technical console only
   if (req.nextUrl.pathname === "/") {
     const legacy = req.nextUrl.searchParams.get("legacy") === "1";
     const ownerCommand = req.nextUrl.searchParams.get("command") === "1";
 
     if (!legacy) {
       const url = req.nextUrl.clone();
-      url.pathname = ownerCommand ? "/owner" : "/store";
+      url.pathname = ownerCommand ? "/owner" : "/shop";
       url.search = "";
       response = NextResponse.rewrite(url);
     } else {
       response = NextResponse.next();
     }
+  } else if (req.nextUrl.pathname === "/store") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/shop";
+    response = NextResponse.rewrite(url);
   } else {
     response = NextResponse.next();
   }
