@@ -35,6 +35,9 @@ export type BotanicaSupplier = {
  * - Nigeria-direct religious goods require verification of maker/source, intended
  *   tradition (Isese/Ifa/Yoruba vs. Lucumi/Ocha), exportability, materials, and any
  *   restrictions before catalog publication or purchase commitment.
+ * - US-based Nigeria importers are preferred as a low-friction bridge when they can
+ *   evidence provenance and provide wholesale/bulk terms; direct Nigeria relationships
+ *   remain the long-term source-development lane.
  * - China/global factory-direct sourcing must be restricted to verified components,
  *   packaging, generic vessels/accessories, and approved private-label work unless a
  *   culturally qualified supplier is separately verified.
