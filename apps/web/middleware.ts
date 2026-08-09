@@ -1,13 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const CANONICAL_HOST = "www.botanicaochosi.com";
+const APEX_HOST = "botanicaochosi.com";
+
 export function middleware(req: NextRequest) {
+  const host = req.headers.get("host")?.toLowerCase() ?? "";
+
+  // Production canonicalization: apex always redirects to www.
+  if (host === APEX_HOST) {
+    const url = req.nextUrl.clone();
+    url.protocol = "https:";
+    url.host = CANONICAL_HOST;
+    return NextResponse.redirect(url, 308);
+  }
+
   let response: NextResponse;
 
-  // BOTANICA OCHOSI is now the canonical application surface.
+  // BOTANICA OCHOSI is the canonical application surface.
   // - /              -> public storefront
-  // - /?command=1    -> Owner OS (compatibility for old bookmarks)
-  // - /?legacy=1     -> inherited SAHJONY Commerce console, retained only as a
-  //                     technical fallback while remaining workflows migrate.
+  // - /?command=1    -> Owner OS compatibility
+  // - /?legacy=1     -> inherited technical console only
   if (req.nextUrl.pathname === "/") {
     const legacy = req.nextUrl.searchParams.get("legacy") === "1";
     const ownerCommand = req.nextUrl.searchParams.get("command") === "1";
@@ -28,16 +40,10 @@ export function middleware(req: NextRequest) {
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
-  response.headers.set(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), browsing-topics=()",
-  );
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), browsing-topics=()");
 
   if (process.env.NODE_ENV === "production") {
-    response.headers.set(
-      "Strict-Transport-Security",
-      "max-age=31536000; includeSubDomains; preload",
-    );
+    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
   }
 
   if (req.nextUrl.pathname.startsWith("/api/")) {

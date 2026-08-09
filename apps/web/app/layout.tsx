@@ -1,17 +1,32 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
+const CANONICAL_URL = "https://www.botanicaochosi.com";
+
 export const metadata: Metadata = {
-  title: "BOTANICA OCHOSI — Botánica Cubana Inteligente",
-  description:
-    "BOTANICA OCHOSI is an AI-assisted Cuban botanica experience with a live Shopify catalog, intelligent discovery, autonomous commerce operations, and owner-controlled high-risk actions.",
-  metadataBase: new URL("https://autonomous-dropshipping-business.vercel.app"),
-  openGraph: {
-    title: "BOTANICA OCHOSI",
-    description:
-      "Tradición, catálogo real y una nueva experiencia digital para una botánica cubana.",
-    type: "website",
+  metadataBase: new URL(CANONICAL_URL),
+  title: {
+    default: "BOTANICA OCHOSI — Botánica Cubana Online",
+    template: "%s | BOTANICA OCHOSI",
   },
+  description:
+    "BOTANICA OCHOSI es una botánica cubana online con productos Lucumí, Yoruba e Ifá, catálogo conectado a Shopify y operaciones administradas por el Owner OS.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "BOTANICA OCHOSI — Botánica Cubana Online",
+    description:
+      "Tradición cubana, productos Lucumí y Yoruba, catálogo real y una experiencia digital moderna.",
+    url: CANONICAL_URL,
+    siteName: "BOTANICA OCHOSI",
+    type: "website",
+    locale: "es_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BOTANICA OCHOSI",
+    description: "Botánica cubana online · Lucumí · Yoruba · Ifá · productos y suministros religiosos.",
+  },
+  robots: { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
