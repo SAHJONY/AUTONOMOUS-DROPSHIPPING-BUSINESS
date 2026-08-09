@@ -108,7 +108,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     wholesale: true,
     status: "VERIFIED_PUBLIC",
     categories: ["Opon Ifa", "Obi", "Orogbo", "Ewe", "Yoruba cultural goods", "West African plant products"],
-    strengths: ["direct-from-source West African inventory", "wholesale program", "100+ country international shipping claimed", "special orders"],
+    strengths: ["direct-from-source West African inventory", "wholesale program", "international shipping", "special orders"],
     sourceEvidence: ["https://yorubaimports.com/"],
     sourcingPolicy: "NIGERIA_YORUBA",
     researchPriority: 1
@@ -134,7 +134,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     location: "Los Angeles County, California",
     website: "https://rushofase.com/",
     wholesale: true,
-    status: "VERIFIED_PUBLIC",
+    status: "REQUIRES_CONTACT",
     categories: ["Iyerosun", "Obi", "plants", "herbs", "incense", "traditional African items imported from Oyo State"],
     strengths: ["bulk orders accepted", "traditional African items imported from Oyo State", "US replenishment option"],
     sourceEvidence: ["https://rushofase.com/"],
