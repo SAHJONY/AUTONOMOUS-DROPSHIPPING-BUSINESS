@@ -98,7 +98,7 @@ export default function BotanicaOwnerOS() {
         <div className={styles.heroActions}><a className={styles.primary} href="/owner/catalog">Manage catalog</a><button className={styles.ghost} onClick={() => void load()} disabled={loading}>{loading ? "Refreshing…" : "Refresh intelligence"}</button></div>
       </section>
 
-      {!token && !loading ? <div className={styles.error}><strong>Owner authentication required.</strong><div>Sign in through the operating console, then return to this Owner OS.</div><a className={styles.primary} href="/?command=1" style={{marginTop:12}}>Owner sign in</a></div> : null}
+      {!token && !loading ? <div className={styles.error}><strong>Owner authentication required.</strong><div>Sign in through the inherited operating console, then return to this Owner OS.</div><a className={styles.primary} href="/?legacy=1" style={{marginTop:12}}>Owner sign in</a></div> : null}
       {error && <div className={styles.error}><strong>Owner OS requires attention</strong><div>{error}</div></div>}
 
       <div className={styles.statusStrip}>
@@ -139,7 +139,7 @@ export default function BotanicaOwnerOS() {
         </div>
       </section>
 
-      <footer className={styles.footer}><span>Owner: {me?.email ?? "authentication pending"}</span><span className={styles.legacy}>Legacy console: <a href="/?command=1">open only for inherited operations</a></span></footer>
+      <footer className={styles.footer}><span>Owner: {me?.email ?? "authentication pending"}</span><span className={styles.legacy}>Inherited console: <a href="/?legacy=1">open only for remaining legacy workflows</a></span></footer>
     </div>
   </main>;
 }
