@@ -38,7 +38,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel promote autonomous-dropshipping-business-azic4lrmd.vercel.app \
+          vercel promote autonomous-dropshipping-business-fe93zc11y.vercel.app \
             --token="$VERCEL_TOKEN" \
             --scope="juan-gonzalezs-projects-94b6dfe9" \
             --yes
@@ -64,7 +64,7 @@ jobs:
             const success = process.env.TOKEN_PRESENT === 'true' && process.env.PROMOTE_OUTCOME === 'success' && process.env.VERIFY_OUTCOME === 'success';
             const title = `BOTANICA production promotion ${success ? 'SUCCESS' : 'FAILED'} — run ${context.runId}`;
             const body = [
-              `Artifact: autonomous-dropshipping-business-azic4lrmd.vercel.app`,
+              `Artifact: autonomous-dropshipping-business-fe93zc11y.vercel.app`,
               `Token present: ${process.env.TOKEN_PRESENT}`,
               `Promotion outcome: ${process.env.PROMOTE_OUTCOME || 'not-run'}`,
               `Domain verification: ${process.env.VERIFY_OUTCOME || 'not-run'}`,
