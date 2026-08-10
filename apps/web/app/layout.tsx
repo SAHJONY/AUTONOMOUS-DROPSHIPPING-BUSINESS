@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./ochosi-brand.css";
+import "./ochosi-logo-fit.css";
 
 const CANONICAL_URL = "https://www.botanicaochosi.com";
 
