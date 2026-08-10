@@ -25,22 +25,32 @@ export type OwnerShopifyCreateInput = {
   sku?: string;
   productType?: string;
   imageUrls?: string[];
+  /**
+   * Legacy compatibility only. Direct live publication is forbidden by this helper.
+   * Verified BOTANICA products must be created as Shopify drafts first.
+   */
   publish?: boolean;
 };
 
+export function assertShopifyDraftOnly(input: OwnerShopifyCreateInput): void {
+  if (input.publish === true) {
+    throw new Error("BOTANICA_DIRECT_LIVE_PUBLISH_BLOCKED: create a verified Shopify draft first.");
+  }
+}
+
 export async function ownerCreateShopifyProduct(orgId: string, input: OwnerShopifyCreateInput) {
-  const publish = input.publish === true;
+  assertShopifyDraftOnly(input);
   const { res, shop } = await adminFetch(orgId, "/products.json", {
     method: "POST",
     body: JSON.stringify({
       product: {
         title: input.title,
         body_html: input.description ?? "",
-        status: publish ? "active" : "draft",
-        published: publish,
+        status: "draft",
+        published: false,
         vendor: "BOTANICA OCHOSI",
         product_type: input.productType ?? "Botanica",
-        tags: "BOTANICA OCHOSI, OWNER_MANAGED",
+        tags: "BOTANICA OCHOSI, OWNER_MANAGED, VERIFICATION_REQUIRED_BEFORE_LIVE",
         variants: [{
           price: String(Math.max(0, Number(input.price ?? 0))).replace(/^$/, "0"),
           ...(input.sku ? { sku: input.sku } : {}),
