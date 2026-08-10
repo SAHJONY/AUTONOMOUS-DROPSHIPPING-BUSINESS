@@ -5,11 +5,29 @@ import styles from "../owner.module.css";
 
 type Product = { id:string; title:string; description:string; cost:number; price:number; status:string; supplier?:string; shopify_id?:number; storefront_url?:string; sku?:string };
 type MigrationResult = { ok?:boolean; legacy_found?:number; archived_count?:number; botanica_drafts_created?:number; final_active_legacy?:number; final_botanica_products?:number; errors?:string[] };
+type DiagnosticRow = { id:string; title:string; handle:string; productType:string; vendor:string; published:boolean; botanica:boolean; positivePrice:boolean; inventoryAvailable:boolean; publishable:boolean; reasons:string[] };
+type CatalogDiagnostics = {
+  ok:boolean;
+  shop:string;
+  counts:{ activeFetched:number; published:number; botanicaMatch:number; positivePrice:number; inventoryAvailable:number; publishable:number };
+  exclusions:{ notPublished:number; notBotanicaMatch:number; noPositivePrice:number; noInventory:number };
+  products:DiagnosticRow[];
+};
+
+const REASON_LABELS: Record<string, string> = {
+  not_active: "not active",
+  not_published: "not published",
+  not_botanica_match: "not BOTANICA match",
+  no_positive_price: "no positive price",
+  no_inventory: "no inventory",
+};
 
 export default function OwnerCatalogPage() {
   const [token, setToken] = useState("");
   const [orgId, setOrgId] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const [diagnostics, setDiagnostics] = useState<CatalogDiagnostics | null>(null);
+  const [diagnosticError, setDiagnosticError] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [migration, setMigration] = useState<MigrationResult | null>(null);
@@ -30,7 +48,15 @@ export default function OwnerCatalogPage() {
     if (!res.ok) { const body = await res.json().catch(() => ({})); setError(body.detail ?? `Request failed (${res.status})`); return; }
     setProducts(await res.json());
   }
-  useEffect(() => { if (token) void refresh(); }, [token]);
+  async function refreshDiagnostics() {
+    const oid = await resolveOrg(); if (!oid) return;
+    setDiagnosticError("");
+    const res = await fetch(`/api/orgs/${oid}/owner-catalog/diagnostics`, { headers, cache:"no-store" });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) { setDiagnostics(null); setDiagnosticError(body.detail ?? `Diagnostic failed (${res.status})`); return; }
+    setDiagnostics(body as CatalogDiagnostics);
+  }
+  useEffect(() => { if (token) { void refresh(); void refreshDiagnostics(); } }, [token]);
 
   async function runMigration() {
     const confirmation = window.prompt("This archives non-BOTANICA Shopify products and seeds curated BOTANICA drafts. Type:\nMIGRATE BOTANICA CATALOG") ?? "";
@@ -40,7 +66,7 @@ export default function OwnerCatalogPage() {
       const oid = await resolveOrg(); if (!oid) throw new Error("Owner organization could not be resolved.");
       const res = await fetch(`/api/orgs/${oid}/owner-catalog/migrate`, { method:"POST", headers, body:JSON.stringify({ confirmation }) });
       const body = await res.json().catch(() => ({})); if (!res.ok && res.status !== 207) throw new Error(body.detail ?? `Request failed (${res.status})`);
-      setMigration(body); await refresh();
+      setMigration(body); await refresh(); await refreshDiagnostics();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); }
   }
 
@@ -55,7 +81,7 @@ export default function OwnerCatalogPage() {
         images, sync_shopify:true, publish:form.get("publish") === "on",
       }) });
       const body = await res.json().catch(() => ({})); if (!res.ok) throw new Error(body.detail ?? `Request failed (${res.status})`);
-      e.currentTarget.reset(); await refresh();
+      e.currentTarget.reset(); await refresh(); await refreshDiagnostics();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); }
   }
 
@@ -66,7 +92,7 @@ export default function OwnerCatalogPage() {
     setBusy(true); setError("");
     try {
       const oid = await resolveOrg(); const res = await fetch(`/api/orgs/${oid}/owner-catalog`, { method:"DELETE", headers, body:JSON.stringify({ product_id:product.id, mode, confirmation }) });
-      const body = await res.json().catch(() => ({})); if (!res.ok) throw new Error(body.detail ?? `Request failed (${res.status})`); await refresh();
+      const body = await res.json().catch(() => ({})); if (!res.ok) throw new Error(body.detail ?? `Request failed (${res.status})`); await refresh(); await refreshDiagnostics();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); }
   }
 
@@ -78,6 +104,18 @@ export default function OwnerCatalogPage() {
     <div className={styles.content}>
       <section className={styles.hero}><div className={styles.kicker}>OWNER CATALOG · SHOPIFY CONTROL</div><h1>Catalog <em>Control.</em></h1><p>Create, archive and retire owner-managed products across the internal catalog and connected Shopify store. Archive remains the recommended default because it preserves history.</p></section>
       {error && <div className={styles.error}>{error}</div>}
+
+      <section className={`${styles.card} ${styles.migration}`}>
+        <div className={styles.sectionHead}><div><span>PUBLIC CATALOG AUDIT</span><h2>Shopify publishability.</h2></div><button className={styles.ghost} onClick={() => void refreshDiagnostics()} disabled={!token || busy}>Refresh audit</button></div>
+        {diagnosticError && <div className={styles.error}>{diagnosticError}</div>}
+        {!diagnostics && !diagnosticError && <p>Sign in as owner to audit why Shopify products are or are not eligible for the public BOTANICA catalog.</p>}
+        {diagnostics && <>
+          <p>Store: <strong>{diagnostics.shop}</strong>. Public catalog remains fail-closed: every product must be active, published, BOTANICA-matched, positively priced and inventory-available.</p>
+          <div className={styles.productMeta}>Active fetched {diagnostics.counts.activeFetched} · Published {diagnostics.counts.published} · BOTANICA match {diagnostics.counts.botanicaMatch} · Positive price {diagnostics.counts.positivePrice} · Inventory ready {diagnostics.counts.inventoryAvailable} · <strong>Publicable {diagnostics.counts.publishable}</strong></div>
+          <div className={styles.productMeta}>Excluded: unpublished {diagnostics.exclusions.notPublished} · non-BOTANICA {diagnostics.exclusions.notBotanicaMatch} · no price {diagnostics.exclusions.noPositivePrice} · no inventory {diagnostics.exclusions.noInventory}</div>
+          {!!diagnostics.products.length && <div className={styles.productList}>{diagnostics.products.map((row) => <article key={row.id} className={`${styles.card} ${styles.productRow}`}><div><h2>{row.title}</h2><div className={styles.productMeta}>{row.productType || "No category"} · {row.vendor || "No vendor"} · {row.publishable ? "PUBLICABLE" : row.reasons.map((reason) => REASON_LABELS[reason] ?? reason).join(" · ")}</div></div></article>)}</div>}
+        </>}
+      </section>
 
       <section className={`${styles.card} ${styles.migration}`}>
         <div className={styles.kicker}>ONE-TIME SAFE MIGRATION</div><h2>Replace legacy Shopify catalog</h2>
