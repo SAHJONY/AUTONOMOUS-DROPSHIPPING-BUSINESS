@@ -1,0 +1,87 @@
+name: Verify Telegram runtime sync
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-telegram-runtime-sync.yml'
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  VERCEL_ORG_ID: team_Me3fB0D0J6He10CgJlJ44Xaq
+  VERCEL_PROJECT_ID: prj_cyqSrN2iAzIZ2c14kfMRanbSf0QN
+
+jobs:
+  verify-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Preflight
+        id: preflight
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          TELEGRAM_CHANNEL_USERNAME: ${{ secrets.TELEGRAM_CHANNEL_USERNAME }}
+        run: |
+          set -euo pipefail
+          missing=0
+          if [ -z "${VERCEL_TOKEN:-}" ]; then echo "::error::VERCEL_TOKEN missing"; missing=1; fi
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then echo "::error::TELEGRAM_BOT_TOKEN missing"; missing=1; fi
+          if [ -z "${TELEGRAM_CHANNEL_ID:-}" ] && [ -z "${TELEGRAM_CHANNEL_USERNAME:-}" ]; then echo "::error::Telegram channel destination missing"; missing=1; fi
+          test "$missing" -eq 0
+
+      - name: Install Vercel CLI
+        if: success()
+        run: npm install --global vercel@latest
+
+      - name: Sync Telegram secrets to Vercel Production
+        if: success()
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+          TELEGRAM_CHANNEL_USERNAME: ${{ secrets.TELEGRAM_CHANNEL_USERNAME }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$TELEGRAM_BOT_TOKEN" | vercel env add TELEGRAM_BOT_TOKEN production --force --sensitive --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID"
+          if [ -n "${TELEGRAM_CHANNEL_ID:-}" ]; then
+            printf '%s' "$TELEGRAM_CHANNEL_ID" | vercel env add TELEGRAM_CHANNEL_ID production --force --sensitive --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID"
+          fi
+          if [ -n "${TELEGRAM_CHANNEL_USERNAME:-}" ]; then
+            printf '%s' "$TELEGRAM_CHANNEL_USERNAME" | vercel env add TELEGRAM_CHANNEL_USERNAME production --force --sensitive --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID"
+          fi
+
+      - name: Redeploy production with refreshed runtime env
+        if: success()
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          set -euo pipefail
+          current=$(vercel list autonomous-dropshipping-business --environment=production --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID" 2>/dev/null | awk '/https:\/\// {print $2; exit}')
+          test -n "${current:-}"
+          vercel redeploy "$current" --token="$VERCEL_TOKEN" --scope="$VERCEL_ORG_ID"
+
+      - name: Report result
+        if: always()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            title='BOTANICA Telegram Runtime Sync — SUCCESS'
+            body='Telegram runtime synchronization completed successfully. GitHub Secrets were accepted, Vercel Production environment variables were synchronized, and a production redeploy was requested. No secret values are included in this report.'
+          else
+            title='BOTANICA Telegram Runtime Sync — FAILED'
+            body='Telegram runtime synchronization did not complete. No secret values are included in this report. Review the workflow run to identify which required secret or Vercel operation failed.'
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
