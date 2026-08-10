@@ -31,14 +31,14 @@ jobs:
         if: steps.token.outputs.present == 'true'
         run: npm install --global vercel@56.5.0
 
-      - name: Promote validated BOTANICA artifact
+      - name: Promote exact validated BOTANICA artifact
         id: promote
         if: steps.token.outputs.present == 'true'
         continue-on-error: true
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel promote autonomous-dropshipping-business-d4wvxwnm6.vercel.app \
+          vercel promote autonomous-dropshipping-business-3laciiela.vercel.app \
             --token="$VERCEL_TOKEN" \
             --scope="juan-gonzalezs-projects-94b6dfe9" \
             --yes
@@ -86,7 +86,8 @@ jobs:
             const success = process.env.TOKEN_PRESENT === 'true' && process.env.PROMOTE_OUTCOME === 'success' && process.env.VERIFY_OUTCOME === 'success';
             const title = `BOTANICA production promotion ${success ? 'SUCCESS' : 'FAILED'} — run ${context.runId}`;
             const body = [
-              `Artifact: autonomous-dropshipping-business-d4wvxwnm6.vercel.app`,
+              `Artifact: autonomous-dropshipping-business-3laciiela.vercel.app`,
+              `Deployment: dpl_5WtdLNdMwppjpbSSFcgtbhZU6kzx`,
               `Token present: ${process.env.TOKEN_PRESENT}`,
               `Promotion outcome: ${process.env.PROMOTE_OUTCOME || 'not-run'}`,
               `Domain verification: ${process.env.VERIFY_OUTCOME || 'not-run'}`,
