@@ -57,6 +57,26 @@ describe("BOTANICA Spanish-first master catalog", () => {
     expect(snapshot.collections).toContain("256 Odù");
   });
 
+  it("exposes the expanded botanica registry without granting Shopify draft readiness", () => {
+    const snapshot = getMasterCatalogSnapshot();
+    expect(snapshot.candidate_registry_count).toBeGreaterThan(50);
+    expect(snapshot.candidate_category_counts["Ifá"]).toBeGreaterThan(0);
+    expect(snapshot.candidate_category_counts["Dice Ifá"]).toBeGreaterThan(0);
+    expect(snapshot.candidate_registry.every((candidate) => candidate.shopify_draft_ready === false)).toBe(true);
+    expect(snapshot.candidate_registry.every((candidate) => candidate.publish_policy === "HOLD" || candidate.publish_policy === "REFERENCE_ONLY")).toBe(true);
+  });
+
+  it("keeps high-risk candidate classes behind explicit review gates", () => {
+    const snapshot = getMasterCatalogSnapshot();
+    const ikin = snapshot.candidate_registry.find((candidate) => candidate.slug === "ikin-ifa");
+    const diceIfa = snapshot.candidate_registry.find((candidate) => candidate.slug === "idafa-dice-ifa");
+    const driedEwe = snapshot.candidate_registry.find((candidate) => candidate.slug === "ewe-dried-herb-single");
+    expect(ikin?.gates).toEqual(expect.arrayContaining(["PROVENANCE", "PRACTITIONER_REVIEW", "IMPORT_REVIEW"]));
+    expect(diceIfa?.publish_policy).toBe("REFERENCE_ONLY");
+    expect(diceIfa?.gates).toEqual(expect.arrayContaining(["RIGHTS_REVIEW", "PRACTITIONER_REVIEW"]));
+    expect(driedEwe?.gates).toEqual(expect.arrayContaining(["AGRICULTURE_REVIEW", "IMPORT_REVIEW", "PROVENANCE"]));
+  });
+
   it("allows a fully verified SKU to reach Shopify draft readiness", () => {
     const result = evaluateBotanicaSku(validSku());
     expect(result.draft_ready).toBe(true);
