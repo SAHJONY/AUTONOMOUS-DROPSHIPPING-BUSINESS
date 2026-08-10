@@ -38,19 +38,41 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel promote autonomous-dropshipping-business-fe93zc11y.vercel.app \
+          vercel promote autonomous-dropshipping-business-d4wvxwnm6.vercel.app \
             --token="$VERCEL_TOKEN" \
             --scope="juan-gonzalezs-projects-94b6dfe9" \
             --yes
 
-      - name: Verify production domain
+      - name: Verify production domain and perfect-circle CSS
         id: verify
         if: steps.promote.outcome == 'success'
         continue-on-error: true
+        shell: bash
         run: |
-          curl --fail --silent --show-error --location https://www.botanicaochosi.com/shop >/dev/null
+          set -euo pipefail
           curl --fail --silent --show-error --location https://www.botanicaochosi.com/manifest.webmanifest >/dev/null
           curl --fail --silent --show-error --location https://www.botanicaochosi.com/sw.js >/dev/null
+          for i in {1..12}; do
+            HTML=$(curl --fail --silent --show-error --location https://www.botanicaochosi.com/shop || true)
+            if [ -n "$HTML" ]; then
+              CSS_PATHS=$(printf '%s' "$HTML" | grep -oE '/_next/static/css/[^" ]+\.css' | sort -u || true)
+              FOUND=0
+              while IFS= read -r CSS_PATH; do
+                [ -n "$CSS_PATH" ] || continue
+                CSS=$(curl --fail --silent --show-error "https://www.botanicaochosi.com$CSS_PATH" || true)
+                if printf '%s' "$CSS" | grep -Fq 'background-size:142% auto!important' && \
+                   printf '%s' "$CSS" | grep -Fq 'border-radius:50%!important' && \
+                   printf '%s' "$CSS" | grep -Fq 'width:54px!important'; then
+                  FOUND=1
+                  break
+                fi
+              done <<< "$CSS_PATHS"
+              if [ "$FOUND" = "1" ]; then exit 0; fi
+            fi
+            sleep 5
+          done
+          echo "Perfect-circle production CSS not detected"
+          exit 1
 
       - name: Report promotion result
         if: always()
@@ -64,7 +86,7 @@ jobs:
             const success = process.env.TOKEN_PRESENT === 'true' && process.env.PROMOTE_OUTCOME === 'success' && process.env.VERIFY_OUTCOME === 'success';
             const title = `BOTANICA production promotion ${success ? 'SUCCESS' : 'FAILED'} — run ${context.runId}`;
             const body = [
-              `Artifact: autonomous-dropshipping-business-fe93zc11y.vercel.app`,
+              `Artifact: autonomous-dropshipping-business-d4wvxwnm6.vercel.app`,
               `Token present: ${process.env.TOKEN_PRESENT}`,
               `Promotion outcome: ${process.env.PROMOTE_OUTCOME || 'not-run'}`,
               `Domain verification: ${process.env.VERIFY_OUTCOME || 'not-run'}`,
