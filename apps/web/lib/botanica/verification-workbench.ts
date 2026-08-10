@@ -53,10 +53,10 @@ export function applyVerifiedEvidence(base: BotanicaSku, evidence: BotanicaEvide
   inventory_qty?: number;
 }): BotanicaSku {
   const verified = new Set(evidence.filter((item) => item.verified).map((item) => item.kind));
-  const unitCost = commercial?.unit_cost;
-  const shippingCost = commercial?.shipping_cost ?? 0;
-  const retailPrice = commercial?.retail_price;
-  const inventoryQty = commercial?.inventory_qty;
+  const unitCost = commercial?.unit_cost ?? base.unit_cost;
+  const shippingCost = commercial?.shipping_cost ?? base.shipping_cost ?? 0;
+  const retailPrice = commercial?.retail_price ?? base.retail_price;
+  const inventoryQty = commercial?.inventory_qty ?? base.inventory_qty;
   const supplierUrl = commercial?.supplier_url ?? base.supplier_url;
   const sourceEvidence = evidence.filter((item) => item.verified).map((item) => `${item.kind}:${item.source_url ?? item.note}`);
 
@@ -79,8 +79,8 @@ export function applyVerifiedEvidence(base: BotanicaSku, evidence: BotanicaEvide
     inventory_status: verified.has("INVENTORY") && inventoryQty != null
       ? inventoryQty > 5 ? "IN_STOCK" : inventoryQty > 0 ? "LOW_STOCK" : "OUT_OF_STOCK"
       : "UNKNOWN",
-    inventory_verified_at: verified.has("INVENTORY") ? now() : undefined,
-    price_verified_at: verified.has("PRICE") ? now() : undefined,
+    inventory_verified_at: verified.has("INVENTORY") ? (base.inventory_verified_at ?? now()) : undefined,
+    price_verified_at: verified.has("PRICE") ? (base.price_verified_at ?? now()) : undefined,
     source_verified_at: sourceEvidence.length ? now() : undefined,
     source_evidence: sourceEvidence,
     publish_status: "HOLD",
@@ -108,7 +108,7 @@ export async function upsertCandidateVerification(orgId: string, input: {
   const evidence = [...(existing?.evidence ?? [])];
   if (input.evidence) evidence.unshift({ ...input.evidence, id: id(), candidate_id: input.candidate_id, created_at: now() });
 
-  const sku = applyVerifiedEvidence(candidate.sku, evidence, input.commercial);
+  const sku = applyVerifiedEvidence(existing?.sku ?? candidate.sku, evidence, input.commercial);
   const record: CandidateVerificationRecord = {
     candidate_id: input.candidate_id,
     sku,
