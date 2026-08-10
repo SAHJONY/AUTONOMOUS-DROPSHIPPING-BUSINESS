@@ -15,25 +15,19 @@ export function middleware(req: NextRequest) {
 
   let response: NextResponse;
 
-  // Canonical BOTANICA surfaces:
-  // - / and /store -> shareable ecommerce storefront
-  // - /?command=1  -> Owner OS compatibility
-  // - /?legacy=1   -> inherited technical console only
+  // Public traffic always enters the BOTANICA OCHOSI storefront.
+  // Administrative operations live exclusively under /owner.
+  // The inherited SAHJONY Commerce landing is intentionally unreachable
+  // from public routing so legacy branding cannot leak into the customer app.
   if (req.nextUrl.pathname === "/") {
-    const legacy = req.nextUrl.searchParams.get("legacy") === "1";
-    const ownerCommand = req.nextUrl.searchParams.get("command") === "1";
-
-    if (!legacy) {
-      const url = req.nextUrl.clone();
-      url.pathname = ownerCommand ? "/owner" : "/shop";
-      url.search = "";
-      response = NextResponse.rewrite(url);
-    } else {
-      response = NextResponse.next();
-    }
+    const url = req.nextUrl.clone();
+    url.pathname = "/shop";
+    url.search = "";
+    response = NextResponse.rewrite(url);
   } else if (req.nextUrl.pathname === "/store") {
     const url = req.nextUrl.clone();
     url.pathname = "/shop";
+    url.search = "";
     response = NextResponse.rewrite(url);
   } else {
     response = NextResponse.next();
