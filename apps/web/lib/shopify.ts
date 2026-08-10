@@ -99,21 +99,29 @@ function videoEmbed(url?: string): string {
   return `<div style="margin:1em 0"><video controls playsinline preload="metadata" style="width:100%;border-radius:12px" src="${u}"></video></div>`;
 }
 
-/** Ultra-premium storefront copy — the design skill applied to the listing. */
+/**
+ * Spanish-first product copy for BOTANICA OCHOSI.
+ *
+ * Keep this factual: product pages must not invent guarantees, shipping reach,
+ * spiritual outcomes, scarcity, or historical prices. Commercial promises are
+ * controlled by the actual Shopify policies and product data instead.
+ */
 function premiumBody(title: string, description?: string, videoUrl?: string): string {
   const d =
     (description && description.trim()) ||
-    `Meet the ${title} — engineered for those who expect more. A refined essential, curated by SAHJONY.`;
+    `${title}, seleccionado para el catálogo de BOTANICA OCHOSI. Consulta la ficha, variantes y disponibilidad antes de comprar.`;
   return (
     `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.75;color:#1a1a1a">` +
     videoEmbed(videoUrl) +
     `<p style="font-size:1.06em;margin:0 0 1em">${d}</p>` +
     `<ul style="list-style:none;padding:0;margin:0">` +
-    `<li style="margin:.4em 0">✦ &nbsp;Premium quality, hand-curated by SAHJONY</li>` +
-    `<li style="margin:.4em 0">✦ &nbsp;Fast, fully tracked worldwide shipping</li>` +
-    `<li style="margin:.4em 0">✦ &nbsp;30-day satisfaction guarantee</li>` +
-    `<li style="margin:.4em 0">✦ &nbsp;Secure checkout</li>` +
-    `</ul></div>`
+    `<li style="margin:.4em 0">✦ &nbsp;Seleccionado por BOTANICA OCHOSI</li>` +
+    `<li style="margin:.4em 0">✦ &nbsp;Información comercial en español</li>` +
+    `<li style="margin:.4em 0">✦ &nbsp;Pago procesado mediante checkout seguro</li>` +
+    `<li style="margin:.4em 0">✦ &nbsp;Envío y devoluciones según las políticas mostradas al comprar</li>` +
+    `</ul>` +
+    `<p style="font-size:.88em;margin:1em 0 0;color:#666">Los artículos religiosos y espirituales se ofrecen como productos culturales, devocionales o tradicionales. No se garantizan resultados espirituales específicos.</p>` +
+    `</div>`
   );
 }
 
@@ -175,9 +183,14 @@ export async function createShopifyProduct(
     title: string;
     description?: string;
     price?: number;
+    compare_at_price?: number;
     image_url?: string;
     images?: string[];
     video_url?: string;
+    category?: string;
+    tags?: string[];
+    /** Set false for HOLD/draft products that have not passed catalog verification. */
+    publish?: boolean;
     /** Stamped onto the variant so incoming orders map straight back to the catalog. */
     sku?: string;
   },
@@ -191,20 +204,34 @@ export async function createShopifyProduct(
 }> {
   try {
     const price = p.price ?? 0;
-    // "Was" price for a premium, high-value perception (~1.6x, rounded to .99).
-    const compareAt = price > 0 ? (Math.ceil(price * 1.6) - 0.01).toFixed(2) : undefined;
+    const compareAt =
+      typeof p.compare_at_price === "number" && p.compare_at_price > price
+        ? p.compare_at_price.toFixed(2)
+        : undefined;
+    const publish = p.publish !== false;
+    const category = (p.category || "Botánica y artículos religiosos").trim();
+    const tags = [
+      "BOTANICA OCHOSI",
+      "Español",
+      category,
+      ...(p.tags ?? []),
+    ]
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+      .filter((tag, index, all) => all.indexOf(tag) === index)
+      .join(", ");
     // Full image gallery (dedupe, cap at 10).
     const gallery = [...new Set([...(p.image_url ? [p.image_url] : []), ...(p.images ?? [])])].slice(0, 10);
     const body = {
       product: {
         title: p.title,
         body_html: premiumBody(p.title, p.description, p.video_url),
-        status: "active",
-        published: true,
-        published_scope: "global", // publish to all sales channels incl. Online Store
-        vendor: "SAHJONY",
-        product_type: "Featured",
-        tags: "SAHJONY, Trending, Featured, Autonomous",
+        status: publish ? "active" : "draft",
+        published: publish,
+        published_scope: "global",
+        vendor: "BOTANICA OCHOSI",
+        product_type: category,
+        tags,
         variants: [
           {
             price: String(price),
