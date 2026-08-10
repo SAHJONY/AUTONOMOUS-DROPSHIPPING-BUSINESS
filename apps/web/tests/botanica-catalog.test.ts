@@ -36,6 +36,17 @@ function validSku(overrides: Partial<BotanicaSku> = {}): BotanicaSku {
   };
 }
 
+const blockedCases: Array<[string, Partial<BotanicaSku>, string]> = [
+  ["supplier", { supplier_status: "PENDING" }, "SUPPLIER_VERIFIED"],
+  ["rights", { rights_status: "RIGHTS_PENDING" }, "RIGHTS_VERIFIED"],
+  ["culture", { cultural_status: "PENDING" }, "CULTURAL_VERIFIED"],
+  ["safety", { commerce_safety_status: "PENDING" }, "COMMERCE_SAFE"],
+  ["image rights", { image_rights_verified: false }, "IMAGE_RIGHTS_VERIFIED"],
+  ["source evidence", { source_evidence: [] }, "SOURCE_EVIDENCE"],
+  ["Spanish content", { description_es: "" }, "SPANISH_CONTENT"],
+  ["inventory", { inventory_status: "UNKNOWN" }, "INVENTORY_AVAILABLE"],
+];
+
 describe("BOTANICA Spanish-first master catalog", () => {
   it("uses Spanish as the commercial default and English as fallback", () => {
     const snapshot = getMasterCatalogSnapshot();
@@ -53,16 +64,7 @@ describe("BOTANICA Spanish-first master catalog", () => {
     expect(result.margin?.margin_pct).toBe(60);
   });
 
-  it.each([
-    ["supplier", { supplier_status: "PENDING" as const }, "SUPPLIER_VERIFIED"],
-    ["rights", { rights_status: "RIGHTS_PENDING" as const }, "RIGHTS_VERIFIED"],
-    ["culture", { cultural_status: "PENDING" as const }, "CULTURAL_VERIFIED"],
-    ["safety", { commerce_safety_status: "PENDING" as const }, "COMMERCE_SAFE"],
-    ["image rights", { image_rights_verified: false }, "IMAGE_RIGHTS_VERIFIED"],
-    ["source evidence", { source_evidence: [] }, "SOURCE_EVIDENCE"],
-    ["Spanish content", { description_es: "" }, "SPANISH_CONTENT"],
-    ["inventory", { inventory_status: "UNKNOWN" as const }, "INVENTORY_AVAILABLE"],
-  ])("blocks Shopify draft when %s verification is missing", (_label, overrides, gate) => {
+  it.each(blockedCases)("blocks Shopify draft when %s verification is missing", (_label, overrides, gate) => {
     const result = evaluateBotanicaSku(validSku(overrides));
     expect(result.draft_ready).toBe(false);
     expect(result.failures).toContain(gate);
