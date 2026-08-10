@@ -40,20 +40,35 @@ export default function BotanicaOwnerOS() {
     setOrgId(localStorage.getItem("commerce_os_org") ?? "");
   }, []);
 
+  const clearSession = useCallback(() => {
+    localStorage.removeItem("commerce_os_token");
+    localStorage.removeItem("commerce_os_org");
+    setToken("");
+    setOrgId("");
+    setMe(null);
+  }, []);
+
   const headers = useMemo(() => ({ "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }), [token]);
   const getJson = useCallback(async (path: string) => {
     const res = await fetch(path, { headers });
     const body = await res.json().catch(() => ({}));
+    if (res.status === 401) {
+      clearSession();
+      throw new Error("Owner session expired. Sign in again.");
+    }
     if (!res.ok) throw new Error(body.detail ?? `Request failed (${res.status})`);
     return body;
-  }, [headers]);
+  }, [clearSession, headers]);
 
   const load = useCallback(async () => {
     if (!token) { setLoading(false); return; }
     setLoading(true); setError("");
     try {
       const [meResp, orgs] = await Promise.all([getJson("/api/auth/me") as Promise<Me>, getJson("/api/orgs") as Promise<Org[]>]);
-      if (!meResp.is_owner) throw new Error("Owner access is required for BOTANICA Owner OS.");
+      if (!meResp.is_owner) {
+        clearSession();
+        throw new Error("Owner access is required for BOTANICA Owner OS.");
+      }
       const selected = orgs.find((o) => o.id === orgId) ?? orgs[0];
       if (!selected?.id) throw new Error("No organization is available for this owner account.");
       const oid = selected.id;
@@ -68,7 +83,7 @@ export default function BotanicaOwnerOS() {
       setDashboard(dash); setReadiness(ready); setShopify(shop); setProducts(catalog); setApprovals(pending);
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
     finally { setLoading(false); }
-  }, [getJson, orgId, token]);
+  }, [clearSession, getJson, orgId, token]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -98,8 +113,8 @@ export default function BotanicaOwnerOS() {
         <div className={styles.heroActions}><a className={styles.primary} href="/owner/catalog">Manage catalog</a><button className={styles.ghost} onClick={() => void load()} disabled={loading}>{loading ? "Refreshing…" : "Refresh intelligence"}</button></div>
       </section>
 
-      {!token && !loading ? <div className={styles.error}><strong>Owner authentication required.</strong><div>Sign in through the inherited operating console, then return to this Owner OS.</div><a className={styles.primary} href="/?legacy=1" style={{marginTop:12}}>Owner sign in</a></div> : null}
-      {error && <div className={styles.error}><strong>Owner OS requires attention</strong><div>{error}</div></div>}
+      {!token && !loading ? <div className={styles.error}><strong>Owner authentication required.</strong><div>Sign in securely to BOTANICA OCHOSI Owner OS. The inherited public console is no longer used for authentication.</div><a className={styles.primary} href="/owner/login" style={{marginTop:12}}>Owner sign in</a></div> : null}
+      {error && <div className={styles.error}><strong>Owner OS requires attention</strong><div>{error}</div>{!token && <a className={styles.primary} href="/owner/login" style={{marginTop:12}}>Sign in again</a>}</div>}
 
       <div className={styles.statusStrip}>
         <span className={styles.statusPill}><i className={readiness?.ready ? styles.dotLive : styles.dotWarn}/>{readiness?.ready ? "Operationally ready" : `${readiness?.blockers ?? 0} readiness blocker(s)`}</span>
@@ -139,7 +154,7 @@ export default function BotanicaOwnerOS() {
         </div>
       </section>
 
-      <footer className={styles.footer}><span>Owner: {me?.email ?? "authentication pending"}</span><span className={styles.legacy}>Inherited console: <a href="/?legacy=1">open only for remaining legacy workflows</a></span></footer>
+      <footer className={styles.footer}><span>Owner: {me?.email ?? "authentication pending"}</span><span>Secure Owner OS session · BOTANICA OCHOSI</span></footer>
     </div>
   </main>;
 }
