@@ -78,7 +78,7 @@ export default function OwnerCatalogPage() {
       const res = await fetch(`/api/orgs/${oid}/owner-catalog`, { method:"POST", headers, body:JSON.stringify({
         title:form.get("title"), description:form.get("description"), supplier:form.get("supplier"), supplier_url:form.get("supplier_url"),
         sku:form.get("sku"), product_type:form.get("product_type"), cost:Number(form.get("cost") ?? 0), price:Number(form.get("price") ?? 0),
-        images, sync_shopify:true, publish:form.get("publish") === "on",
+        images, sync_shopify:true, publish:form.get("publish") === "on", verification_candidate_id:form.get("verification_candidate_id"),
       }) });
       const body = await res.json().catch(() => ({})); if (!res.ok) throw new Error(body.detail ?? `Request failed (${res.status})`);
       e.currentTarget.reset(); await refresh(); await refreshDiagnostics();
@@ -102,8 +102,13 @@ export default function OwnerCatalogPage() {
       <div className={styles.navLinks}><a className={`${styles.ghost} ${styles.hideMobile}`} href="/owner">Owner OS</a><a className={styles.primary} href="/store">Storefront</a></div>
     </nav>
     <div className={styles.content}>
-      <section className={styles.hero}><div className={styles.kicker}>OWNER CATALOG · SHOPIFY CONTROL</div><h1>Catalog <em>Control.</em></h1><p>Create, archive and retire owner-managed products across the internal catalog and connected Shopify store. Archive remains the recommended default because it preserves history.</p></section>
+      <section className={styles.hero}><div className={styles.kicker}>OWNER CATALOG · SHOPIFY CONTROL</div><h1>Catalog <em>Control.</em></h1><p>Create, archive and retire owner-managed products. All Shopify-bound BOTANICA products are now draft-first and a verified candidate is required before a draft can be created.</p></section>
       {error && <div className={styles.error}>{error}</div>}
+
+      <section className={`${styles.card} ${styles.migration}`}>
+        <div className={styles.sectionHead}><div><span>VERIFIED RELEASE FLOW</span><h2>No direct live publishing.</h2></div><a className={styles.primary} href="/owner/catalog/verification">Open Verification Workbench</a></div>
+        <p>Use Master Catalog → Supplier Candidates → Verification Workbench. Only a candidate in <strong>READY_FOR_REVIEW</strong> can create a Shopify Draft. The verification record, not manual form values, becomes the source of truth for title, Spanish description, supplier source, landed cost, retail price and SKU.</p>
+      </section>
 
       <section className={`${styles.card} ${styles.migration}`}>
         <div className={styles.sectionHead}><div><span>PUBLIC CATALOG AUDIT</span><h2>Shopify publishability.</h2></div><button className={styles.ghost} onClick={() => void refreshDiagnostics()} disabled={!token || busy}>Refresh audit</button></div>
@@ -126,13 +131,14 @@ export default function OwnerCatalogPage() {
       </section>
 
       <section className={styles.section}>
-        <div className={styles.sectionHead}><div><span>DIRECT OWNER ENTRY</span><h2>Add a catalog product.</h2></div></div>
+        <div className={styles.sectionHead}><div><span>DIRECT OWNER ENTRY</span><h2>Add internal record or verified Shopify draft.</h2></div></div>
         <form onSubmit={addProduct} className={`${styles.card} ${styles.form}`}>
-          <input className={styles.input} name="title" required placeholder="Product title"/><input className={styles.input} name="sku" placeholder="SKU"/><input className={styles.input} name="product_type" placeholder="Category / product type"/>
+          <input className={styles.input} name="title" required placeholder="Internal product title"/><input className={styles.input} name="sku" placeholder="Manual SKU (internal path only)"/><input className={styles.input} name="product_type" placeholder="Category / product type"/>
           <input className={styles.input} name="supplier" placeholder="Supplier"/><input className={styles.input} name="supplier_url" placeholder="Supplier URL"/><input className={styles.input} name="cost" type="number" min="0" step="0.01" placeholder="Cost"/>
           <input className={styles.input} name="price" type="number" min="0" step="0.01" placeholder="Retail price"/><textarea className={styles.textarea} name="description" placeholder="Description"/><textarea className={styles.textarea} name="images" placeholder="Image URLs, comma or line separated"/>
-          <label className={styles.full}><input type="checkbox" name="publish"/> Direct owner publish to Shopify (positive price required). Supplier/Council pipeline products remain draft-first.</label>
-          <div className={styles.full}><button disabled={busy} className={styles.primary}>{busy ? "Working…" : "Add to Catalog + Shopify"}</button></div>
+          <input className={`${styles.input} ${styles.full}`} name="verification_candidate_id" placeholder="Verification Candidate ID required for verified Shopify Draft"/>
+          <label className={styles.full}><input type="checkbox" name="publish"/> Create verified Shopify Draft. Requires READY_FOR_REVIEW Verification Candidate ID; this does <strong>not</strong> publish live.</label>
+          <div className={styles.full}><button disabled={busy} className={styles.primary}>{busy ? "Working…" : "Save / Create Verified Draft"}</button></div>
         </form>
       </section>
 
