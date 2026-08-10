@@ -1,5 +1,6 @@
 /* Precision fit for the OCHOSI application mark.
-   Keep the source artwork untouched; crop/zoom it optically in CSS. */
+   Keep the source artwork untouched; crop/zoom it optically in CSS.
+   Final artifact marker: circle-fit-v1. */
 [class*="_mark__"]{
   width:54px!important;
   height:54px!important;
