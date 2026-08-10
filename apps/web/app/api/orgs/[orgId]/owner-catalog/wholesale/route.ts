@@ -1,5 +1,9 @@
 import { json, requireOrgRole } from "@/lib/api";
-import { WHOLESALE_PRODUCT_EVIDENCE, publiclyPricedWholesaleProducts, wholesaleSupplierIds } from "@/lib/botanica/wholesale-products";
+import {
+  FIRST_100_WHOLESALE_PRODUCTS,
+  first100PubliclyPricedProducts,
+  first100WholesaleSupplierIds,
+} from "@/lib/botanica/wholesale-products-first100";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,12 +16,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
   return json({
     ok: true,
     mode: "WHOLESALE_EVIDENCE_ONLY",
-    supplier_count: wholesaleSupplierIds.length,
-    product_count: WHOLESALE_PRODUCT_EVIDENCE.length,
-    publicly_priced_count: publiclyPricedWholesaleProducts.length,
+    supplier_count: first100WholesaleSupplierIds.length,
+    product_count: FIRST_100_WHOLESALE_PRODUCTS.length,
+    publicly_priced_count: first100PubliclyPricedProducts.length,
     autonomous_purchase: false,
     auto_publish: false,
-    products: WHOLESALE_PRODUCT_EVIDENCE,
+    products: FIRST_100_WHOLESALE_PRODUCTS,
     governance: {
       shopify_draft_requires: [
         "CURRENT_STOCK",
