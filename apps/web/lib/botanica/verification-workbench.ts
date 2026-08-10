@@ -122,6 +122,34 @@ export async function upsertCandidateVerification(orgId: string, input: {
   return record;
 }
 
+export async function markVerificationShopifyDraft(orgId: string, candidateId: string, shopify: {
+  product_id?: number;
+  variant_id?: number;
+}): Promise<CandidateVerificationRecord> {
+  const records = await listVerificationRecords(orgId);
+  const index = records.findIndex((record) => record.candidate_id === candidateId);
+  if (index < 0) throw new Error("BOTANICA_VERIFICATION_NOT_FOUND");
+  const current = records[index];
+  if (!current.evaluation.draft_ready || current.sku.publish_status !== "READY_FOR_REVIEW") {
+    throw new Error(`BOTANICA_SKU_BLOCKED:${current.evaluation.failures.join(",") || "NOT_READY_FOR_REVIEW"}`);
+  }
+  const sku: BotanicaSku = {
+    ...current.sku,
+    publish_status: "SHOPIFY_DRAFT",
+    shopify_product_id: shopify.product_id ? String(shopify.product_id) : current.sku.shopify_product_id,
+    shopify_variant_id: shopify.variant_id ? String(shopify.variant_id) : current.sku.shopify_variant_id,
+  };
+  const updated: CandidateVerificationRecord = {
+    ...current,
+    sku,
+    evaluation: evaluateBotanicaSku(sku),
+    updated_at: now(),
+  };
+  records[index] = updated;
+  await listReplace(key(orgId), records.slice(0, 1000));
+  return updated;
+}
+
 export function verificationStatus(record: CandidateVerificationRecord): VerificationStatus {
   return record.evaluation.draft_ready ? "VERIFIED" : "PENDING";
 }
