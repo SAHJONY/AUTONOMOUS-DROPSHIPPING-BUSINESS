@@ -17,11 +17,13 @@ export function middleware(req: NextRequest) {
 
   // Public traffic always enters the BOTANICA OCHOSI storefront.
   // Administrative operations live exclusively under /owner.
-  // The inherited SAHJONY Commerce landing is intentionally unreachable
-  // from public routing so legacy branding cannot leak into the customer app.
+  // Old ?legacy=1 owner bookmarks are retained only as a compatibility
+  // path into the new native Owner OS login; the SAHJONY landing stays unreachable.
   if (req.nextUrl.pathname === "/") {
     const url = req.nextUrl.clone();
-    url.pathname = "/shop";
+    const legacyOwnerLogin = req.nextUrl.searchParams.get("legacy") === "1";
+    const ownerCommand = req.nextUrl.searchParams.get("command") === "1";
+    url.pathname = legacyOwnerLogin ? "/owner/login" : ownerCommand ? "/owner" : "/shop";
     url.search = "";
     response = NextResponse.rewrite(url);
   } else if (req.nextUrl.pathname === "/store") {
