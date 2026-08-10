@@ -1,0 +1,72 @@
+name: Alias Perfect Circle Production
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/alias-perfect-circle-production.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  alias:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require Vercel token
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "VERCEL_TOKEN secret is required"; exit 1; }
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@56.5.0
+
+      - name: Assign production domain to validated artifact
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel alias set \
+            autonomous-dropshipping-business-d4wvxwnm6.vercel.app \
+            www.botanicaochosi.com \
+            --scope juan-gonzalezs-projects-94b6dfe9 \
+            --token "$VERCEL_TOKEN"
+
+      - name: Verify perfect-circle CSS on production domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..18}; do
+            HTML=$(curl --fail --silent --show-error --location https://www.botanicaochosi.com/shop || true)
+            if [ -n "$HTML" ]; then
+              CSS_PATHS=$(printf '%s' "$HTML" | grep -oE '/_next/static/css/[^" ]+\.css' | sort -u || true)
+              while IFS= read -r CSS_PATH; do
+                [ -n "$CSS_PATH" ] || continue
+                CSS=$(curl --fail --silent --show-error "https://www.botanicaochosi.com$CSS_PATH" || true)
+                if printf '%s' "$CSS" | grep -Fq 'width:54px!important' && \
+                   printf '%s' "$CSS" | grep -Fq 'height:54px!important' && \
+                   printf '%s' "$CSS" | grep -Fq 'border-radius:50%!important' && \
+                   printf '%s' "$CSS" | grep -Fq 'background-size:142% auto!important'; then
+                  exit 0
+                fi
+              done <<< "$CSS_PATHS"
+            fi
+            sleep 5
+          done
+          echo "Perfect-circle production CSS not detected"
+          exit 1
+
+      - name: Report success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `BOTANICA perfect-circle alias SUCCESS — run ${context.runId}`,
+              body: `Artifact: autonomous-dropshipping-business-d4wvxwnm6.vercel.app\nDomain: www.botanicaochosi.com\nCircle: 54x54 / radius 50% / zoom 142%\nRun: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
