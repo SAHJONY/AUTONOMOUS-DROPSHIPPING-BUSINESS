@@ -2,140 +2,39 @@
 
 import styles from "../owner.module.css";
 
-type Supplier = {
-  name: string;
-  market: string;
-  region: string;
-  focus: string;
-  channel: string;
-  status: "PENDING REVIEW" | "FALLBACK";
-  priority: number;
-  url: string;
-  wholesaleEvidence: string;
-  pricing: "EXPLICIT WHOLESALE" | "WHOLESALE VERIFIED · PRICE GATED" | "PUBLIC LIST PRICE · WHOLESALE BY QUOTE" | "FALLBACK";
-  minimum?: string;
-  priceExamples?: string[];
-};
+type Supplier = { name:string; market:string; region:string; focus:string; channel:string; status:"PENDING REVIEW"|"FALLBACK"; priority:number; url:string; wholesaleEvidence:string; pricing:"EXPLICIT WHOLESALE"|"WHOLESALE VERIFIED · PRICE GATED"|"PUBLIC LIST PRICE · WHOLESALE BY QUOTE"|"FALLBACK"; minimum?:string; priceExamples?:string[]; };
+type Reseller = { name:string; market:string; model:string; evidence:string; url:string; fit:string; };
 
 const suppliers: Supplier[] = [
-  {
-    name:"Monzon Brothers II / Monzon Botanica", market:"Miami / Hialeah", region:"Florida, USA",
-    focus:"Afro-Cuban · Yoruba · Lucumi · botanica distributor", channel:"Wholesale / distributor", status:"PENDING REVIEW", priority:1,
-    url:"https://monzonbotanica.com", pricing:"PUBLIC LIST PRICE · WHOLESALE BY QUOTE",
-    wholesaleEvidence:"Site states wholesale purchases are available, but instructs buyers to call for wholesale pricing. Public web prices are treated as list/retail evidence only.",
-    priceExamples:["Cascarilla · public list $23.99","Plato esmaltado 8in · public list $3.99","Caracol de Cobo large · public list $19.99"]
-  },
-  {
-    name:"Herramientas de Santeria", market:"Miami", region:"Florida, USA",
-    focus:"Stainless-steel Santeria / Orisha tools", channel:"Manufacturer / wholesale", status:"PENDING REVIEW", priority:2,
-    url:"https://herramientasdesanteria.com", pricing:"EXPLICIT WHOLESALE", minimum:"$400 minimum order",
-    wholesaleEvidence:"Product pages publish both retail and wholesale prices and state a $400 minimum purchase.",
-    priceExamples:["Oba stainless-steel tool · retail $110 · wholesale $66"]
-  },
-  {
-    name:"Pedro Yoruba Jewelry", market:"Miami", region:"Florida, USA",
-    focus:"Handmade Orisha tools · stainless steel · silver · gold", channel:"Miami manufacturer / wholesale", status:"PENDING REVIEW", priority:3,
-    url:"https://pedrojewelryyoruba.com/mayoreo", pricing:"WHOLESALE VERIFIED · PRICE GATED",
-    wholesaleEvidence:"Dedicated mayoreo page says the Miami workshop supplies botanicas at wholesale pricing; exact wholesale catalog and minimums are provided on request.",
-    priceExamples:["Stainless-steel tools shown from $60 on wholesale page","Oshun stainless-steel oars shown $70","San Lazaro crutches shown $160"]
-  },
-  {
-    name:"Yoruba Distribuidores LLC", market:"Houston", region:"Texas, USA",
-    focus:"Yoruba · Santeria · Espiritismo", channel:"B2B wholesale only", status:"PENDING REVIEW", priority:4,
-    url:"https://yorubadistribuidores.com", pricing:"WHOLESALE VERIFIED · PRICE GATED",
-    wholesaleEvidence:"Site explicitly states WHOLESALE ONLY for registered botanicas and resellers, with 300+ products and US shipping. Product pages commonly use quote/gated pricing rather than usable public unit cost.",
-  },
-  {
-    name:"Babonsono Imports LLC", market:"United States", region:"USA",
-    focus:"Botanica · Santeria · incense · soaps · iron pots · charms", channel:"Wholesale only B2B", status:"PENDING REVIEW", priority:5,
-    url:"https://www.babonsono.com", pricing:"EXPLICIT WHOLESALE", minimum:"$100 minimum order",
-    wholesaleEvidence:"Supplier states wholesale-only B2B and requires a resale certificate or business license; wholesale storefront exposes unit/case pricing.",
-    priceExamples:["IHC Incense Sticks Sandalwood 12-pack · $10.95","IHC Incense Sticks Jasmine 12-pack · $10.95"]
-  },
-  {
-    name:"Bulk Santeria", market:"United States", region:"USA",
-    focus:"Traditional herbs · incense · oils · Santeria botanica goods", channel:"Wholesale only", status:"PENDING REVIEW", priority:6,
-    url:"https://bulksanteria.com", pricing:"EXPLICIT WHOLESALE", minimum:"$250 order minimum",
-    wholesaleEvidence:"Website is marked Wholesale Only and publishes product pricing; herbs, incense and oils are made to order with stated processing lead time.",
-    priceExamples:["Pinon de Botija / Jatropha Curcas · 16 oz · $75"]
-  },
-  {
-    name:"Tsuen May Trading", market:"United States", region:"USA",
-    focus:"Botanica · religious-use cascarilla and general spiritual merchandise", channel:"Wholesale only B2B", status:"PENDING REVIEW", priority:7,
-    url:"https://www.tsuenmay.com", pricing:"WHOLESALE VERIFIED · PRICE GATED", minimum:"$100 minimum order",
-    wholesaleEvidence:"Site explicitly states wholesale orders only, no retail/personal orders, requires business registration, and labels catalog pricing as wholesale.",
-    priceExamples:["Cascarilla · 100 pieces/box · wholesale-only product listing"]
-  },
-  {
-    name:"Unilite Candles", market:"Houston", region:"Texas, USA",
-    focus:"Religious · esoteric · prepared and plain candles", channel:"Wholesale only", status:"PENDING REVIEW", priority:8,
-    url:"https://www.unilitecc.com", pricing:"WHOLESALE VERIFIED · PRICE GATED", minimum:"24 boxes of candles",
-    wholesaleEvidence:"Houston manufacturer/distributor identifies itself as wholesale only and publishes a 24-box minimum; prices require wholesale ordering flow.",
-  },
-  {
-    name:"El Viejo Lazaro", market:"Miami", region:"Florida, USA",
-    focus:"Lucumi · Yoruba · Ocha tools and botanica goods", channel:"Wholesale / retail", status:"PENDING REVIEW", priority:9,
-    url:"https://www.viejolazaro.com", pricing:"WHOLESALE VERIFIED · PRICE GATED",
-    wholesaleEvidence:"Site explicitly states wholesale and retail service for the Lucumi religious community and a 4,000+ product catalog; wholesale unit pricing is not reliably public.",
-  },
-  {
-    name:"INSHE Miami", market:"Miami / Hialeah / Miami Gardens", region:"Florida, USA",
-    focus:"Yoruba · Afro-Cuban · African spiritual goods", channel:"Wholesale / retail", status:"PENDING REVIEW", priority:10,
-    url:"https://www.inshemiami.com", pricing:"PUBLIC LIST PRICE · WHOLESALE BY QUOTE",
-    wholesaleEvidence:"Supplier operates South Florida botanica locations and sells to businesses; visible web prices are treated as public list prices until B2B terms are obtained.",
-    priceExamples:["Peregun Criollo fresh top · public list $5.99","Mariwo natural · public list $9.99","Seso Vegetal · public list $3.99"]
-  },
-  {
-    name:"Yoruba Imports", market:"Miami Gardens", region:"Florida, USA",
-    focus:"West African religious · cultural goods · plants", channel:"Wholesale / importer", status:"PENDING REVIEW", priority:11,
-    url:"https://yorubaimports.com", pricing:"PUBLIC LIST PRICE · WHOLESALE BY QUOTE",
-    wholesaleEvidence:"Site advertises a wholesale program and direct sourcing. Public prices are retained as market-reference prices, not assumed wholesale costs.",
-    priceExamples:["Opon Ife large · public list $150","Edun Ara / Sango thunder stone · public list $7","Orogbo bitter kola · public list $10","Obi Abata fresh kola nuts · public list $30"]
-  },
-  { name:"CJdropshipping", market:"International", region:"Fallback", focus:"Generic complementary products only", channel:"Dropshipping", status:"FALLBACK", priority:90, url:"https://www.cjdropshipping.com", pricing:"FALLBACK", wholesaleEvidence:"Not approved for core Cuban BOTANICA sourcing." },
-  { name:"Zendrop", market:"USA / International", region:"Fallback", focus:"Generic complementary products only", channel:"Dropshipping", status:"FALLBACK", priority:91, url:"https://www.zendrop.com", pricing:"FALLBACK", wholesaleEvidence:"Not approved for core Cuban BOTANICA sourcing." },
-  { name:"Spocket", market:"USA / International", region:"Fallback", focus:"Generic complementary products only", channel:"Dropshipping", status:"FALLBACK", priority:92, url:"https://www.spocket.co", pricing:"FALLBACK", wholesaleEvidence:"Not approved for core Cuban BOTANICA sourcing." },
-  { name:"AliExpress", market:"International", region:"Fallback", focus:"Generic complementary products only", channel:"Marketplace", status:"FALLBACK", priority:99, url:"https://www.aliexpress.com", pricing:"FALLBACK", wholesaleEvidence:"Not approved for core Cuban BOTANICA sourcing." },
+ {name:"Monzon Brothers II / Monzon Botanica",market:"Miami / Hialeah",region:"Florida, USA",focus:"Afro-Cuban · Yoruba · Lucumi · botanica distributor",channel:"Wholesale / distributor",status:"PENDING REVIEW",priority:1,url:"https://monzonbotanica.com",pricing:"PUBLIC LIST PRICE · WHOLESALE BY QUOTE",wholesaleEvidence:"Site states wholesale purchases are available, but wholesale pricing requires direct contact. Public prices remain market-reference only.",priceExamples:["Cascarilla · public list $23.99","Plato esmaltado 8in · public list $3.99","Caracol de Cobo large · public list $19.99"]},
+ {name:"Herramientas de Santeria",market:"Miami",region:"Florida, USA",focus:"Stainless-steel Santeria / Orisha tools",channel:"Manufacturer / wholesale",status:"PENDING REVIEW",priority:2,url:"https://herramientasdesanteria.com",pricing:"EXPLICIT WHOLESALE",minimum:"$400 minimum order",wholesaleEvidence:"Product pages publish retail and wholesale prices and state a $400 minimum purchase.",priceExamples:["Oba stainless-steel tool · retail $110 · wholesale $66"]},
+ {name:"Pedro Yoruba Jewelry",market:"Miami",region:"Florida, USA",focus:"Handmade Orisha tools · stainless steel · silver · gold",channel:"Miami manufacturer / wholesale",status:"PENDING REVIEW",priority:3,url:"https://pedrojewelryyoruba.com/mayoreo",pricing:"WHOLESALE VERIFIED · PRICE GATED",wholesaleEvidence:"Dedicated mayoreo page says the Miami workshop supplies botanicas at wholesale pricing; final B2B catalog and minimums require quote.",priceExamples:["Stainless-steel tools shown from $60","Oshun stainless-steel oars shown $70","San Lazaro crutches shown $160"]},
+ {name:"Yoruba Distribuidores LLC",market:"Houston",region:"Texas, USA",focus:"Yoruba · Santeria · Espiritismo",channel:"B2B wholesale only",status:"PENDING REVIEW",priority:4,url:"https://yorubadistribuidores.com",pricing:"WHOLESALE VERIFIED · PRICE GATED",wholesaleEvidence:"Site explicitly states WHOLESALE ONLY for registered botanicas and resellers, 300+ products and US shipping."},
+ {name:"Babonsono Imports LLC",market:"United States",region:"New Jersey, USA",focus:"Botanica · Santeria · incense · soaps · iron pots · charms",channel:"Wholesale only B2B",status:"PENDING REVIEW",priority:5,url:"https://www.babonsono.com",pricing:"EXPLICIT WHOLESALE",minimum:"$100 minimum order",wholesaleEvidence:"Wholesale-only B2B supplier serving stores, resellers and retailers; requires resale certificate or business license.",priceExamples:["IHC Incense Sticks Sandalwood 12-pack · $10.95","IHC Incense Sticks Jasmine 12-pack · $10.95"]},
+ {name:"Bulk Santeria",market:"United States",region:"USA",focus:"Traditional herbs · incense · oils · Santeria botanica goods",channel:"Wholesale only",status:"PENDING REVIEW",priority:6,url:"https://bulksanteria.com",pricing:"EXPLICIT WHOLESALE",minimum:"$250 order minimum",wholesaleEvidence:"Website is marked Wholesale Only and publishes product pricing.",priceExamples:["Pinon de Botija / Jatropha Curcas · 16 oz · $75"]},
+ {name:"Distribuidora Mas Alla",market:"United States",region:"USA",focus:"5,000+ botanica and yerberia products · candles · oils · incense · statues",channel:"Wholesale distributor",status:"PENDING REVIEW",priority:7,url:"https://www.el-masalla.com",pricing:"WHOLESALE VERIFIED · PRICE GATED",wholesaleEvidence:"Site identifies the business as a botanica wholesale distributor serving spiritual shops, Santeria candle stores and religious retailers across the United States."},
+ {name:"Orisha Distributor Co.",market:"Los Angeles",region:"California, USA",focus:"Natural remedies · herbs · botanica inventory",channel:"Wholesale distributor",status:"PENDING REVIEW",priority:8,url:"https://www.orishadistributor.com/wholesale",pricing:"WHOLESALE VERIFIED · PRICE GATED",wholesaleEvidence:"Wholesale program requires seller permit, serves botanicas and retailers, ships USA and Canada, and quotes wholesale prices by inquiry."},
+ {name:"El Viejo Lazaro",market:"Miami",region:"Florida, USA",focus:"Lucumi · Yoruba · Ocha tools and botanica goods",channel:"Wholesale / retail",status:"PENDING REVIEW",priority:9,url:"https://www.viejolazaro.com",pricing:"WHOLESALE VERIFIED · PRICE GATED",wholesaleEvidence:"Practitioner-run Lucumi supplier explicitly provides wholesale and retail products, including custom Orisha tools and crowns."},
+ {name:"Botanica Las Americas",market:"Miami",region:"Florida, USA",focus:"Santeria · Lucumi · Orisha tools · beads · herbs · candles",channel:"Wholesale / retail",status:"PENDING REVIEW",priority:10,url:"https://botanicalasamerica.com",pricing:"WHOLESALE VERIFIED · PRICE GATED",wholesaleEvidence:"Practitioner-run supplier states it sells wholesale and retail for the Lucumi community and offers 4,000+ products plus custom tools and crowns."},
+ {name:"Botanica Wholesale Program",market:"USA + International",region:"Worldwide",focus:"Independent retailer and online reseller program",channel:"Wholesale / reseller program",status:"PENDING REVIEW",priority:20,url:"https://www.botanica.co/pages/wholesale",pricing:"EXPLICIT WHOLESALE",minimum:"Direct $280 · Faire $400",wholesaleEvidence:"Official program accepts brick-and-mortar and independent online retailers in the US and abroad; international shipping available and private label starts at 500 units."},
+ {name:"CJdropshipping",market:"International",region:"Fallback",focus:"Generic complementary products only",channel:"Dropshipping",status:"FALLBACK",priority:90,url:"https://www.cjdropshipping.com",pricing:"FALLBACK",wholesaleEvidence:"Not approved for core Cuban BOTANICA sourcing."},
+ {name:"Zendrop",market:"USA / International",region:"Fallback",focus:"Generic complementary products only",channel:"Dropshipping",status:"FALLBACK",priority:91,url:"https://www.zendrop.com",pricing:"FALLBACK",wholesaleEvidence:"Not approved for core Cuban BOTANICA sourcing."},
+ {name:"Spocket",market:"USA / International",region:"Fallback",focus:"Generic complementary products only",channel:"Dropshipping",status:"FALLBACK",priority:92,url:"https://www.spocket.co",pricing:"FALLBACK",wholesaleEvidence:"Not approved for core Cuban BOTANICA sourcing."},
+ {name:"AliExpress",market:"International",region:"Fallback",focus:"Generic complementary products only",channel:"Marketplace",status:"FALLBACK",priority:99,url:"https://www.aliexpress.com",pricing:"FALLBACK",wholesaleEvidence:"Not approved for core Cuban BOTANICA sourcing."}
 ];
 
-export default function OwnerSuppliersPage() {
-  return <main className={styles.shell}>
-    <nav className={styles.nav}>
-      <a className={styles.brand} href="/owner"><span className={styles.mark}>O</span><span className={styles.brandText}><strong>BOTANICA</strong><small>OCHOSI</small></span></a>
-      <div className={styles.navLinks}><a className={styles.ghost} href="/owner">Owner OS</a><a className={styles.primary} href="/owner/catalog">Catalog Control</a></div>
-    </nav>
-    <div className={styles.content}>
-      <section className={styles.hero}>
-        <div className={styles.kicker}>SUPPLIER INTELLIGENCE · USA FIRST</div>
-        <h1>Supplier <em>Registry.</em></h1>
-        <p>Cuban BOTANICA sourcing prioritizes Miami, Hialeah and Houston before national or international fallback channels. Pricing evidence is classified conservatively: public list prices are never treated as wholesale costs unless the supplier explicitly identifies them as wholesale.</p>
-      </section>
-      <div className={styles.statusStrip}>
-        <span className={styles.statusPill}>Miami / Hialeah · PRIORITY</span>
-        <span className={styles.statusPill}>Houston · PRIORITY</span>
-        <span className={styles.statusPill}>USA · BEFORE IMPORT</span>
-        <span className={styles.statusPill}>Autonomous purchasing · LOCKED</span>
-      </div>
-      <section className={styles.section}>
-        <div className={styles.sectionHead}><div><span>Verified sourcing evidence</span><h2>Cuban botanica wholesale candidates.</h2></div></div>
-        <div className={styles.actionGrid}>
-          {suppliers.map((s) => <div className={styles.card} key={s.name}>
-            <div className={styles.kicker}>PRIORITY {s.priority} · {s.status}</div>
-            <h2>{s.name}</h2>
-            <p><strong>{s.market}</strong> · {s.region}</p>
-            <p>{s.focus}</p>
-            <p>{s.channel}</p>
-            <p><strong>Pricing evidence:</strong> {s.pricing}</p>
-            {s.minimum && <p><strong>Minimum:</strong> {s.minimum}</p>}
-            <p>{s.wholesaleEvidence}</p>
-            {!!s.priceExamples?.length && <div className={styles.productMeta}>{s.priceExamples.map((item) => <div key={item}>• {item}</div>)}</div>}
-            <a className={styles.ghost} href={s.url} target="_blank" rel="noreferrer">Review verified website</a>
-          </div>)}
-        </div>
-      </section>
-      <section className={styles.section}>
-        <div className={styles.card}><div className={styles.kicker}>APPROVAL GATE</div><h2>Website verification is not purchasing approval.</h2><p>Required evidence before APPROVED: wholesale account eligibility, current quote, MOQ, unit/case cost, shipping and lead time, inventory, returns, provenance and expected landed margin. Public list prices remain reference-only. Supplier Agent recommendations cannot authorize spending.</p></div>
-      </section>
-    </div>
-  </main>;
-}
+const resellers: Reseller[] = [
+ {name:"Yoruba Distribuidores reseller network",market:"United States",model:"Registered botanicas + resellers",evidence:"Official site explicitly limits sales to registered botanicas, religious stores and resellers.",url:"https://yorubadistribuidores.com",fit:"High · Cuban/Santeria retail channel"},
+ {name:"Babonsono retail partners",market:"United States",model:"B2B stores + resellers + retailers",evidence:"Official wholesale site states it supplies stores, resellers and retailers and requires business credentials.",url:"https://www.babonsono.com",fit:"High · broad botanica assortment"},
+ {name:"BOTANICA independent online resellers",market:"USA + Abroad",model:"Independent ecommerce reseller",evidence:"Official wholesale policy explicitly welcomes independent online stores and international retailers; direct minimum $280.",url:"https://www.botanica.co/pages/wholesale",fit:"Medium · complementary branded goods"},
+ {name:"Faire wholesale marketplace",market:"Worldwide",model:"Verified retailer marketplace",evidence:"Used as an official ordering channel by BOTANICA; retailer account gates wholesale access and pricing.",url:"https://www.faire.com",fit:"Medium · discovery/reseller channel"},
+ {name:"Orisha Distributor retail network",market:"USA + Canada",model:"Botanicas · herb shops · naturist stores · health-food stores",evidence:"Official wholesale page identifies these retailer categories as existing clients and requires a seller permit for wholesale.",url:"https://www.orishadistributor.com/wholesale",fit:"High · specialist retail distribution"}
+];
+
+export default function OwnerSuppliersPage(){return <main className={styles.shell}><nav className={styles.nav}><a className={styles.brand} href="/owner"><span className={styles.mark}>O</span><span className={styles.brandText}><strong>BOTANICA</strong><small>OCHOSI</small></span></a><div className={styles.navLinks}><a className={styles.ghost} href="/owner">Owner OS</a><a className={styles.primary} href="/owner/catalog">Catalog Control</a></div></nav><div className={styles.content}>
+<section className={styles.hero}><div className={styles.kicker}>SUPPLIER + RESELLER INTELLIGENCE · USA FIRST</div><h1>Supplier <em>Registry.</em></h1><p>Cuban BOTANICA sourcing prioritizes Miami, Hialeah and Houston. Reseller channels are tracked separately from suppliers so distribution opportunity never becomes purchasing approval.</p></section>
+<div className={styles.statusStrip}><span className={styles.statusPill}>Miami / Hialeah · PRIORITY</span><span className={styles.statusPill}>Houston · PRIORITY</span><span className={styles.statusPill}>USA · BEFORE IMPORT</span><span className={styles.statusPill}>Autonomous purchasing · LOCKED</span></div>
+<section className={styles.section}><div className={styles.sectionHead}><div><span>Verified sourcing evidence</span><h2>Cuban botanica wholesale candidates.</h2></div></div><div className={styles.actionGrid}>{suppliers.map(s=><div className={styles.card} key={s.name}><div className={styles.kicker}>PRIORITY {s.priority} · {s.status}</div><h2>{s.name}</h2><p><strong>{s.market}</strong> · {s.region}</p><p>{s.focus}</p><p>{s.channel}</p><p><strong>Pricing evidence:</strong> {s.pricing}</p>{s.minimum&&<p><strong>Minimum:</strong> {s.minimum}</p>}<p>{s.wholesaleEvidence}</p>{!!s.priceExamples?.length&&<div className={styles.productMeta}>{s.priceExamples.map(item=><div key={item}>• {item}</div>)}</div>}<a className={styles.ghost} href={s.url} target="_blank" rel="noreferrer">Review verified website</a></div>)}</div></section>
+<section className={styles.section}><div className={styles.sectionHead}><div><span>Distribution channels</span><h2>Verified reseller opportunities.</h2></div></div><div className={styles.actionGrid}>{resellers.map(r=><div className={styles.card} key={r.name}><div className={styles.kicker}>RESELLER CANDIDATE · PENDING REVIEW</div><h2>{r.name}</h2><p><strong>{r.market}</strong> · {r.model}</p><p><strong>BOTANICA fit:</strong> {r.fit}</p><p>{r.evidence}</p><a className={styles.ghost} href={r.url} target="_blank" rel="noreferrer">Review reseller channel</a></div>)}</div></section>
+<section className={styles.section}><div className={styles.card}><div className={styles.kicker}>APPROVAL GATE</div><h2>Supplier, reseller and marketplace are different roles.</h2><p>Supplier approval requires current wholesale quote, MOQ, landed cost, inventory, provenance and fulfillment. Reseller approval requires business identity, channel fit, payment terms, returns and brand-policy acceptance. Marketplace presence alone approves neither purchasing nor distribution.</p></div></section>
+</div></main>}
