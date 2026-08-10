@@ -9,7 +9,6 @@ import {
 } from "./commerce-schema";
 import {
   spanishFirstBotanicaCatalog,
-  spanishFirstCategoryCounts,
   type BotanicaCatalogCandidate,
 } from "./spanish-first-catalog";
 
@@ -43,6 +42,11 @@ export function getMasterCatalogSnapshot() {
     shopify_draft_ready: false as const,
   }));
 
+  const candidate_category_counts = candidate_registry.reduce<Record<string, number>>((counts, candidate) => {
+    counts[candidate.category] = (counts[candidate.category] ?? 0) + 1;
+    return counts;
+  }, {});
+
   const candidate_gate_counts = candidate_registry.reduce<Record<string, number>>((counts, candidate) => {
     for (const gate of candidate.gates) counts[gate] = (counts[gate] ?? 0) + 1;
     return counts;
@@ -58,7 +62,7 @@ export function getMasterCatalogSnapshot() {
     orisha_collections: ORISHA_COLLECTIONS,
     families,
     candidate_registry_count: candidate_registry.length,
-    candidate_category_counts: spanishFirstCategoryCounts,
+    candidate_category_counts,
     candidate_gate_counts,
     candidate_registry,
   };
