@@ -3,7 +3,7 @@ import { BOTANICA_FIRST_25_SKU_CANDIDATES } from "@/lib/botanica-first-25-sku-ca
 import { evaluateBotanicaCommercePipeline } from "@/lib/botanica-commerce-pipeline";
 import type { SupplierQuote } from "@/lib/botanica-supplier-quotes";
 import { listGet, listReplace } from "@/lib/kv";
-import { ownerCreateShopifyProduct } from "@/lib/owner-catalog-shopify";
+import { ownerArchiveShopifyProduct, ownerCreateShopifyProduct } from "@/lib/owner-catalog-shopify";
 import { newId, nowISO } from "@/lib/store";
 import type { Product } from "@/lib/types";
 
@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
 
   const body = await req.json().catch(() => ({}));
   const action = String(body.action ?? "evaluate");
-  if (!['evaluate','create_draft'].includes(action)) {
+  if (!["evaluate", "create_draft"].includes(action)) {
     return error("action must be evaluate or create_draft.", 422);
   }
 
@@ -57,6 +57,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   const landedCost = Number(result.opportunity.quoteEvaluation.landedCostPerUnitUsd ?? 0);
   if (retailPrice <= 0 || landedCost <= 0) {
     return error("Verified positive retail price and landed cost are required before creating a draft.", 409);
+  }
+
+  // Check internal uniqueness before any external Shopify mutation.
+  const products = await listGet<Product>(productsKey(orgId));
+  const existing = products.findIndex((item) => item.sku === sku && item.status !== "killed");
+  if (existing >= 0) {
+    return error("An active internal catalog product already exists for this SKU.", 409);
   }
 
   const description = String(body.description ?? "").trim();
@@ -99,13 +106,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     created_at: nowISO(),
   };
 
-  const products = await listGet<Product>(productsKey(orgId));
-  const existing = products.findIndex((item) => item.sku === sku && item.status !== "killed");
-  if (existing >= 0) {
-    return error("An active internal catalog product already exists for this SKU.", 409);
+  try {
+    products.unshift(product);
+    await listReplace(productsKey(orgId), products.slice(0, 1000));
+  } catch (e) {
+    // Compensating action: a Shopify draft must not survive if the internal
+    // catalog record cannot be persisted.
+    if (shopify.id) {
+      try { await ownerArchiveShopifyProduct(orgId, shopify.id); } catch { /* best-effort rollback */ }
+    }
+    return error(`Internal catalog persistence failed: ${(e as Error).message}`, 500);
   }
-  products.unshift(product);
-  await listReplace(productsKey(orgId), products.slice(0, 1000));
 
   return json({
     ok: true,
