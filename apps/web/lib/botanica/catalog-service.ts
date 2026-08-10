@@ -7,6 +7,11 @@ import {
   validateForShopifyDraft,
   type BotanicaSku,
 } from "./commerce-schema";
+import {
+  spanishFirstBotanicaCatalog,
+  spanishFirstCategoryCounts,
+  type BotanicaCatalogCandidate,
+} from "./spanish-first-catalog";
 
 export type MasterCatalogFamilyView = {
   id: string;
@@ -20,12 +25,28 @@ export type MasterCatalogFamilyView = {
   publish_policy: "GATED" | "REFERENCE_ONLY";
 };
 
+export type SpanishFirstCandidateView = BotanicaCatalogCandidate & {
+  publish_policy: "HOLD" | "REFERENCE_ONLY";
+  shopify_draft_ready: false;
+};
+
 export function getMasterCatalogSnapshot() {
   const families: MasterCatalogFamilyView[] = BOTANICA_MASTER_CATALOG.map((family) => ({
     ...family,
     locale_priority: ["es", "en"] as const,
     publish_policy: family.commerce_mode === "REFERENCE_ONLY" ? "REFERENCE_ONLY" : "GATED",
   }));
+
+  const candidate_registry: SpanishFirstCandidateView[] = spanishFirstBotanicaCatalog.map((candidate) => ({
+    ...candidate,
+    publish_policy: candidate.status === "REFERENCE_ONLY" ? "REFERENCE_ONLY" : "HOLD",
+    shopify_draft_ready: false as const,
+  }));
+
+  const candidate_gate_counts = candidate_registry.reduce<Record<string, number>>((counts, candidate) => {
+    for (const gate of candidate.gates) counts[gate] = (counts[gate] ?? 0) + 1;
+    return counts;
+  }, {});
 
   return {
     brand: "BOTANICA OCHOSI",
@@ -36,6 +57,10 @@ export function getMasterCatalogSnapshot() {
     collections: SPANISH_FIRST_COLLECTIONS,
     orisha_collections: ORISHA_COLLECTIONS,
     families,
+    candidate_registry_count: candidate_registry.length,
+    candidate_category_counts: spanishFirstCategoryCounts,
+    candidate_gate_counts,
+    candidate_registry,
   };
 }
 
