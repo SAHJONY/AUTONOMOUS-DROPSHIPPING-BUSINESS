@@ -115,5 +115,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
       noInventory: rows.filter((row) => row.reasons.includes("no_inventory")).length,
     },
     products: rows,
-  }, 200, { "Cache-Control": "no-store" });
+  });
 }
