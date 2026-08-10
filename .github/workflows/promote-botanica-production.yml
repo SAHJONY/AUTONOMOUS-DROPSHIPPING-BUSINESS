@@ -9,22 +9,32 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 jobs:
   promote:
     runs-on: ubuntu-latest
     steps:
-      - name: Require Vercel token
+      - name: Detect Vercel token
+        id: token
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          test -n "$VERCEL_TOKEN" || { echo "VERCEL_TOKEN secret is required"; exit 1; }
+          if [ -n "$VERCEL_TOKEN" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install pinned Vercel CLI
+        if: steps.token.outputs.present == 'true'
         run: npm install --global vercel@56.5.0
 
       - name: Promote validated BOTANICA artifact
+        id: promote
+        if: steps.token.outputs.present == 'true'
+        continue-on-error: true
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
@@ -34,7 +44,42 @@ jobs:
             --yes
 
       - name: Verify production domain
+        id: verify
+        if: steps.promote.outcome == 'success'
+        continue-on-error: true
         run: |
           curl --fail --silent --show-error --location https://www.botanicaochosi.com/shop >/dev/null
           curl --fail --silent --show-error --location https://www.botanicaochosi.com/manifest.webmanifest >/dev/null
           curl --fail --silent --show-error --location https://www.botanicaochosi.com/sw.js >/dev/null
+
+      - name: Report promotion result
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          TOKEN_PRESENT: ${{ steps.token.outputs.present }}
+          PROMOTE_OUTCOME: ${{ steps.promote.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        with:
+          script: |
+            const success = process.env.TOKEN_PRESENT === 'true' && process.env.PROMOTE_OUTCOME === 'success' && process.env.VERIFY_OUTCOME === 'success';
+            const title = `BOTANICA production promotion ${success ? 'SUCCESS' : 'FAILED'} — run ${context.runId}`;
+            const body = [
+              `Artifact: autonomous-dropshipping-business-azic4lrmd.vercel.app`,
+              `Token present: ${process.env.TOKEN_PRESENT}`,
+              `Promotion outcome: ${process.env.PROMOTE_OUTCOME || 'not-run'}`,
+              `Domain verification: ${process.env.VERIFY_OUTCOME || 'not-run'}`,
+              `Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            ].join('\n');
+            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body });
+
+      - name: Enforce successful promotion
+        if: always()
+        shell: bash
+        env:
+          TOKEN_PRESENT: ${{ steps.token.outputs.present }}
+          PROMOTE_OUTCOME: ${{ steps.promote.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          test "$TOKEN_PRESENT" = "true" || { echo "VERCEL_TOKEN secret is missing"; exit 1; }
+          test "$PROMOTE_OUTCOME" = "success" || { echo "vercel promote failed"; exit 1; }
+          test "$VERIFY_OUTCOME" = "success" || { echo "production domain verification failed"; exit 1; }
