@@ -49,9 +49,17 @@ export default function OwnerDirectoryPage() {
   };
   const remove=(id:string)=>{if(window.confirm("¿Eliminar este contacto de tu directorio personal?")) persist(entries.filter(entry=>entry.id!==id));};
   const importSuppliers=()=>{
-    const existing=new Set(entries.map(entry=>entry.website.toLowerCase()).filter(Boolean));
-    const imported=BOTANICA_SUPPLIERS.filter(s=>!existing.has(s.website.toLowerCase())).map(s=>({id:crypto.randomUUID(),name:s.name,organization:s.name,category:s.sourcingPolicy==="CUSTOM_MANUFACTURING"?"Fabricante":"Proveedor",phone:s.contacts?.find(c=>c.href.startsWith("tel:"))?.value??"",email:s.contacts?.find(c=>c.href.startsWith("mailto:"))?.value??"",website:s.website,location:s.location,notes:`${s.categories.join(" · ")}\n${s.strengths.join(" · ")}`,favorite:s.researchPriority===1,updatedAt:new Date().toISOString()}));
-    persist([...entries,...imported]);
+    const byWebsite=new Map(entries.map(entry=>[entry.website.toLowerCase(),entry]));
+    const now=new Date().toISOString();
+    const imported=BOTANICA_SUPPLIERS.map(s=>{
+      const current=byWebsite.get(s.website.toLowerCase());
+      const phone=s.contacts?.find(c=>c.href.startsWith("tel:")||c.href.includes("wa.me"))?.value??"";
+      const email=s.contacts?.find(c=>c.href.startsWith("mailto:"))?.value??"";
+      const supplierNotes=`${s.categories.join(" · ")}\n${s.strengths.join(" · ")}`;
+      return current?{...current,phone:current.phone||phone,email:current.email||email,location:current.location||s.location,notes:current.notes||supplierNotes,updatedAt:now}:{id:crypto.randomUUID(),name:s.name,organization:s.name,category:s.region==="INTERNATIONAL"?"Importador":s.sourcingPolicy==="CUSTOM_MANUFACTURING"?"Fabricante":"Proveedor",phone,email,website:s.website,location:s.location,notes:supplierNotes,favorite:s.researchPriority===1,updatedAt:now};
+    });
+    const supplierWebsites=new Set(BOTANICA_SUPPLIERS.map(s=>s.website.toLowerCase()));
+    persist([...entries.filter(entry=>!supplierWebsites.has(entry.website.toLowerCase())),...imported]);
   };
   const exportDirectory=()=>{
     const blob=new Blob([JSON.stringify(entries,null,2)],{type:"application/json"});

@@ -316,6 +316,10 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     categories: ["Iroke Ifa", "Ajere Ifa", "Igba Aje", "Bata drums", "Yoruba/Ifa books", "divination and spiritual items"],
     strengths: ["Nigeria-based Yoruba/Ifa inventory", "public NGN pricing", "physical Akure pickup location documented", "broad Isese/Ifa catalog"],
     sourceEvidence: ["https://www.getabetterlifetv.com/", "https://www.getabetterlifetv.com/collections/all", "https://www.getabetterlifetv.com/products/iroke-ifa", "https://www.getabetterlifetv.com/products/ajere-ifa"],
+    contacts: [
+      { label: "Telefono / WhatsApp", value: "+234 815 779 7017", href: "https://wa.me/2348157797017" },
+      { label: "Tienda y pedidos", value: "Contacto en linea", href: "https://www.getabetterlifetv.com/" }
+    ],
     sourcingPolicy: "NIGERIA_YORUBA",
     researchPriority: 1
   },
@@ -330,6 +334,10 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     categories: ["Ifa beads", "divination tools", "sacred Ifa products", "Yoruba spiritual items"],
     strengths: ["Oyo-based Ifa source", "sacred-product catalog", "direct contact for culturally specific sourcing"],
     sourceEvidence: ["https://okinifatemple.com.ng/"],
+    contacts: [
+      { label: "WhatsApp", value: "+234 916 503 5248", href: "https://wa.me/2349165035248" },
+      { label: "Formulario", value: "Contacto directo", href: "https://okinifatemple.com.ng/#contact" }
+    ],
     sourcingPolicy: "NIGERIA_YORUBA",
     researchPriority: 1
   },
@@ -344,6 +352,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     categories: ["glass beads", "bead components", "necklace and bracelet components", "craft supplies"],
     strengths: ["explicit wholesale bead-store listing", "Lagos trade-market location", "useful for locally sourced bead components"],
     sourceEvidence: ["https://ng.worldorgs.com/catalog/lagos/bead-store/naijasno1wholesalebeadstore"],
+    contacts: [{ label: "Directorio comercial", value: "Contacto por validar", href: "https://ng.worldorgs.com/catalog/lagos/bead-store/naijasno1wholesalebeadstore" }],
     sourcingPolicy: "CUSTOM_MANUFACTURING",
     researchPriority: 2
   },
@@ -358,6 +367,11 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     categories: ["handcrafted beads", "African-print accessories", "custom beaded goods", "waist beads"],
     strengths: ["retail and wholesale worldwide", "handcrafted in Nigeria", "Lagos-based custom bead capability"],
     sourceEvidence: ["https://bykessy.com/pages/about-us"],
+    contacts: [
+      { label: "WhatsApp mayorista", value: "+234 813 506 2094", href: "https://wa.me/2348135062094" },
+      { label: "Correo mayorista", value: "bykessy1@gmail.com", href: "mailto:bykessy1@gmail.com" },
+      { label: "Formulario", value: "Pedidos personalizados", href: "https://bykessy.com/pages/contact" }
+    ],
     sourcingPolicy: "CUSTOM_MANUFACTURING",
     researchPriority: 2
   },
