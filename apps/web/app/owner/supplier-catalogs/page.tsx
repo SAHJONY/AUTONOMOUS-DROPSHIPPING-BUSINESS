@@ -6,6 +6,7 @@ import { BOTANICA_SUPPLIERS } from "@/lib/botanica-supplier-registry";
 import { calculateSupplierRetailPrice, DEFAULT_SUPPLIER_MARKUP_PERCENT } from "@/lib/supplier-pricing";
 import { calculateEstimatedDeliveryDate, calculateSupplierFulfillmentDays } from "@/lib/supplier-fulfillment-time";
 import { convertToUsd } from "@/lib/currency-conversion";
+import { calculateSupplierDealIntelligence } from "@/lib/supplier-deal-intelligence";
 
 type SupplierProduct={id:string;supplier:string;sku:string;name:string;category:string;wholesalePrice:number;shippingCost:number;handlingCost:number;markupPercent:number;currency:string;usdExchangeRate:number;moq:number;unit:string;productUrl:string;supplierProcessingDays:number;importTransitDays:number;handlingDays:number;customerShippingDays:number;botanicaWholesaleEnabled:boolean;botanicaWholesalePrice:number;botanicaWholesaleMoq:number;competitorUrl:string;competitorPriceUsd:number;competitorCurrency:string;competitorScannedAt:string;competitorScanStatus:string;competitivePriceRecommendationUsd:number;notes:string;updatedAt:string};
 const emptyProduct=():SupplierProduct=>({id:"",supplier:"",sku:"",name:"",category:"",wholesalePrice:0,shippingCost:0,handlingCost:0,markupPercent:DEFAULT_SUPPLIER_MARKUP_PERCENT,currency:"USD",usdExchangeRate:1,moq:1,unit:"unidad",productUrl:"",supplierProcessingDays:0,importTransitDays:0,handlingDays:0,customerShippingDays:0,botanicaWholesaleEnabled:false,botanicaWholesalePrice:0,botanicaWholesaleMoq:1,competitorUrl:"",competitorPriceUsd:0,competitorCurrency:"",competitorScannedAt:"",competitorScanStatus:"",competitivePriceRecommendationUsd:0,notes:"",updatedAt:""});
@@ -62,8 +63,16 @@ function CommercialTimingFields({draft,setDraft}:{draft:SupplierProduct;setDraft
 }
 
 function ProductTimingSummary({product}:{product:SupplierProduct}){
- const totalDays=calculateSupplierFulfillmentDays(product);
- const retailUsd=convertToUsd(calculateSupplierRetailPrice(product),product.currency,product.usdExchangeRate);
- const wholesaleUsd=convertToUsd(product.botanicaWholesalePrice,product.currency,product.usdExchangeRate);
- return <div className={styles.productMeta}>USD: <strong>${retailUsd.toFixed(2)}</strong>{product.currency!=="USD"&&product.usdExchangeRate<=0?" · TASA PENDIENTE":""} · Entrega estimada: {totalDays?`${totalDays} días calendario`:"PENDIENTE"}{product.botanicaWholesaleEnabled?` · B2B botánicas: $${wholesaleUsd.toFixed(2)} USD · MOQ ${product.botanicaWholesaleMoq}`:" · B2B desactivado"}{product.competitorPriceUsd>0?` · Competencia: $${product.competitorPriceUsd.toFixed(2)} USD · Recomendado: $${product.competitivePriceRecommendationUsd.toFixed(2)} USD`:product.competitorUrl?` · Monitor: ${product.competitorScanStatus||"pendiente"}`:""}</div>;
+ const deal=calculateSupplierDealIntelligence(product);
+ const arrival=deal.totalDays?calculateEstimatedDeliveryDate(product).toLocaleDateString("es-US",{year:"numeric",month:"short",day:"numeric"}):"pendiente";
+ if(!deal.fxReady)return <div className={styles.error}>Falta la tasa de cambio verificada para calcular costos, precios y utilidad en USD.</div>;
+ return <div className={styles.result}>
+  <div><strong>Costo:</strong> mercancía ${deal.supplierUnitCostUsd.toFixed(2)} + envío ${deal.inboundShippingUsd.toFixed(2)} + manejo ${deal.handlingUsd.toFixed(2)} = <strong>${deal.landedUnitCostUsd.toFixed(2)} USD puesto en almacén</strong>.</div>
+  <div><strong>Retail:</strong> vender a ${deal.retailPriceUsd.toFixed(2)} · utilidad bruta ${deal.retailProfitPerUnitUsd.toFixed(2)}/unidad · margen {deal.retailMarginPercent.toFixed(2)}% · utilidad por lote MOQ ${deal.retailProfitPerSupplierOrderUsd.toFixed(2)}.</div>
+  <div><strong>Mayoreo para botánicas:</strong> ${deal.botanicaWholesalePriceUsd.toFixed(2)}/unidad · MOQ {deal.botanicaOrderQuantity} · venta ${deal.botanicaOrderRevenueUsd.toFixed(2)} · utilidad bruta ${deal.botanicaOrderProfitUsd.toFixed(2)} ({deal.wholesaleMarginPercent.toFixed(2)}%).</div>
+  <div><strong>Pedido al proveedor:</strong> mínimo {deal.supplierOrderQuantity} unidades · inversión mínima ${deal.supplierMinimumInvestmentUsd.toFixed(2)} USD. Sin historial de demanda, este MOQ es el lote inicial prudente, no una cantidad óptima inventada.</div>
+  <div><strong>Tiempo:</strong> preparación {product.supplierProcessingDays||0} días + importación {product.importTransitDays||0} + manejo {product.handlingDays||0} + envío al cliente {product.customerShippingDays||0} = <strong>{deal.totalDays||"pendiente"} días</strong> · llegada estimada {arrival}.</div>
+  <div className={styles.productMeta}>Utilidad bruta antes de comisiones de pago, publicidad, impuestos, devoluciones y aranceles no incluidos. Usa la calculadora de utilidad para la utilidad neta.{product.competitorPriceUsd>0?` Competencia observada: $${product.competitorPriceUsd.toFixed(2)} USD.`:""}</div>
+  <a href={`/owner/profit-calculator?price=${deal.retailPriceUsd}&cost=${deal.supplierUnitCostUsd}&shipping=${deal.inboundShippingUsd}&handling=${deal.handlingUsd}`}>Abrir cálculo neto de este producto →</a>
+ </div>;
 }
