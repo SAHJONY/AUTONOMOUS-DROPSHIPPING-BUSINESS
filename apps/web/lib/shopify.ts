@@ -6,7 +6,7 @@
  *   - Legacy custom apps: a static Admin API access token (shpat_…).
  * (Shopify does not allow creating brand-new stores via API.)
  */
-const API_VERSION = "2024-10";
+const API_VERSION = "2026-07";
 
 export interface ShopifyCreds {
   shop: string; // xxxxx.myshopify.com

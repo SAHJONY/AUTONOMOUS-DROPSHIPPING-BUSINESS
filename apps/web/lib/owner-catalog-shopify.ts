@@ -1,6 +1,6 @@
 import { resolveShopifyToken } from "./store";
 
-const API_VERSION = "2024-10";
+const API_VERSION = "2026-07";
 
 async function adminFetch(orgId: string, path: string, init?: RequestInit) {
   const resolved = await resolveShopifyToken(orgId);

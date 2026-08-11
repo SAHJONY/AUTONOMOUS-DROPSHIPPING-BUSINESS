@@ -1,6 +1,6 @@
 import { error, json } from "@/lib/api";
 import { CRON_SECRET } from "@/lib/config";
-import { migrateShopifyToBotanicaCatalog } from "@/lib/botanica-shopify-migration";
+import { seedBotanicaDraftCatalog } from "@/lib/botanica-shopify-migration";
 import { listAllOrgs, resolveShopifyToken } from "@/lib/store";
 
 export const runtime = "nodejs";
@@ -13,8 +13,8 @@ export const maxDuration = 300;
  * GitHub Actions workflow without exposing Shopify credentials.
  *
  * Safe semantics:
- * - archives legacy products instead of hard deleting order-linked history;
- * - creates curated BOTANICA products as unpublished drafts;
+ * - preserves every existing Shopify product;
+ * - creates missing curated BOTANICA products as unpublished drafts;
  * - is idempotent: existing BOTANICA titles are not duplicated;
  * - never invents price or inventory.
  */
@@ -33,14 +33,14 @@ async function handle(req: Request) {
       continue;
     }
     try {
-      const result = await migrateShopifyToBotanicaCatalog(resolved.shop, resolved.token);
+      const result = await seedBotanicaDraftCatalog(resolved.shop, resolved.token);
       results.push({ org_id: org.id, org_name: org.name, shop: resolved.shop, ...result });
     } catch (e) {
       results.push({ org_id: org.id, org_name: org.name, shop: resolved.shop, ok: false, errors: [(e as Error).message] });
     }
   }
 
-  return json({ migration: "BOTANICA_OCHOSI_2026_08", orgs: results });
+  return json({ migration: "BOTANICA_OCHOSI_ADDITIVE_SEED_2026_08", orgs: results });
 }
 
 export async function GET(req: Request) {

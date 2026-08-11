@@ -4,7 +4,7 @@ permissions:
   contents: read
   issues: write
 
-# Owner-authorized catalog replacement. Manual dispatch remains available, and
+# Owner-authorized additive catalog seed. Manual dispatch remains available, and
 # specific merge commits can trigger the idempotent migration once via push.
 # Shopify credentials never leave the deployed app; only sanitized result counts
 # are written back to GitHub for independent verification.
@@ -24,7 +24,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       contains(github.event.head_commit.message, 'Trigger BOTANICA catalog migration') ||
       contains(github.event.head_commit.message, 'Trigger BOTANICA migration result report')
-    name: Archive legacy catalog and seed BOTANICA drafts
+    name: Seed BOTANICA Shopify drafts safely
     runs-on: ubuntu-latest
     steps:
       - name: Run protected migration
@@ -65,17 +65,14 @@ jobs:
               ok,
               skipped,
               reason,
-              legacy_found,
-              archived_count,
               botanica_drafts_created,
-              final_active_legacy,
               final_botanica_products,
               error_count: ((.errors // []) | length)
             }]
           }' migration-result.json > migration-result-sanitized.json
 
           {
-            echo '## BOTANICA OCHOSI catalog migration verification'
+            echo '## BOTANICA OCHOSI additive catalog seed verification'
             echo
             echo '```json'
             cat migration-result-sanitized.json

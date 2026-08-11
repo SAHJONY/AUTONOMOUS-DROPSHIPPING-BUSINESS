@@ -59,8 +59,8 @@ export default function OwnerCatalogPage() {
   useEffect(() => { if (token) { void refresh(); void refreshDiagnostics(); } }, [token]);
 
   async function runMigration() {
-    const confirmation = window.prompt("This archives non-BOTANICA Shopify products and seeds curated BOTANICA drafts. Type:\nMIGRATE BOTANICA CATALOG") ?? "";
-    if (confirmation !== "MIGRATE BOTANICA CATALOG") return;
+    const confirmation = window.prompt("Esto añade de forma segura los productos BOTANICA faltantes como borradores no publicados en Shopify. Los productos existentes se conservan. Escribe:\nSEED BOTANICA DRAFTS") ?? "";
+    if (confirmation !== "SEED BOTANICA DRAFTS") return;
     setBusy(true); setError(""); setMigration(null);
     try {
       const oid = await resolveOrg(); if (!oid) throw new Error("Owner organization could not be resolved.");
@@ -102,7 +102,7 @@ export default function OwnerCatalogPage() {
       <div className={styles.navLinks}><a className={`${styles.ghost} ${styles.hideMobile}`} href="/owner">Owner OS</a><a className={styles.primary} href="/store">Storefront</a></div>
     </nav>
     <div className={styles.content}>
-      <section className={styles.hero}><div className={styles.kicker}>OWNER CATALOG · SHOPIFY CONTROL</div><h1>Catalog <em>Control.</em></h1><p>Create, archive and retire owner-managed products across the internal catalog and connected Shopify store. Archive remains the recommended default because it preserves history.</p></section>
+      <section className={styles.hero}><div className={styles.kicker}>CATÁLOGO DEL PROPIETARIO · CONTROL SHOPIFY</div><h1>Control del <em>catálogo.</em></h1><p>Crea, archiva y administra productos en el catálogo interno y la tienda Shopify conectada. Archivar es la opción recomendada porque conserva el historial comercial.</p></section>
       {error && <div className={styles.error}>{error}</div>}
 
       <section className={`${styles.card} ${styles.migration}`}>
@@ -118,9 +118,9 @@ export default function OwnerCatalogPage() {
       </section>
 
       <section className={`${styles.card} ${styles.migration}`}>
-        <div className={styles.kicker}>ONE-TIME SAFE MIGRATION</div><h2>Replace legacy Shopify catalog</h2>
-        <p>Archives non-BOTANICA products, preserves Shopify historical references, and seeds the curated BOTANICA starter catalog as unpublished drafts. No price, inventory, wholesale cost or margin is fabricated.</p>
-        <button disabled={busy || !token} onClick={runMigration} className={styles.primary}>{busy ? "Working…" : "Archive legacy + seed BOTANICA drafts"}</button>
+        <div className={styles.kicker}>CARGA SEGURA DEL SURTIDO SHOPIFY</div><h2>Añadir el catálogo BOTANICA seleccionado</h2>
+        <p>Añade 20 productos con fuentes comprobables como borradores no publicados sin modificar el inventario existente. No se inventan precios, existencias, costos mayoristas ni márgenes.</p>
+        <button disabled={busy || !token} onClick={runMigration} className={styles.primary}>{busy ? "Procesando…" : "Crear 20 borradores BOTANICA"}</button>
         {!token && <p>Owner sign-in is required before migration.</p>}
         {migration && <div className={styles.result}><strong>{migration.ok ? "Migration completed" : "Migration completed with issues"}</strong><div className={styles.productMeta}>Legacy found {migration.legacy_found ?? 0} · Archived {migration.archived_count ?? 0} · Drafts created {migration.botanica_drafts_created ?? 0} · Remaining legacy {migration.final_active_legacy ?? 0} · BOTANICA products {migration.final_botanica_products ?? 0}</div>{!!migration.errors?.length && <div className={styles.blocker}>{migration.errors.join(" | ")}</div>}</div>}
       </section>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">BOTANICA OCHOSI brand mark</title>
+  <desc id="desc">A refined gold bow, arrow and compass target on deep botanical green.</desc>
+  <defs>
+    <radialGradient id="field" cx="36%" cy="26%" r="82%">
+      <stop offset="0" stop-color="#1f5130"/>
+      <stop offset="0.58" stop-color="#0d2818"/>
+      <stop offset="1" stop-color="#06100a"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#f7dfa0"/>
+      <stop offset="0.48" stop-color="#d8ac50"/>
+      <stop offset="1" stop-color="#9a671d"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <circle cx="256" cy="256" r="247" fill="#06100a"/>
+  <circle cx="256" cy="256" r="230" fill="url(#field)" stroke="url(#gold)" stroke-width="8"/>
+  <circle cx="256" cy="256" r="192" fill="none" stroke="#efd183" stroke-opacity=".26" stroke-width="2"/>
+  <path d="M169 121c-81 74-81 196 0 270" fill="none" stroke="url(#gold)" stroke-width="18" stroke-linecap="round"/>
+  <path d="M169 121c58 65 58 205 0 270" fill="none" stroke="#f2d587" stroke-opacity=".92" stroke-width="7" stroke-linecap="round"/>
+  <path d="M170 118v276" stroke="#f5dd9b" stroke-width="5" stroke-linecap="round"/>
+  <path d="M144 256h232" stroke="url(#gold)" stroke-width="14" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="m379 256-59-35 16 35-16 35z" fill="url(#gold)"/>
+  <path d="m146 256 29-20v40z" fill="#f5dd9b"/>
+  <circle cx="256" cy="256" r="64" fill="none" stroke="#f5f0df" stroke-opacity=".74" stroke-width="6"/>
+  <circle cx="256" cy="256" r="29" fill="none" stroke="url(#gold)" stroke-width="8"/>
+  <circle cx="256" cy="256" r="8" fill="#f7dfa0"/>
+  <path d="M256 72v24M256 416v24M72 256h24M416 256h24" stroke="#d8ac50" stroke-width="7" stroke-linecap="round"/>
+</svg>

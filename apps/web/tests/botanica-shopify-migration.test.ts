@@ -6,7 +6,7 @@ import {
 
 describe("BOTANICA Shopify catalog migration policy", () => {
   it("seeds a curated real catalog without duplicate titles", () => {
-    expect(BOTANICA_REAL_CATALOG_SEEDS).toHaveLength(10);
+    expect(BOTANICA_REAL_CATALOG_SEEDS).toHaveLength(20);
     const titles = BOTANICA_REAL_CATALOG_SEEDS.map((p) => p.title.toLowerCase());
     expect(new Set(titles).size).toBe(titles.length);
     expect(BOTANICA_REAL_CATALOG_SEEDS.every((p) => p.sourceUrl.startsWith("https://"))).toBe(true);
