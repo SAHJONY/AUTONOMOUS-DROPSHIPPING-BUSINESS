@@ -41,6 +41,7 @@ import {
 } from "./fulfillment";
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type { Product } from "./types";
+import { listBotanicaEmails, sendBotanicaEmail } from "./botanica-email";
 
 export interface AgentContext {
   orgId: string;
@@ -122,6 +123,28 @@ const recallTool: ToolDef = {
     return entries
       .map((e) => `[${e.created_at.slice(0, 10)}] (${e.agent_name || "unknown"}) ${e.key}: ${e.content}`)
       .join("\n");
+  },
+};
+
+const listEmailTool: ToolDef = {
+  name: "list_supplier_email",
+  description: "Read recent inbound and outbound BOTANICA OCHOSI supplier email before drafting or following up.",
+  input_schema: { type:"object", properties:{ limit:{type:"number",description:"Messages to return (default 20)"} } },
+  handler: async (ctx,args) => {
+    const messages=(await listBotanicaEmails(ctx.orgId)).slice(0,Math.min(Math.max(Number(args.limit??20),1),50));
+    return messages.length?messages.map(m=>`${m.created_at} ${m.direction.toUpperCase()} | ${m.subject} | from ${m.from} to ${m.to.join(", ")}\n${m.text}`).join("\n\n"):"No supplier email has been recorded.";
+  },
+};
+
+const sendRoutineEmailTool: ToolDef = {
+  name: "send_supplier_email",
+  description: "Send a routine supplier inquiry or response as BOTANICA OCHOSI. Never use it to place orders, accept contracts, promise payment, share secrets, or make legal commitments.",
+  input_schema:{type:"object",properties:{to:{type:"string"},subject:{type:"string"},text:{type:"string"}},required:["to","subject","text"]},
+  handler:async(ctx,args)=>{
+    const text=String(args.text??"");
+    if(/\b(place|confirm|authorize|accept|execute)\b.{0,30}\b(order|purchase|contract|agreement|payment)\b|credit card|api key|password/i.test(text)) return "BLOCKED: email appears to authorize a purchase, contract, payment, or secret disclosure; owner approval is required.";
+    const message=await sendBotanicaEmail({orgId:ctx.orgId,to:String(args.to),subject:String(args.subject),text});
+    return `Sent as BOTANICA OCHOSI (message ${message.provider_id}).`;
   },
 };
 
@@ -220,6 +243,7 @@ const commonTools = (agentName: string): ToolDef[] => [
   pnlTool,
   rememberTool(agentName),
   recallTool,
+  listEmailTool,
 ];
 
 /* ---------- product hunter ---------- */
@@ -318,6 +342,7 @@ const supplier: Agent = {
     "inspect on_hold orders and say plainly what is blocking each one — a held order is a customer " +
     "waiting on a package they already paid for, and it is the most urgent thing in the business.",
   tools: () => [
+    sendRoutineEmailTool,
     {
       name: "fulfill_pending_orders",
       description:
@@ -655,6 +680,7 @@ const support: Agent = {
     "on hold, say what is being done about it. Issuing a refund is high-risk and requires human " +
     "approval — request it via issue_refund and continue.",
   tools: () => [
+    sendRoutineEmailTool,
     {
       name: "lookup_order",
       description:

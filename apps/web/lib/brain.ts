@@ -7,16 +7,16 @@
  * never executed by the model — an ApprovalRequest is created and the owner
  * decides. Approving it later executes the stored action.
  *
- * When no ANTHROPIC_API_KEY is configured the brain runs in deterministic
+ * When no OPENAI_API_KEY is configured the brain runs in deterministic
  * simulation mode so the platform is fully usable out of the box.
  */
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 import {
   AGENT_MAX_ITERATIONS,
   AGENT_MAX_TOKENS,
-  ANTHROPIC_API_KEY,
   BRAIN_MODEL,
   ENGINE_NAME,
+  OPENAI_API_KEY,
 } from "./config";
 import { getAgent, OPERATING_DIRECTIVE, type Agent, type AgentContext, type ToolDef } from "./agents";
 import {
@@ -35,11 +35,12 @@ import {
   updateRun,
 } from "./store";
 import type { AgentRun, ApprovalRequest, Role } from "./types";
+import { notifyOwnerTelegram } from "./telegram";
 
-let anthropic: Anthropic | null = null;
-function client(): Anthropic {
-  anthropic ??= new Anthropic({ apiKey: ANTHROPIC_API_KEY });
-  return anthropic;
+let openai: OpenAI | null = null;
+function client(): OpenAI {
+  openai ??= new OpenAI({ apiKey: OPENAI_API_KEY });
+  return openai;
 }
 
 async function queueApproval(
@@ -72,6 +73,7 @@ interface RunOptions {
   agentName: string;
   task: string;
   depth?: number;
+  notify?: boolean;
 }
 
 export async function runAgent(opts: RunOptions): Promise<AgentRun> {
@@ -87,7 +89,7 @@ export async function runAgent(opts: RunOptions): Promise<AgentRun> {
     input_tokens: 0,
     output_tokens: 0,
     iterations: 0,
-    simulated: !ANTHROPIC_API_KEY,
+    simulated: !OPENAI_API_KEY,
     created_at: nowISO(),
   };
   await saveRun(run);
@@ -95,13 +97,14 @@ export async function runAgent(opts: RunOptions): Promise<AgentRun> {
   if (!agent) {
     const patch = { status: "failed" as const, error: `Unknown agent '${opts.agentName}'.` };
     await updateRun(opts.orgId, run.id, patch);
+    await notifyOwnerTelegram("AGENT FAILED", `${opts.agentName}\n${patch.error}`);
     return { ...run, ...patch };
   }
 
   const ctx: AgentContext = { orgId: opts.orgId, depth: opts.depth ?? 0, runId: run.id };
 
   try {
-    const result = ANTHROPIC_API_KEY
+    const result = OPENAI_API_KEY
       ? await runLive(agent, opts.task, ctx)
       : await runSimulated(agent, opts.task, ctx);
     const patch = {
@@ -112,6 +115,9 @@ export async function runAgent(opts: RunOptions): Promise<AgentRun> {
       output_tokens: result.output_tokens,
     };
     await updateRun(opts.orgId, run.id, patch);
+    if (opts.notify !== false) {
+      await notifyOwnerTelegram("AGENT COMPLETED", `${opts.agentName}: ${patch.status}\n${patch.output.slice(0,1200)}`);
+    }
     // Zero-click storefront: after product discovery, auto-publish launch-ready
     // products (with cinematic imagery) to the connected Shopify store.
     if (opts.agentName === "product_hunter" || opts.agentName === "ceo") {
@@ -128,6 +134,7 @@ export async function runAgent(opts: RunOptions): Promise<AgentRun> {
       error: `${(err as Error).name}: ${(err as Error).message}`,
     };
     await updateRun(opts.orgId, run.id, patch);
+    await notifyOwnerTelegram("AGENT FAILED", `${opts.agentName}\n${patch.error}`);
     return { ...run, ...patch };
   }
 }
@@ -140,65 +147,54 @@ interface LoopResult {
   output_tokens: number;
 }
 
-/* ---------- live loop (SAHJONY engine) ---------- */
+/* ---------- live loop (OpenAI Responses / Codex engine) ---------- */
 
 async function runLive(agent: Agent, task: string, ctx: AgentContext): Promise<LoopResult> {
   const tools = agent.tools();
   const toolsByName = new Map(tools.map((t) => [t.name, t]));
   const apiTools = tools.map((t) => ({
+    type: "function" as const,
     name: t.name,
     description: t.description,
-    input_schema: t.input_schema as Anthropic.Tool.InputSchema,
+    parameters: t.input_schema,
+    strict: false,
   }));
-
-  const messages: Anthropic.MessageParam[] = [{ role: "user", content: task }];
+  let input: OpenAI.Responses.ResponseInput = [{ role: "user", content: task }];
   let inputTokens = 0;
   let outputTokens = 0;
   const pendingApprovals: string[] = [];
   const settings = await getOrgSettings(ctx.orgId);
 
   for (let iteration = 1; iteration <= AGENT_MAX_ITERATIONS; iteration++) {
-    const response = await client().messages.create({
+    const response = await client().responses.create({
       model: BRAIN_MODEL,
-      max_tokens: AGENT_MAX_TOKENS,
-      system: `${OPERATING_DIRECTIVE}\n\n${agent.system_prompt}`,
+      max_output_tokens: AGENT_MAX_TOKENS,
+      instructions: `${OPERATING_DIRECTIVE}\n\n${agent.system_prompt}`,
       tools: apiTools,
-      messages,
+      input,
+      store: false,
     });
-    inputTokens += response.usage.input_tokens;
-    outputTokens += response.usage.output_tokens;
-
-    if (response.stop_reason === "pause_turn") {
-      messages.push({ role: "assistant", content: response.content });
-      continue;
-    }
-
-    if (response.stop_reason !== "tool_use") {
-      const finalText = response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("\n");
+    inputTokens += response.usage?.input_tokens ?? 0;
+    outputTokens += response.usage?.output_tokens ?? 0;
+    const calls = response.output.filter((item) => item.type === "function_call");
+    if (!calls.length) {
       return {
         status: pendingApprovals.length ? "awaiting_approval" : "completed",
-        output: finalText,
+        output: response.output_text || "Codex completed the task without a text summary.",
         iterations: iteration,
         input_tokens: inputTokens,
         output_tokens: outputTokens,
       };
     }
 
-    messages.push({ role: "assistant", content: response.content });
-    const toolResults: Anthropic.ToolResultBlockParam[] = [];
-    for (const block of response.content) {
-      if (block.type !== "tool_use") continue;
+    const toolResults: OpenAI.Responses.ResponseInputItem[] = [];
+    for (const block of calls) {
       const tool = toolsByName.get(block.name);
       let content: string;
-      let isError = false;
       if (!tool) {
         content = `Error: unknown tool '${block.name}'.`;
-        isError = true;
       } else if (tool.requires_approval) {
-        const payload = block.input as Record<string, unknown>;
+        const payload = JSON.parse(block.arguments || "{}") as Record<string, unknown>;
         if (settings.autopilot && isAutoApprovable(tool.name, payload)) {
           // Autopilot: execute now and log an auto-approved record for the audit trail.
           try {
@@ -222,7 +218,6 @@ async function runLive(agent: Agent, task: string, ctx: AgentContext): Promise<L
             content = `Autopilot approved and executed '${tool.name}'. Result: ${result}`;
           } catch (e) {
             content = `Tool error: ${(e as Error).message}`;
-            isError = true;
           }
         } else {
           const approval = await queueApproval(agent, tool, payload, ctx);
@@ -234,20 +229,18 @@ async function runLive(agent: Agent, task: string, ctx: AgentContext): Promise<L
         }
       } else {
         try {
-          content = await tool.handler(ctx, block.input as Record<string, unknown>);
+          content = await tool.handler(ctx, JSON.parse(block.arguments || "{}") as Record<string, unknown>);
         } catch (e) {
           content = `Tool error: ${(e as Error).message}`;
-          isError = true;
         }
       }
       toolResults.push({
-        type: "tool_result",
-        tool_use_id: block.id,
-        content,
-        is_error: isError,
+        type: "function_call_output",
+        call_id: block.call_id,
+        output: content,
       });
     }
-    messages.push({ role: "user", content: toolResults });
+    input = [...response.output, ...toolResults] as OpenAI.Responses.ResponseInput;
   }
 
   return {

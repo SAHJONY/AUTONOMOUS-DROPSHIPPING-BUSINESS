@@ -1,6 +1,6 @@
 import { json } from "@/lib/api";
 import {
-  ANTHROPIC_API_KEY,
+  OPENAI_API_KEY,
   AUTONOMY_ENABLED,
   COMMERCE_RELEASE_ENABLED,
   CRON_SECRET,
@@ -20,13 +20,13 @@ export async function GET() {
 
   // The fleet only actually works when all three are true: the engine has a
   // key, the cron is authorized, and the release gate is open.
-  const live = !!ANTHROPIC_API_KEY && !!CRON_SECRET && AUTONOMY_ENABLED;
+  const live = !!OPENAI_API_KEY && !!CRON_SECRET && AUTONOMY_ENABLED;
 
   return json({
     status: "ok",
     app: PRODUCT_NAME,
     engine: ENGINE_NAME,
-    engine_online: !!ANTHROPIC_API_KEY,
+    engine_online: !!OPENAI_API_KEY,
     // Durable storage keeps the fleet's work between ticks; "memory" resets on
     // cold starts, so 24/7 operation wants Upstash configured.
     storage: STORAGE_MODE,

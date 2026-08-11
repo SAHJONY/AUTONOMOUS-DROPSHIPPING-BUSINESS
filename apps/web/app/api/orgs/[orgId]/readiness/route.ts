@@ -1,6 +1,6 @@
 import { json, requireOrgRole } from "@/lib/api";
 import {
-  ANTHROPIC_API_KEY,
+  OPENAI_API_KEY,
   AUTONOMY_ENABLED,
   COMMERCE_RELEASE_ENABLED,
   CRON_SECRET,
@@ -41,7 +41,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
       storageMode: STORAGE_MODE,
       jwtSecretIsDefault: JWT_SECRET === DEFAULT_JWT_SECRET,
       cronSecretSet: !!CRON_SECRET,
-      engineKeySet: !!ANTHROPIC_API_KEY,
+      engineKeySet: !!OPENAI_API_KEY,
       webhookSecretSet: !!SHOPIFY_WEBHOOK_SECRET,
       publicBaseUrlSet: !!PUBLIC_BASE_URL,
       shopifyConnected: !!shopify,

@@ -178,7 +178,7 @@ export function assessReadiness(f: ReadinessFacts): Readiness {
           detail:
             "No engine key, so agents run in deterministic standby mode. The order and " +
             "fulfillment loops are unaffected — they do not use the model.",
-          fix: "Set ANTHROPIC_API_KEY to activate the agents.",
+          fix: "Set OPENAI_API_KEY to activate the Codex-powered agents.",
         },
   );
 

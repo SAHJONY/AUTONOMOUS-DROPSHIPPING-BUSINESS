@@ -12,6 +12,7 @@
  */
 import { listGet, listPush, listReplace } from "./kv";
 import { paymentFeeFor, postEntries } from "./ledger";
+import { notifyOwnerTelegram } from "./telegram";
 import type {
   Order,
   OrderEvent,
@@ -50,6 +51,7 @@ export async function findOrderByExternalId(
 
 export async function saveOrder(order: Order): Promise<void> {
   await listPush(key(order.org_id), order, ORDERS_CAP);
+  await notifyOwnerTelegram("NEW ORDER", `${order.order_number}\n$${order.total.toFixed(2)} · ${order.lines.length} item(s)\nStage: ${order.stage}`);
 }
 
 export async function updateOrder(
@@ -66,6 +68,7 @@ export async function updateOrder(
     : orders[idx].events;
   orders[idx] = { ...orders[idx], ...patch, events, updated_at: new Date().toISOString() };
   await listReplace(key(orgId), orders);
+  if(event)await notifyOwnerTelegram("ORDER UPDATE", `${orders[idx].order_number}\n${event.kind}: ${event.detail}\nStage: ${orders[idx].stage}`);
   return orders[idx];
 }
 

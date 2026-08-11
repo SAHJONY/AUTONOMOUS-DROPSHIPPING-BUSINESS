@@ -10,12 +10,13 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.68.0",
     "@upstash/redis": "^1.34.3",
     "jose": "^5.9.6",
     "next": "^15.5.22",
+    "openai": "^7.4.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "resend": "^6.19.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

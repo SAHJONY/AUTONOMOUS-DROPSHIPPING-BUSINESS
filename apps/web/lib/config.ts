@@ -16,7 +16,7 @@ export const ENGINE_NAME = "OCHOSI Intelligence Engine";
 export const OWNER_EMAIL = "sahjonycapitalllc@outlook.com";
 
 /** Model that powers the autonomous engine (internal — never surfaced to users). */
-export const BRAIN_MODEL = process.env.ANTHROPIC_MODEL ?? "claude-fable-5";
+export const BRAIN_MODEL = process.env.OPENAI_MODEL ?? "gpt-5.6";
 
 /** Product opportunity launch threshold (0-100). Only 85+ ships. */
 export const LAUNCH_SCORE_THRESHOLD = Number(process.env.LAUNCH_SCORE_THRESHOLD ?? 85);
@@ -30,8 +30,8 @@ export const TOKEN_TTL_SECONDS = Number(process.env.TOKEN_TTL_SECONDS ?? 60 * 60
 /** Secret that authorizes the 24/7 autonomous cron endpoint. */
 export const CRON_SECRET = process.env.CRON_SECRET ?? "";
 
-/** Engine key — when absent the engine runs in deterministic standby mode. */
-export const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
+/** OpenAI Responses API key for the Codex-powered production brain. */
+export const OPENAI_API_KEY = process.env.OPENAI_API_KEY ?? "";
 
 /** Owner bootstrap password, set in Vercel env. */
 export const OWNER_PASSWORD = process.env.OWNER_PASSWORD ?? "";

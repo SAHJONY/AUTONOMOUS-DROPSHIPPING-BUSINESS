@@ -40,9 +40,11 @@ export function getTelegramStatus(): TelegramStatus {
   };
 }
 
-export async function sendTelegramMessage(text: string): Promise<TelegramSendResult> {
+export async function sendTelegramMessage(text: string, targetChatId?: string | number): Promise<TelegramSendResult> {
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  const channel = cleanChannel(process.env.TELEGRAM_CHANNEL_ID ?? process.env.TELEGRAM_CHANNEL_USERNAME);
+  const channel = targetChatId === undefined
+    ? cleanChannel(process.env.TELEGRAM_CHANNEL_ID ?? process.env.TELEGRAM_CHANNEL_USERNAME)
+    : String(targetChatId);
   if (!token || !channel) return { ok: false, detail: getTelegramStatus().detail };
 
   const message = text.trim();
@@ -73,4 +75,12 @@ export async function sendTelegramMessage(text: string): Promise<TelegramSendRes
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** Best-effort owner alert. Notification failures never block commerce. */
+export async function notifyOwnerTelegram(title: string, detail: string): Promise<void> {
+  if(process.env.TELEGRAM_NOTIFICATIONS_ENABLED!=="true")return;
+  const safeTitle=title.trim().slice(0,160);
+  const safeDetail=detail.trim().slice(0,3600);
+  try{await sendTelegramMessage(`BOTANICA OCHOSI · ${safeTitle}\n\n${safeDetail}\n\nOwner OS: https://www.botanicaochosi.com/owner`);}catch{/* non-fatal */}
 }

@@ -16,7 +16,7 @@ import {
   OWNER_EMAIL,
   OWNER_PASSWORD,
 } from "./config";
-import { ANTHROPIC_API_KEY } from "./config";
+import { OPENAI_API_KEY } from "./config";
 import { hashPassword, verifyPassword } from "./auth";
 import type { OrgSettings } from "./types";
 import {
@@ -44,6 +44,7 @@ import type {
   User,
   Role,
 } from "./types";
+import { notifyOwnerTelegram } from "./telegram";
 
 export function newId(): string {
   return crypto.randomUUID().replace(/-/g, "");
@@ -727,6 +728,7 @@ export async function saveApproval(a: ApprovalRequest): Promise<void> {
     result: "created",
     executionToken: a.execution_token ?? null,
   });
+  await notifyOwnerTelegram("APPROVAL REQUIRED", `${a.agent_name}: ${a.action}\nRisk: ${a.risk_level}\n${a.reason.slice(0,1200)}`);
 }
 export async function getApproval(orgId: string, id: string): Promise<ApprovalRequest | null> {
   return (await listApprovals(orgId)).find((a) => a.id === id) ?? null;
@@ -854,6 +856,7 @@ export async function finalizeApproval(
   }
   const finalized = { ...current, ...patch };
   await updateApproval(orgId, approvalId, patch);
+  await notifyOwnerTelegram("APPROVAL UPDATED", `${current.action}: ${String(finalized.status).toUpperCase()}\n${String(finalized.result??"").slice(0,1200)}`);
   return finalized;
 }
 
@@ -932,7 +935,7 @@ export async function buildDashboard(orgId: string): Promise<Dashboard> {
     net_margin_30d: pnl.net_margin_pct,
     aov_30d: pnl.aov,
     engine: ENGINE_NAME,
-    engine_online: !!ANTHROPIC_API_KEY,
+    engine_online: !!OPENAI_API_KEY,
     autopilot: settings.autopilot,
     auto_publish: settings.auto_publish,
     auto_fulfill: settings.auto_fulfill,

@@ -13,6 +13,8 @@ type TelegramStatus = {
   channel: string | null;
   detail: string;
 };
+type EmailMessage = { id:string; direction:"outbound"|"inbound"; from:string; to:string[]; subject:string; text:string; created_at:string };
+type EmailStatus = { configured:boolean; receiving_configured:boolean; from:string; reply_to:string; messages:EmailMessage[] };
 
 export default function OwnerCommunicationsPage() {
   const [token, setToken] = useState("");
@@ -29,6 +31,9 @@ export default function OwnerCommunicationsPage() {
   const [templateKind,setTemplateKind]=useState<SupplierCommunicationKind>("WHOLESALE_ACCOUNT");
   const [templateLanguage,setTemplateLanguage]=useState<SupplierCommunicationLanguage>("es");
   const [copyNotice,setCopyNotice]=useState("");
+  const [emailStatus,setEmailStatus]=useState<EmailStatus|null>(null);
+  const [emailTo,setEmailTo]=useState("");
+  const [emailConfirmation,setEmailConfirmation]=useState("");
   const supplierTemplate=useMemo(()=>buildSupplierCommunication(templateKind,templateLanguage,supplierName||undefined),[supplierName,templateKind,templateLanguage]);
 
   useEffect(() => {
@@ -60,6 +65,8 @@ export default function OwnerCommunicationsPage() {
       const telegram = await telegramRes.json() as TelegramStatus & { detail?: string };
       if (!telegramRes.ok) throw new Error(telegram.detail ?? "Unable to load Telegram status.");
       setStatus(telegram);
+      const emailRes = await fetch(`/api/orgs/${selected.id}/communications/email`, { headers, cache:"no-store" });
+      if (emailRes.ok) setEmailStatus(await emailRes.json() as EmailStatus);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -89,6 +96,19 @@ export default function OwnerCommunicationsPage() {
     }
   }
 
+  async function sendEmail() {
+    if (!orgId || emailConfirmation !== "SEND EMAIL") return;
+    setSending(true); setError(""); setNotice("");
+    try {
+      const res=await fetch(`/api/orgs/${orgId}/communications/email`,{method:"POST",headers,body:JSON.stringify({to:emailTo,subject:supplierTemplate.subject,text:supplierTemplate.body,confirmation:emailConfirmation})});
+      const body=await res.json().catch(()=>({})) as {detail?:string};
+      if(!res.ok) throw new Error(body.detail??`Email delivery failed (${res.status}).`);
+      setNotice(`Email sent by BOTANICA OCHOSI to ${emailTo}.`); setEmailConfirmation("");
+      const refresh=await fetch(`/api/orgs/${orgId}/communications/email`,{headers,cache:"no-store"});
+      if(refresh.ok)setEmailStatus(await refresh.json() as EmailStatus);
+    } catch(e){setError(e instanceof Error?e.message:String(e));} finally{setSending(false);}
+  }
+
   return <main className={styles.shell}>
     <nav className={styles.nav}>
       <a className={styles.brand} href="/owner"><span className={styles.mark}>O</span><span className={styles.brandText}><strong>BOTANICA</strong><small>OCHOSI</small></span></a>
@@ -111,7 +131,9 @@ export default function OwnerCommunicationsPage() {
         <div className={styles.card}><div className={styles.metricLabel}>Channel</div><div className={styles.metricValue}>{status ? (status.channel_configured ? "SET" : "MISSING") : "UNKNOWN"}</div><div className={styles.metricNote}>{status?.channel ?? (status ? "Configura TELEGRAM_CHANNEL_ID o TELEGRAM_CHANNEL_USERNAME." : "Estado protegido por autenticación Owner.")}</div></div>
       </section>
 
-      <section className={styles.section}><div className={styles.sectionHead}><div><span>PAQUETE COMERCIAL · PROVEEDORES</span><h2>Comunicación lista para negociar.</h2><p>Selecciona el objetivo y el idioma, completa los campos entre corchetes y copia el mensaje. Español es el idioma principal; la versión inglesa está preparada para proveedores internacionales.</p></div></div><div className={styles.card}><div className={styles.form}><input className={styles.input} placeholder="Nombre del proveedor" value={supplierName} onChange={e=>setSupplierName(e.target.value)}/><select className={styles.input} value={templateKind} onChange={e=>setTemplateKind(e.target.value as SupplierCommunicationKind)}>{SUPPLIER_COMMUNICATION_KINDS.map(kind=><option key={kind.value} value={kind.value}>{kind.label}</option>)}</select><select className={styles.input} value={templateLanguage} onChange={e=>setTemplateLanguage(e.target.value as SupplierCommunicationLanguage)}><option value="es">Español · principal</option><option value="en">English · international</option></select><input className={`${styles.input} ${styles.full}`} readOnly aria-label="Asunto" value={supplierTemplate.subject}/><textarea className={`${styles.textarea} ${styles.full}`} rows={18} readOnly value={supplierTemplate.body}/><div className={`${styles.rowActions} ${styles.full}`}><button className={styles.primary} onClick={()=>void navigator.clipboard.writeText(`Asunto: ${supplierTemplate.subject}\n\n${supplierTemplate.body}`).then(()=>setCopyNotice("Mensaje copiado."))}>Copiar mensaje completo</button></div></div>{copyNotice&&<div className={styles.result}>{copyNotice}</div>}<p>Para idiomas distintos del español o inglés, usa traducción profesional y revisión cultural antes de enviar términos religiosos, legales o técnicos. Copiar no envía ni autoriza pedidos.</p></div></section>
+      <section className={styles.section}><div className={styles.sectionHead}><div><span>PAQUETE COMERCIAL · PROVEEDORES</span><h2>Comunicación lista para negociar.</h2><p>Envía y recibe como BOTANICA OCHOSI. Cada envío requiere confirmación explícita del propietario.</p></div></div><div className={styles.card}><div className={styles.form}><input className={styles.input} placeholder="Nombre del proveedor" value={supplierName} onChange={e=>setSupplierName(e.target.value)}/><select className={styles.input} value={templateKind} onChange={e=>setTemplateKind(e.target.value as SupplierCommunicationKind)}>{SUPPLIER_COMMUNICATION_KINDS.map(kind=><option key={kind.value} value={kind.value}>{kind.label}</option>)}</select><select className={styles.input} value={templateLanguage} onChange={e=>setTemplateLanguage(e.target.value as SupplierCommunicationLanguage)}><option value="es">Español · principal</option><option value="en">English · international</option></select><input className={`${styles.input} ${styles.full}`} readOnly aria-label="Asunto" value={supplierTemplate.subject}/><textarea className={`${styles.textarea} ${styles.full}`} rows={18} readOnly value={supplierTemplate.body}/><input className={styles.input} type="email" placeholder="proveedor@empresa.com" value={emailTo} onChange={e=>setEmailTo(e.target.value)}/><input className={styles.input} placeholder="Escribe SEND EMAIL" value={emailConfirmation} onChange={e=>setEmailConfirmation(e.target.value)}/><div className={`${styles.rowActions} ${styles.full}`}><button className={styles.primary} disabled={!emailStatus?.configured||sending||emailConfirmation!=="SEND EMAIL"||!emailTo} onClick={()=>void sendEmail()}>{sending?"Enviando…":"Enviar como BOTANICA OCHOSI"}</button><button className={styles.ghost} onClick={()=>void navigator.clipboard.writeText(`Asunto: ${supplierTemplate.subject}\n\n${supplierTemplate.body}`).then(()=>setCopyNotice("Mensaje copiado."))}>Copiar mensaje</button></div></div>{copyNotice&&<div className={styles.result}>{copyNotice}</div>}<p>Salida: {emailStatus?.from??"sin configurar"} · Respuestas: {emailStatus?.reply_to??"sin configurar"} · Recepción {emailStatus?.receiving_configured?"activa":"pendiente"}.</p></div></section>
+
+      <section className={styles.section}><div className={styles.sectionHead}><div><span>EMAIL · HISTORIAL</span><h2>Mensajes enviados y recibidos.</h2></div></div><div className={styles.actionGrid}>{emailStatus?.messages.length?emailStatus.messages.map(item=><article className={styles.card} key={item.id}><div className={styles.kicker}>{item.direction==="inbound"?"RECIBIDO":"ENVIADO"} · {new Date(item.created_at).toLocaleString()}</div><h2>{item.subject}</h2><p><strong>De:</strong> {item.from}<br/><strong>Para:</strong> {item.to.join(", ")}</p><details><summary>Ver mensaje</summary><pre style={{whiteSpace:"pre-wrap"}}>{item.text}</pre></details></article>):<div className={styles.card}>No hay mensajes registrados todavía.</div>}</div></section>
 
       <section className={styles.section}>
         <div className={styles.card}>
