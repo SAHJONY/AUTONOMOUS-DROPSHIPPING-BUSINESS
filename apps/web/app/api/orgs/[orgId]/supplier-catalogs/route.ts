@@ -32,6 +32,9 @@ function sanitize(record: Record<string, unknown>): SecretSupplierProduct | null
     competitorScanStatus: text(record.competitorScanStatus, 1_000), competitivePriceRecommendationUsd: number(record.competitivePriceRecommendationUsd),
     brandMode: text(record.brandMode, 50), resaleAuthorizationStatus: text(record.resaleAuthorizationStatus, 30),
     authorizationReference: text(record.authorizationReference, 1_000), authorizationVerifiedAt: text(record.authorizationVerifiedAt, 100),
+    materialType: text(record.materialType, 30) || "PRODUCT", spanishEditionClass: text(record.spanishEditionClass, 50), isbn: text(record.isbn, 40),
+    publisher: text(record.publisher, 300), publicationCountry: text(record.publicationCountry, 100), authorizedReseller: text(record.authorizedReseller, 300),
+    commercialEditionStatus: text(record.commercialEditionStatus, 30) || "PENDING", rightsReference: text(record.rightsReference, 1_000),
   };
 }
 
