@@ -44,7 +44,11 @@ export const AUTONOMY_ENABLED = process.env.ENABLE_AUTONOMY === "true";
 export const COMMERCE_RELEASE_ENABLED = process.env.COMMERCE_RELEASE_ENABLED === "true";
 export const AUTOPILOT_MAX_AD_BUDGET = Number(process.env.AUTOPILOT_MAX_AD_BUDGET ?? 50);
 export const AUTOPILOT_MAX_REFUND = Number(process.env.AUTOPILOT_MAX_REFUND ?? 50);
-export const AUTOPILOT_MAX_ORDER_COST = Number(process.env.AUTOPILOT_MAX_ORDER_COST ?? 150);
+/** Hard ceiling for unattended supplier purchases during the lean launch. */
+export const AUTOPILOT_MAX_ORDER_COST = Math.min(
+  100,
+  Math.max(0, Number(process.env.AUTOPILOT_MAX_ORDER_COST ?? 100) || 0),
+);
 export const AUTO_FULFILL_DEFAULT = process.env.AUTO_FULFILL === "true";
 export const HOLD_RISKY_ORDERS = (process.env.HOLD_RISKY_ORDERS ?? "true") !== "false";
 export const PAYMENT_FEE_RATE = Number(process.env.PAYMENT_FEE_RATE ?? 0.029);

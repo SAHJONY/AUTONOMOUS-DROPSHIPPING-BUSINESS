@@ -6,4 +6,9 @@ const ready = { wholesalePrice: 20, shippingCost: 3, handlingCost: 2, markupPerc
 describe("zero-capital launch gate", () => {
   it("accepts only a fully covered single-unit order", () => { const result = assessZeroCapitalCandidate(ready); expect(result.eligible).toBe(true); expect(result.cashAfterPurchaseUsd).toBeGreaterThanOrEqual(0); });
   it("fails closed on MOQ, inventory, authorization, timing, or cash deficits", () => { const result = assessZeroCapitalCandidate({ ...ready, moq: 12, inventoryStatus: "UNKNOWN", resaleAuthorizationStatus: "PENDING", supplierProcessingDays: 35, markupPercent: 0 }); expect(result.eligible).toBe(false); expect(result.blockers.length).toBeGreaterThanOrEqual(4); });
+  it("blocks a supplier commitment above the $100 operating ceiling", () => {
+    const result = assessZeroCapitalCandidate({ ...ready, wholesalePrice: 101, shippingCost: 0, handlingCost: 0, markupPercent: 100 });
+    expect(result.eligible).toBe(false);
+    expect(result.blockers).toContain("La compra al proveedor excede el límite operativo de $100.00 por pedido.");
+  });
 });

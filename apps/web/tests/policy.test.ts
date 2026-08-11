@@ -68,3 +68,10 @@ describe("isOwnerEmail", () => {
     expect(isOwnerEmail("sahjonycapitalllc@outlook.com.attacker.dev")).toBe(false);
   });
 });
+
+describe("lean-launch supplier order ceiling", () => {
+  it("defaults to a hard maximum of $100", async () => {
+    const { AUTOPILOT_MAX_ORDER_COST } = await import("@/lib/config");
+    expect(AUTOPILOT_MAX_ORDER_COST).toBe(100);
+  });
+});
