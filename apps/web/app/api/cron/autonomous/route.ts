@@ -2,6 +2,8 @@ import { json, error } from "@/lib/api";
 import { AUTONOMY_ENABLED, CRON_SECRET } from "@/lib/config";
 import { cronGovernanceStatus } from "@/lib/governance";
 import { runAutonomousTick } from "@/lib/autonomy";
+import { scanCompetitorPricesForOrg } from "@/lib/competitor-price-monitor";
+import { listAllOrgs } from "@/lib/store";
 
 export const runtime = "nodejs";
 // Higgsfield's API only accepts requests from European IPs — run in Frankfurt.
@@ -40,7 +42,12 @@ async function handle(req: Request) {
     includeIdle: url.searchParams.get("include_idle") === "1",
   });
 
-  return json(result);
+  const competitorScans = [];
+  for (const org of await listAllOrgs()) {
+    competitorScans.push({ orgId: org.id, ...(await scanCompetitorPricesForOrg(org.id, 20)) });
+  }
+
+  return json({ ...result, competitorScans });
 }
 
 export async function GET(req: Request) {
