@@ -322,6 +322,76 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     sourceEvidence: ["https://www.ritual-botanico.com/"],
     sourcingPolicy: "GENERAL_SUPPORT",
     researchPriority: 3
+  },
+  {
+    id: "unilite-candles-houston",
+    name: "Uni-Lite Candles Inc.",
+    region: "USA",
+    location: "Houston, Texas",
+    website: "https://www.unilitecc.com/",
+    wholesale: true,
+    status: "REQUIRES_ACCOUNT",
+    categories: ["7-day candles", "religious candles", "prepared candles", "esoteric candles", "sprays"],
+    strengths: ["wholesale only", "Houston manufacturer/distributor", "religious and esoteric candle specialization"],
+    sourceEvidence: ["https://www.unilitecc.com/"],
+    sourcingPolicy: "CONSUMABLES",
+    researchPriority: 1
+  },
+  {
+    id: "velavida-texas",
+    name: "Velavida Private Label",
+    region: "USA",
+    location: "Texas / nationwide manufacturing",
+    website: "https://www.velavidaprivatelabel.com/",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["private-label candles", "contract candle manufacturing", "custom fragrance", "retail programs"],
+    strengths: ["Texas manufacturing facility", "50,000+ unit program capacity claimed", "NDA-ready private-label partnerships"],
+    sourceEvidence: ["https://www.velavidaprivatelabel.com/"],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 2
+  },
+  {
+    id: "united-candle-ohio",
+    name: "United Candle LLC",
+    region: "USA",
+    location: "Norwich, Ohio / nationwide",
+    website: "https://unitedcandlellc.com/",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["glass religious candles", "votives", "pillars", "tapers", "private-label candles", "contract manufacturing"],
+    strengths: ["65+ years claimed", "80,000 sq ft US facility", "wholesale, private label and contract manufacturing"],
+    sourceEvidence: ["https://unitedcandlellc.com/"],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 2
+  },
+  {
+    id: "a-candle-co-nationwide",
+    name: "A Candle Co.",
+    region: "USA",
+    location: "United States / nationwide",
+    website: "https://www.acandleco.com/",
+    wholesale: true,
+    status: "REQUIRES_ACCOUNT",
+    categories: ["private-label candles", "soy-coconut candles", "reed diffusers", "perfumes", "body sprays"],
+    strengths: ["US private-label manufacturer", "low published opening MOQ", "300+ wholesale candles and accessories claimed"],
+    sourceEvidence: ["https://www.acandleco.com/"],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 3
+  },
+  {
+    id: "eap-innovations-nationwide",
+    name: "EAP Innovations / EA Candle",
+    region: "USA",
+    location: "United States / nationwide",
+    website: "https://www.eacandle.com/private-label-manufacturing",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["private-label candles", "liquid-filled products", "candle supplies", "glass vessels"],
+    strengths: ["American manufacturer", "official Libbey glass distributor", "custom scents and low-MOQ programs claimed"],
+    sourceEvidence: ["https://www.eacandle.com/private-label-manufacturing"],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 3
   }
 ];
 
