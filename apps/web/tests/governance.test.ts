@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
 import { POST as runAgent } from "../app/api/orgs/[orgId]/agents/[agent]/run/route";
 import { POST as decideApproval } from "../app/api/orgs/[orgId]/approvals/[id]/decide/route";
@@ -16,11 +16,15 @@ import { POST as updateStore } from "../app/api/orgs/[orgId]/stores/[storeId]/ro
 import { POST as register } from "../app/api/auth/register/route";
 import { GET as autonomousCron } from "../app/api/cron/autonomous/route";
 import { GET as stockCron } from "../app/api/cron/stock/route";
+import { GET as fulfillmentCron } from "../app/api/cron/fulfillment/route";
+import { POST as syncOrders } from "../app/api/orgs/[orgId]/orders/sync/route";
+import { POST as driveOrder } from "../app/api/orgs/[orgId]/orders/[orderId]/route";
 import { requireOrgRole } from "../lib/api";
 import { createToken } from "../lib/auth";
 import { OWNER_EMAIL } from "../lib/config";
 import { decideApproval as decideApprovalCore } from "../lib/brain";
 import { cronGovernanceStatus, governanceCapabilities } from "../lib/governance";
+import type { Role } from "../lib/types";
 import {
   addMembership,
   createOrg,
@@ -36,6 +40,13 @@ type Route = (
   request: Request,
   context: { params: Promise<Record<string, string>> },
 ) => Promise<Response>;
+
+/**
+ * Route handlers declare their own concrete params shape, which is narrower than
+ * the uniform record this suite drives them with. The cast goes through unknown
+ * so the suite stays type-checked rather than opted out of type checking.
+ */
+const asRoute = (handler: unknown): Route => handler as Route;
 
 function request(path: string, token: string, body: Record<string, unknown> = {}): Request {
   return new Request(`http://localhost${path}`, {
@@ -78,16 +89,28 @@ test("new organizations and attempted settings changes remain fail closed", asyn
     hashed_password: "unused",
   });
   const org = await createOrg("Fail-closed settings test", owner.id, "owner");
-  assert.deepEqual(await getOrgSettings(org.id), { autopilot: false, auto_publish: false });
-  assert.deepEqual(await setOrgSettings(org.id, { autopilot: true, auto_publish: true }), {
+  // auto_fulfill joins the fail-closed set: it is the switch that lets the
+  // business spend real money at the supplier, so it must stay off too.
+  assert.deepEqual(await getOrgSettings(org.id), {
     autopilot: false,
     auto_publish: false,
+    auto_fulfill: false,
   });
+  assert.deepEqual(
+    await setOrgSettings(org.id, { autopilot: true, auto_publish: true, auto_fulfill: true }),
+    { autopilot: false, auto_publish: false, auto_fulfill: false },
+  );
 });
 
 test("cron routes fail closed without CRON_SECRET", async () => {
   assert.equal((await autonomousCron(new Request("http://localhost/api/cron/autonomous"))).status, 503);
   assert.equal((await stockCron(new Request("http://localhost/api/cron/stock"))).status, 503);
+  // The fulfillment cron is the one that spends money at the supplier, so it
+  // must fail closed exactly like the others.
+  assert.equal(
+    (await fulfillmentCron(new Request("http://localhost/api/cron/fulfillment"))).status,
+    503,
+  );
 });
 
 test("members cannot execute any privileged organization route", async () => {
@@ -110,74 +133,88 @@ test("members cannot execute any privileged organization route", async () => {
     params: Record<string, string>;
   }> = [
     {
+      // Spends real cash at the supplier for every eligible order.
+      name: "run the fulfillment cycle",
+      handler: asRoute(syncOrders),
+      path: `/api/orgs/${org.id}/orders/sync`,
+      params: { orgId: org.id },
+    },
+    {
+      // `place` bypasses the autonomous cost cap outright.
+      name: "place a supplier order by hand",
+      handler: asRoute(driveOrder),
+      path: `/api/orgs/${org.id}/orders/order_1`,
+      params: { orgId: org.id, orderId: "order_1" },
+    },
+    {
       name: "run costly agents",
-      handler: runAgent as Route,
+      handler: asRoute(runAgent),
       path: `/api/orgs/${org.id}/agents/ceo/run`,
       params: { orgId: org.id, agent: "ceo" },
     },
     {
       name: "approve workflows",
-      handler: decideApproval as Route,
+      handler: asRoute(decideApproval),
       path: `/api/orgs/${org.id}/approvals/approval/decide`,
       params: { orgId: org.id, id: "approval" },
     },
     {
       name: "connect CJ",
-      handler: connectCJ as Route,
+      handler: asRoute(connectCJ),
       path: `/api/orgs/${org.id}/integrations/cj`,
       params: { orgId: org.id },
     },
     {
       name: "connect Higgsfield",
-      handler: connectHiggsfield as Route,
+      handler: asRoute(connectHiggsfield),
       path: `/api/orgs/${org.id}/integrations/higgsfield`,
       params: { orgId: org.id },
     },
     {
       name: "connect Shopify",
-      handler: connectShopify as Route,
+      handler: asRoute(connectShopify),
       path: `/api/orgs/${org.id}/integrations/shopify`,
       params: { orgId: org.id },
     },
     {
       name: "acquire product imagery",
-      handler: acquireImage as Route,
+      handler: asRoute(acquireImage),
       path: `/api/orgs/${org.id}/products/product/image`,
       params: { orgId: org.id, productId: "product" },
     },
     {
       name: "publish products",
-      handler: publishProduct as Route,
+      handler: asRoute(publishProduct),
       path: `/api/orgs/${org.id}/products/product/publish`,
       params: { orgId: org.id, productId: "product" },
     },
     {
       name: "reimage products",
-      handler: reimageProducts as Route,
+      handler: asRoute(reimageProducts),
       path: `/api/orgs/${org.id}/products/reimage`,
       params: { orgId: org.id },
     },
     {
       name: "create products",
-      handler: createProduct as Route,
+      handler: asRoute(createProduct),
       path: `/api/orgs/${org.id}/products`,
       params: { orgId: org.id },
     },
     {
       name: "change autonomy settings",
-      handler: changeSettings as Route,
+      handler: asRoute(changeSettings),
       path: `/api/orgs/${org.id}/settings`,
       params: { orgId: org.id },
     },
     {
       name: "source supplier products",
-      handler: sourceProducts as Route,
+      handler: asRoute(sourceProducts),
       path: `/api/orgs/${org.id}/source`,
       params: { orgId: org.id },
     },
     {
       name: "update stores",
-      handler: updateStore as Route,
+      handler: asRoute(updateStore),
       path: `/api/orgs/${org.id}/stores/store`,
       params: { orgId: org.id, storeId: "store" },
     },
@@ -214,7 +251,9 @@ test("commerce publishing is locked for every authenticated organization role", 
     hashed_password: "unused",
   });
   const org = await createOrg("Commerce lock test", owner.id, "owner");
-  const identities = [{ user: owner, role: "owner" as const }];
+  const identities: { user: Awaited<ReturnType<typeof createUser>>; role: Role }[] = [
+    { user: owner, role: "owner" },
+  ];
   for (const role of ["admin", "member", "viewer"] as const) {
     const user = await createUser({
       email: `lock-${role}-${crypto.randomUUID()}@example.com`,

@@ -1,28 +1,49 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import "./ochosi-brand.css";
+import "./ochosi-logo-fit.css";
+
+const CANONICAL_URL = "https://www.botanicaochosi.com";
 
 export const metadata: Metadata = {
-  title: "SAHJONY Commerce — Autonomous Commerce, Operated for You",
-  description:
-    "SAHJONY Commerce is an autonomous commerce operator. An AI CEO and seven specialists run your business 24/7 — you approve only what matters, from an ultra-premium command deck.",
-  metadataBase: new URL("https://sahjony.com"),
-  openGraph: {
-    title: "SAHJONY Commerce",
-    description:
-      "Autonomous commerce, operated for you. You approve only what matters.",
-    type: "website",
+  metadataBase: new URL(CANONICAL_URL),
+  title: {
+    default: "BOTANICA OCHOSI — Botánica Cubana Online",
+    template: "%s | BOTANICA OCHOSI",
   },
+  description:
+    "BOTANICA OCHOSI es una botánica cubana online con productos Lucumí, Yoruba e Ifá, catálogo conectado a Shopify, carrito persistente, compra segura y atención completamente en línea.",
+  applicationName: "BOTANICA OCHOSI",
+  manifest: "/manifest.webmanifest",
+  alternates: { canonical: "/" },
+  openGraph: {
+    title: "BOTANICA OCHOSI — Botánica Cubana Online",
+    description:
+      "Tradición cubana, productos Lucumí y Yoruba, catálogo real, compra segura y una experiencia digital moderna.",
+    url: CANONICAL_URL,
+    siteName: "BOTANICA OCHOSI",
+    type: "website",
+    locale: "es_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BOTANICA OCHOSI",
+    description: "Botánica cubana online · Lucumí · Yoruba · Ifá · tienda y atención en línea.",
+  },
+  robots: { index: true, follow: true },
+  appleWebApp: { capable: true, title: "BOTANICA OCHOSI", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#050505",
+  themeColor: "#07110b",
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body>{children}</body>
     </html>
   );

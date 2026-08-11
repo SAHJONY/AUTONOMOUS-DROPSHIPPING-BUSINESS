@@ -178,8 +178,17 @@ export async function createShopifyProduct(
     image_url?: string;
     images?: string[];
     video_url?: string;
+    /** Stamped onto the variant so incoming orders map straight back to the catalog. */
+    sku?: string;
   },
-): Promise<{ ok: boolean; url?: string; id?: number; handle?: string; error?: string }> {
+): Promise<{
+  ok: boolean;
+  url?: string;
+  id?: number;
+  handle?: string;
+  variant_id?: number;
+  error?: string;
+}> {
   try {
     const price = p.price ?? 0;
     // "Was" price for a premium, high-value perception (~1.6x, rounded to .99).
@@ -200,6 +209,7 @@ export async function createShopifyProduct(
           {
             price: String(price),
             ...(compareAt ? { compare_at_price: compareAt } : {}),
+            ...(p.sku ? { sku: p.sku } : {}),
             inventory_policy: "continue",
           },
         ],
@@ -214,15 +224,263 @@ export async function createShopifyProduct(
       const t = await res.text();
       return { ok: false, error: `Shopify ${res.status}: ${t.slice(0, 200)}` };
     }
-    const data = (await res.json()) as { product?: { id?: number; handle?: string } };
+    const data = (await res.json()) as {
+      product?: { id?: number; handle?: string; variants?: { id?: number; sku?: string }[] };
+    };
     const handle = data.product?.handle;
     return {
       ok: true,
       id: data.product?.id,
       handle,
+      variant_id: data.product?.variants?.[0]?.id,
       url: handle ? `https://${shop}/products/${handle}` : undefined,
     };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }
+}
+
+/* ==========================================================================
+ * Orders, fulfillment, and webhooks — everything after the sale.
+ * ========================================================================== */
+
+export interface ShopifyOrderPage {
+  ok: boolean;
+  orders?: Record<string, unknown>[];
+  error?: string;
+}
+
+/**
+ * Pull orders from the store. `since` narrows to orders updated after a
+ * timestamp, which is what the polling sync uses to stay cheap; `status=any`
+ * includes closed and cancelled orders so the books stay complete.
+ */
+export async function listShopifyOrders(
+  shop: string,
+  token: string,
+  opts: { since?: string; limit?: number; status?: string } = {},
+): Promise<ShopifyOrderPage> {
+  try {
+    const params = new URLSearchParams({
+      status: opts.status ?? "any",
+      limit: String(Math.min(Math.max(opts.limit ?? 50, 1), 250)),
+    });
+    if (opts.since) params.set("updated_at_min", opts.since);
+    const res = await shopifyFetch(shop, token, `/orders.json?${params.toString()}`, { method: "GET" });
+    if (!res.ok) {
+      const t = await res.text();
+      return { ok: false, error: `Shopify ${res.status}: ${t.slice(0, 200)}` };
+    }
+    const data = (await res.json()) as { orders?: Record<string, unknown>[] };
+    return { ok: true, orders: data.orders ?? [] };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getShopifyOrder(
+  shop: string,
+  token: string,
+  orderId: string,
+): Promise<{ ok: boolean; order?: Record<string, unknown>; error?: string }> {
+  try {
+    const res = await shopifyFetch(shop, token, `/orders/${orderId}.json`, { method: "GET" });
+    if (!res.ok) return { ok: false, error: `Shopify ${res.status}` };
+    const data = (await res.json()) as { order?: Record<string, unknown> };
+    return { ok: true, order: data.order };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/**
+ * Shopify's fraud assessment for an order. Returns the strongest recommendation
+ * across all assessments ("cancel" > "investigate" > "accept"), which is what
+ * decides whether we spend money at the supplier or hold for a human.
+ */
+export async function getOrderRiskRecommendation(
+  shop: string,
+  token: string,
+  orderId: string,
+): Promise<string> {
+  try {
+    const res = await shopifyFetch(shop, token, `/orders/${orderId}/risks.json`, { method: "GET" });
+    if (!res.ok) return "accept";
+    const data = (await res.json()) as { risks?: { recommendation?: string }[] };
+    const recs = (data.risks ?? []).map((r) => (r.recommendation ?? "").toLowerCase());
+    if (recs.includes("cancel")) return "cancel";
+    if (recs.includes("investigate")) return "investigate";
+    return "accept";
+  } catch {
+    return "accept";
+  }
+}
+
+/**
+ * Mark an order shipped with a real tracking number.
+ *
+ * The 2024-10 Admin API only creates fulfillments through fulfillment orders, so
+ * this resolves the order's open fulfillment orders first and fulfills them in
+ * one call. `notify_customer` is on: the shopper gets the shipping email that
+ * makes the whole thing feel like a real store.
+ */
+export async function fulfillShopifyOrder(
+  shop: string,
+  token: string,
+  orderId: string,
+  tracking: { number: string; url?: string; company?: string },
+): Promise<{ ok: boolean; fulfillment_id?: number; error?: string }> {
+  try {
+    const foRes = await shopifyFetch(shop, token, `/orders/${orderId}/fulfillment_orders.json`, {
+      method: "GET",
+    });
+    if (!foRes.ok) {
+      const t = await foRes.text();
+      return { ok: false, error: `Fulfillment orders ${foRes.status}: ${t.slice(0, 160)}` };
+    }
+    const foData = (await foRes.json()) as {
+      fulfillment_orders?: { id?: number; status?: string }[];
+    };
+    const open = (foData.fulfillment_orders ?? []).filter((fo) =>
+      ["open", "in_progress", "scheduled"].includes((fo.status ?? "").toLowerCase()),
+    );
+    if (!open.length) return { ok: false, error: "No open fulfillment orders — already fulfilled?" };
+
+    const res = await shopifyFetch(shop, token, "/fulfillments.json", {
+      method: "POST",
+      body: JSON.stringify({
+        fulfillment: {
+          line_items_by_fulfillment_order: open.map((fo) => ({ fulfillment_order_id: fo.id })),
+          tracking_info: {
+            number: tracking.number,
+            url: tracking.url,
+            company: tracking.company,
+          },
+          notify_customer: true,
+        },
+      }),
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      return { ok: false, error: `Shopify ${res.status}: ${t.slice(0, 200)}` };
+    }
+    const data = (await res.json()) as { fulfillment?: { id?: number } };
+    return { ok: true, fulfillment_id: data.fulfillment?.id };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** Topics we subscribe to. Everything that changes the books or the pipeline. */
+export const WEBHOOK_TOPICS = [
+  "orders/create",
+  "orders/updated",
+  "orders/cancelled",
+  "refunds/create",
+] as const;
+
+export async function listShopifyWebhooks(
+  shop: string,
+  token: string,
+): Promise<{ ok: boolean; webhooks?: { id?: number; topic?: string; address?: string }[]; error?: string }> {
+  try {
+    const res = await shopifyFetch(shop, token, "/webhooks.json", { method: "GET" });
+    if (!res.ok) return { ok: false, error: `Shopify ${res.status}` };
+    const data = (await res.json()) as { webhooks?: { id?: number; topic?: string; address?: string }[] };
+    return { ok: true, webhooks: data.webhooks ?? [] };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/**
+ * Subscribe the store to our order feed. Idempotent: existing subscriptions
+ * pointing at the same address are left alone, so this is safe to call on every
+ * connect and from the daily cron.
+ */
+export async function registerShopifyWebhooks(
+  shop: string,
+  token: string,
+  callbackUrl: string,
+): Promise<{ ok: boolean; created: string[]; existing: string[]; errors: string[] }> {
+  const created: string[] = [];
+  const existing: string[] = [];
+  const errors: string[] = [];
+
+  const current = await listShopifyWebhooks(shop, token);
+  const already = new Set(
+    (current.webhooks ?? [])
+      .filter((w) => (w.address ?? "").startsWith(callbackUrl))
+      .map((w) => w.topic ?? ""),
+  );
+
+  for (const topic of WEBHOOK_TOPICS) {
+    if (already.has(topic)) {
+      existing.push(topic);
+      continue;
+    }
+    try {
+      const res = await shopifyFetch(shop, token, "/webhooks.json", {
+        method: "POST",
+        body: JSON.stringify({
+          webhook: { topic, address: `${callbackUrl}/${topic.replace("/", ".")}`, format: "json" },
+        }),
+      });
+      if (res.ok) created.push(topic);
+      else {
+        const t = await res.text();
+        // 422 with "already been taken" means another address owns this topic.
+        if (res.status === 422 && /taken/i.test(t)) existing.push(topic);
+        else errors.push(`${topic}: ${res.status} ${t.slice(0, 120)}`);
+      }
+    } catch (e) {
+      errors.push(`${topic}: ${(e as Error).message}`);
+    }
+  }
+  return { ok: errors.length === 0, created, existing, errors };
+}
+
+/**
+ * Verify a webhook actually came from Shopify.
+ *
+ * Shopify signs the raw request body with the app secret and sends base64
+ * HMAC-SHA256 in `X-Shopify-Hmac-Sha256`. The comparison is constant-time —
+ * a byte-by-byte early exit would leak the expected signature to anyone willing
+ * to time their requests, and an order feed anyone can forge is a ledger anyone
+ * can forge.
+ */
+export async function verifyWebhookSignature(
+  rawBody: string,
+  signature: string,
+  secret: string,
+): Promise<boolean> {
+  if (!secret || !signature) return false;
+  try {
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      "raw",
+      enc.encode(secret),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const mac = await crypto.subtle.sign("HMAC", key, enc.encode(rawBody));
+    const expected = Buffer.from(new Uint8Array(mac)).toString("base64");
+    return timingSafeEqual(expected, signature.trim());
+  } catch {
+    return false;
+  }
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  const aBytes = Buffer.from(a, "utf8");
+  const bBytes = Buffer.from(b, "utf8");
+  // Compare a fixed-length digest of both sides so mismatched lengths don't
+  // short-circuit and reveal the expected length.
+  const length = Math.max(aBytes.length, bBytes.length);
+  let diff = aBytes.length ^ bBytes.length;
+  for (let i = 0; i < length; i++) {
+    diff |= (aBytes[i] ?? 0) ^ (bBytes[i] ?? 0);
+  }
+  return diff === 0;
 }

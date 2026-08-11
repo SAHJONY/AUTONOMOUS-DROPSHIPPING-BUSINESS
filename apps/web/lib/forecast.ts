@@ -3,7 +3,7 @@
  * catalog and projects a 12-month, three-scenario model (conservative / base /
  * aggressive). Deterministic — the same inputs always yield the same forecast.
  */
-import type { Product } from "./types";
+import type { ProfitAndLoss, Product } from "./types";
 
 const FEE_RATE = 0.03; // payment processing
 const REFUND_RATE = 0.04; // refund / chargeback reserve
@@ -39,6 +39,9 @@ export interface Forecast {
     refund_rate: number;
     contribution_before_ad: number;
     derived_from_catalog: boolean;
+    /** True once real orders exist — the model is then fitted to actuals. */
+    derived_from_actuals: boolean;
+    basis: string;
   };
   catalog: { products_total: number; ready_to_launch: number; launched: number };
   scenarios: ForecastScenario[];
@@ -83,7 +86,9 @@ function buildScenario(
     const orders = adSpend / cpa;
     const revenue = orders * aov;
     const opex = 350 + (m - 1) * 45; // lean infra + tools ramp (Vercel/Upstash/engine/Shopify/apps)
-    const net = orders * netPerOrder - opex;
+    // Round each month before accumulating, so the cumulative column is exactly
+    // the running total of the net column a reader can see.
+    const net = r0(orders * netPerOrder - opex);
     cumulative += net;
     if (breakeven === null && cumulative > 0) breakeven = m;
     months.push({
@@ -91,8 +96,8 @@ function buildScenario(
       ad_spend: r0(adSpend),
       orders: r0(orders),
       revenue: r0(revenue),
-      net: r0(net),
-      cumulative: r0(cumulative),
+      net,
+      cumulative,
     });
   }
 
@@ -120,8 +125,31 @@ function buildScenario(
   };
 }
 
-export function buildForecast(products: Product[]): Forecast {
-  const { aov, cogs, derived } = deriveEconomics(products);
+/**
+ * Fit the model to the business as it actually trades.
+ *
+ * Catalog list prices are a guess at what customers will pay; once real orders
+ * exist, the settled AOV and the COGS-to-revenue ratio the business actually
+ * achieves are strictly better inputs, so they win. Below a handful of orders the
+ * sample is too noisy to trust and we stay on catalog economics.
+ */
+const MIN_ORDERS_TO_TRUST_ACTUALS = 5;
+
+function economicsFromActuals(pnl: ProfitAndLoss): { aov: number; cogs: number } | null {
+  if (pnl.orders < MIN_ORDERS_TO_TRUST_ACTUALS || pnl.net_revenue <= 0) return null;
+  const aov = r2(pnl.net_revenue / pnl.orders);
+  const landedCost = pnl.cogs + pnl.supplier_shipping;
+  // Fall back to the catalog if the books have revenue but no cost recorded yet.
+  if (landedCost <= 0) return null;
+  return { aov, cogs: r2(Math.min(landedCost / pnl.orders, aov * 0.9)) };
+}
+
+export function buildForecast(products: Product[], pnl?: ProfitAndLoss): Forecast {
+  const catalog = deriveEconomics(products);
+  const actuals = pnl ? economicsFromActuals(pnl) : null;
+  const aov = actuals?.aov ?? catalog.aov;
+  const cogs = actuals?.cogs ?? catalog.cogs;
+
   return {
     assumptions: {
       aov,
@@ -129,7 +157,13 @@ export function buildForecast(products: Product[]): Forecast {
       fee_rate: FEE_RATE,
       refund_rate: REFUND_RATE,
       contribution_before_ad: r2(aov - cogs - aov * FEE_RATE - aov * REFUND_RATE),
-      derived_from_catalog: derived,
+      derived_from_catalog: !actuals && catalog.derived,
+      derived_from_actuals: !!actuals,
+      basis: actuals
+        ? `Fitted to ${pnl!.orders} real orders over ${pnl!.period.label.toLowerCase()}.`
+        : catalog.derived
+          ? "Derived from catalog pricing — no settled orders yet."
+          : "Industry defaults — the catalog has no priced products yet.",
     },
     catalog: {
       products_total: products.length,

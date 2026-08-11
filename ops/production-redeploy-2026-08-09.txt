@@ -1,0 +1,2 @@
+BOTANICA OCHOSI production redeploy trigger for main@bd098017dbbcf91e7d660c566570c749766a7668
+Purpose: publish the validated public-routing fix that permanently routes / and legacy query variants to /shop while keeping Owner OS at /owner.

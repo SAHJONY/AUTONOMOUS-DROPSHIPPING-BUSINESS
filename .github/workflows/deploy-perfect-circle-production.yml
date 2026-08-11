@@ -1,0 +1,95 @@
+name: Deploy Perfect Circle Production
+
+on:
+  push:
+    branches: [claude/commerce-os-multi-agent-w058mw]
+    paths:
+      - '.github/workflows/deploy-perfect-circle-production.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout production branch
+        uses: actions/checkout@v4
+
+      - name: Require Vercel token
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          test -n "$VERCEL_TOKEN" || { echo "VERCEL_TOKEN secret is required"; exit 1; }
+
+      - name: Install pinned Vercel CLI
+        run: npm install --global vercel@56.5.0
+
+      - name: Link BOTANICA project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel link --yes \
+            --project autonomous-dropshipping-business \
+            --scope juan-gonzalezs-projects-94b6dfe9 \
+            --token "$VERCEL_TOKEN"
+
+      - name: Create staged production deployment
+        id: deploy
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          DEPLOYMENT_URL=$(vercel deploy --prod --skip-domain --yes \
+            --scope juan-gonzalezs-projects-94b6dfe9 \
+            --token "$VERCEL_TOKEN")
+          echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+          echo "Staged deployment: $DEPLOYMENT_URL"
+
+      - name: Verify perfect-circle artifact before promotion
+        shell: bash
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: |
+          set -euo pipefail
+          HTML=$(vercel curl /shop --deployment "$DEPLOYMENT_URL" \
+            --scope juan-gonzalezs-projects-94b6dfe9 \
+            --token "$VERCEL_TOKEN")
+          printf '%s' "$HTML" | grep -q 'BOTANICA OCHOSI'
+          CSS_PATHS=$(printf '%s' "$HTML" | grep -oE '/_next/static/css/[^" ]+\.css' | sort -u)
+          test -n "$CSS_PATHS" || { echo "No compiled CSS found"; exit 1; }
+          FOUND=0
+          while IFS= read -r CSS_PATH; do
+            CSS=$(vercel curl "$CSS_PATH" --deployment "$DEPLOYMENT_URL" \
+              --scope juan-gonzalezs-projects-94b6dfe9 \
+              --token "$VERCEL_TOKEN")
+            if printf '%s' "$CSS" | grep -Fq 'background-size:142% auto!important'; then FOUND=1; fi
+            if printf '%s' "$CSS" | grep -Fq 'border-radius:50%!important'; then :; fi
+          done <<< "$CSS_PATHS"
+          test "$FOUND" = "1" || { echo "Perfect-circle CSS marker missing"; exit 1; }
+
+      - name: Promote validated deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.deployment_url }}
+        run: |
+          vercel promote "$DEPLOYMENT_URL" \
+            --scope juan-gonzalezs-projects-94b6dfe9 \
+            --token "$VERCEL_TOKEN" \
+            --yes
+
+      - name: Verify production domain
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in {1..12}; do
+            if curl --fail --silent --show-error --location https://www.botanicaochosi.com/shop > /tmp/shop.html; then
+              if grep -q 'BOTANICA OCHOSI' /tmp/shop.html; then exit 0; fi
+            fi
+            sleep 5
+          done
+          echo "Production verification failed"
+          exit 1

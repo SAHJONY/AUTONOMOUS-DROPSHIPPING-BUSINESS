@@ -4,8 +4,12 @@
  */
 import { kv, listGet, listPush, listReplace } from "./kv";
 import {
+  AUTO_FULFILL_DEFAULT,
   AUTONOMY_ENABLED,
   AUTOPILOT_DEFAULT,
+  AUTOPILOT_MAX_AD_BUDGET,
+  AUTOPILOT_MAX_ORDER_COST,
+  AUTOPILOT_MAX_REFUND,
   COMMERCE_RELEASE_ENABLED,
   ENGINE_NAME,
   isOwnerEmail,
@@ -24,6 +28,8 @@ import {
 } from "./shopify";
 import { generateImage, studioProductPrompt, type HiggsfieldCreds } from "./higgsfield";
 import { cjGetAccessToken, cjSearchProducts, type CJCreds } from "./suppliers/cj";
+import { getPnl } from "./ledger";
+import { listOrders, supplierExposure, supplierExposureValue } from "./orders";
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type {
   AgentRun,
@@ -295,7 +301,7 @@ export async function clearCJCreds(orgId: string): Promise<void> {
   await kv.del(K.cjToken(orgId));
 }
 
-async function resolveCJToken(orgId: string): Promise<{ ok: boolean; token?: string; error?: string }> {
+export async function resolveCJToken(orgId: string): Promise<{ ok: boolean; token?: string; error?: string }> {
   const creds = await getCJCreds(orgId);
   if (!creds) return { ok: false, error: "CJ Dropshipping not connected." };
   const now = Date.now();
@@ -345,6 +351,11 @@ export async function importFromSupplier(
       image_url: sp.image_url,
       images: sp.images,
       video_url: sp.video_url,
+      // Supplier identifiers are what make this product actually shippable —
+      // without a vid we could list it but never fill an order for it.
+      supplier_pid: sp.pid,
+      supplier_vid: sp.vid,
+      sku: sp.sku,
       created_at: nowISO(),
     };
     await saveProduct(product);
@@ -387,6 +398,65 @@ export async function autonomousSource(
   return { imported, error };
 }
 
+/* ---------- Publishing to Shopify ---------- */
+
+/**
+ * Put one product live on the connected store.
+ *
+ * The single path to Shopify for the manual button, the agent tool, and the
+ * autonomous publisher — so every listing is created the same way and, crucially,
+ * every one comes back with its variant id and SKU recorded. Those two fields are
+ * what let an incoming order be matched to the catalog and therefore fulfilled.
+ */
+export async function publishProductToShopify(
+  orgId: string,
+  productId: string,
+  opts: { premiumImage?: boolean } = {},
+): Promise<{ ok: boolean; url?: string; product?: Product; error?: string }> {
+  const resolved = await resolveShopifyToken(orgId);
+  if (!resolved.ok || !resolved.token || !resolved.shop) {
+    return { ok: false, error: resolved.error ?? "No Shopify store connected." };
+  }
+  const product = (await listProducts(orgId)).find((p) => p.id === productId);
+  if (!product) return { ok: false, error: "Product not found." };
+  if (product.storefront_url) {
+    return { ok: true, url: product.storefront_url, product };
+  }
+
+  // Refresh to a premium studio shot when Higgsfield is connected; otherwise
+  // fall back to the supplier photo, and only scrape if there's nothing at all.
+  let imageUrl = product.image_url;
+  if ((opts.premiumImage ?? true) && (await getHiggsfieldCreds(orgId))) {
+    const img = await generateProductImage(orgId, productId, undefined, { premium: true });
+    if (img.ok) imageUrl = img.url;
+  } else if (!imageUrl) {
+    const img = await generateProductImage(orgId, productId);
+    if (img.ok) imageUrl = img.url;
+  }
+
+  const sku = product.sku || product.id;
+  const res = await createShopifyProduct(resolved.shop, resolved.token, {
+    title: product.title,
+    description: product.description,
+    price: product.price,
+    image_url: imageUrl,
+    images: product.images,
+    video_url: product.video_url,
+    sku,
+  });
+  if (!res.ok) return { ok: false, error: res.error };
+
+  const updated = await updateProduct(orgId, productId, {
+    status: "launched",
+    storefront_url: res.url ?? "",
+    shopify_id: res.id,
+    shopify_handle: res.handle,
+    shopify_variant_id: res.variant_id,
+    sku,
+  });
+  return { ok: true, url: res.url, product: updated ?? product };
+}
+
 /* ---------- Auto-publish launch-ready products to Shopify ---------- */
 
 /**
@@ -405,36 +475,8 @@ export async function autoPublishReady(orgId: string): Promise<number> {
   let count = 0;
   for (const p of products) {
     if (p.status !== "ready_to_launch" || p.storefront_url) continue;
-
-    // Acquire a premium studio image before publishing. When Higgsfield is
-    // connected we (re)generate a clean white catalog shot; otherwise we fall
-    // back to whatever image the product already has (source scrape).
-    let imageUrl = p.image_url;
-    if (await getHiggsfieldCreds(orgId)) {
-      const img = await generateProductImage(orgId, p.id, undefined, { premium: true });
-      if (img.ok) imageUrl = img.url;
-    } else if (!imageUrl) {
-      const img = await generateProductImage(orgId, p.id);
-      if (img.ok) imageUrl = img.url;
-    }
-
-    const res = await createShopifyProduct(resolved.shop, resolved.token, {
-      title: p.title,
-      description: p.description,
-      price: p.price,
-      image_url: imageUrl,
-      images: p.images,
-      video_url: p.video_url,
-    });
-    if (res.ok) {
-      await updateProduct(orgId, p.id, {
-        status: "launched",
-        storefront_url: res.url ?? "",
-        shopify_id: res.id,
-        shopify_handle: res.handle,
-      });
-      count++;
-    }
+    const res = await publishProductToShopify(orgId, p.id);
+    if (res.ok) count++;
   }
   return count;
 }
@@ -446,6 +488,8 @@ export async function getOrgSettings(orgId: string): Promise<OrgSettings> {
   return {
     autopilot: AUTONOMY_ENABLED && (s?.autopilot ?? AUTOPILOT_DEFAULT),
     auto_publish: AUTONOMY_ENABLED && (s?.auto_publish ?? false),
+    // Fulfillment spends real cash, so it sits behind the same master gate.
+    auto_fulfill: AUTONOMY_ENABLED && (s?.auto_fulfill ?? AUTO_FULFILL_DEFAULT),
   };
 }
 
@@ -455,20 +499,33 @@ export async function setOrgSettings(orgId: string, patch: Partial<OrgSettings>)
   const next = {
     autopilot: AUTONOMY_ENABLED && requested.autopilot,
     auto_publish: AUTONOMY_ENABLED && requested.auto_publish,
+    // Clamped like the others: the owner cannot switch on autonomous spending
+    // while the master release gate is closed.
+    auto_fulfill: AUTONOMY_ENABLED && requested.auto_fulfill,
   };
   await kv.set(K.settings(orgId), next);
   return next;
 }
 
 /**
- * Autopilot policy — the ~2% that still needs a human. Returns true when a
- * gated action is safe to auto-approve. Large ad budgets and large refunds
- * always escalate to the owner.
+ * Autopilot policy — the ~2% that still needs a human.
+ *
+ * The master release gate comes first: while autonomy is locked, nothing is ever
+ * auto-approved no matter what the thresholds say. Once the owner unlocks it,
+ * the per-action caps decide, and anything above a cap escalates. Actions with
+ * no cap — creating a store, killing a product — always need a human.
  */
 export function isAutoApprovable(action: string, payload: Record<string, unknown>): boolean {
+  if (!AUTONOMY_ENABLED) return false;
   switch (action) {
     case "set_ad_budget":
+      return Number(payload.daily_budget ?? 0) <= AUTOPILOT_MAX_AD_BUDGET;
     case "issue_refund":
+      return Number(payload.amount ?? 0) <= AUTOPILOT_MAX_REFUND;
+    // Buying goods is the only action that moves cash to an outside party, so it
+    // gets its own, tighter cap.
+    case "place_supplier_order":
+      return Number(payload.estimated_cost ?? 0) <= AUTOPILOT_MAX_ORDER_COST;
     case "create_store":
     case "kill_product":
       return false;
@@ -828,13 +885,15 @@ export async function recall(orgId: string, query = "", limit = 20): Promise<Mem
 /* ---------- dashboard ---------- */
 
 export async function buildDashboard(orgId: string): Promise<Dashboard> {
-  const [products, runs, approvals, stores, memory, settings] = await Promise.all([
+  const [products, runs, approvals, stores, memory, settings, orders, pnl] = await Promise.all([
     listProducts(orgId),
     listRuns(orgId, 500),
     listApprovals(orgId),
     listStores(orgId),
     listGet<MemoryEntry>(K.memory(orgId)),
     getOrgSettings(orgId),
+    listOrders(orgId, 500),
+    getPnl(orgId, "30d"),
   ]);
 
   const productsByStatus: Record<string, number> = {};
@@ -845,7 +904,8 @@ export async function buildDashboard(orgId: string): Promise<Dashboard> {
 
   const tokens = runs.reduce((sum, r) => sum + r.input_tokens + r.output_tokens, 0);
 
-  // Rough revenue signal: launched products' per-unit margin as a proxy.
+  // Catalog potential: per-unit margin across launched products. This is a
+  // forward-looking signal, not income — the real numbers come from the ledger.
   const revenue = products
     .filter((p) => p.status === "launched")
     .reduce((sum, p) => sum + Math.max(0, p.price - p.cost), 0);
@@ -860,10 +920,22 @@ export async function buildDashboard(orgId: string): Promise<Dashboard> {
     total_tokens_used: tokens,
     memory_entries: memory.length,
     revenue_estimate: Math.round(revenue * 100) / 100,
+    orders_total: orders.length,
+    orders_awaiting_fulfillment: orders.filter((o) =>
+      ["received", "awaiting_stock"].includes(o.stage),
+    ).length,
+    orders_on_hold: orders.filter((o) => o.stage === "on_hold").length,
+    supplier_exposure_count: supplierExposure(orders).length,
+    supplier_exposure_value: supplierExposureValue(orders),
+    revenue_30d: pnl.net_revenue,
+    net_profit_30d: pnl.net_profit,
+    net_margin_30d: pnl.net_margin_pct,
+    aov_30d: pnl.aov,
     engine: ENGINE_NAME,
     engine_online: !!ANTHROPIC_API_KEY,
     autopilot: settings.autopilot,
     auto_publish: settings.auto_publish,
+    auto_fulfill: settings.auto_fulfill,
     autonomy_enabled: AUTONOMY_ENABLED,
     commerce_release_enabled: COMMERCE_RELEASE_ENABLED,
     autonomy_pct: settings.autopilot ? 98 : 60,
