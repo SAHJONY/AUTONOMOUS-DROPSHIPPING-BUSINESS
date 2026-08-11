@@ -12,9 +12,11 @@ export type BotanicaSupplier = {
   categories: string[];
   strengths: string[];
   sourceEvidence: string[];
+  contacts?: { label: string; value: string; href: string }[];
   sourcingPolicy:
     | "CORE_RELIGIOUS"
     | "NIGERIA_YORUBA"
+    | "PALO"
     | "CONSUMABLES"
     | "CUSTOM_MANUFACTURING"
     | "GENERAL_SUPPORT";
@@ -54,6 +56,11 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     categories: ["Orisha tools", "soperas", "statues", "candles", "colognes", "oils", "caracoles", "wood items"],
     strengths: ["Miami importer/distributor", "wholesale account flow", "domestic and international shipping"],
     sourceEvidence: ["https://religionuniverse.com/", "https://religionuniverse.com/pages/wholesale-signup-form"],
+    contacts: [
+      { label: "Telefono", value: "+1 (305) 436-8781", href: "tel:+13054368781" },
+      { label: "Correo", value: "religionuniverseinc@gmail.com", href: "mailto:religionuniverseinc@gmail.com" },
+      { label: "Cuenta mayorista", value: "Solicitud en linea", href: "https://religionuniverse.com/pages/wholesale-signup-form" }
+    ],
     sourcingPolicy: "CORE_RELIGIOUS",
     researchPriority: 1
   },
@@ -68,6 +75,11 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     categories: ["Santeria supplies", "Yoruba tools", "traditional spiritual items", "Nigeria-sourced traditional items"],
     strengths: ["Afro-Cuban/Yoruba specialization", "three South Florida locations", "wholesale and retail"],
     sourceEvidence: ["https://www.inshemiami.com/en/pages/about-inshe-miami", "https://www.inshemiami.com/en/pages/botanica-miami-inshe-miami-santeria-supplies-yoruba-tools-spiritual-articles"],
+    contacts: [
+      { label: "Hialeah", value: "(786) 955-3724 / (305) 982-8343", href: "tel:+17869553724" },
+      { label: "Calle 8", value: "(786) 850-6602", href: "tel:+17868506602" },
+      { label: "Miami Gardens", value: "(786) 939-9213", href: "tel:+17869399213" }
+    ],
     sourcingPolicy: "CORE_RELIGIOUS",
     researchPriority: 1
   },
@@ -86,6 +98,84 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     researchPriority: 1
   },
   {
+    id: "monzon-brothers-hialeah",
+    name: "Monzon Brothers II Inc.",
+    region: "MIAMI",
+    location: "Hialeah, Florida",
+    website: "https://monzonbotanica.com/",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["articulos Afro-Cubanos", "Yoruba y Lucumi", "herramientas de santo", "soperas", "cuentas", "madera y metal"],
+    strengths: ["distribuidor especializado", "compras al por mayor por telefono", "3,000+ productos declarados", "envios USA e internacionales"],
+    sourceEvidence: ["https://monzonbotanica.com/"],
+    contacts: [{ label: "Mayoreo", value: "+1 (305) 885-6363", href: "tel:+13058856363" }],
+    sourcingPolicy: "CORE_RELIGIOUS",
+    researchPriority: 1
+  },
+  {
+    id: "botanica-las-americas-miami",
+    name: "Botanica Las Americas",
+    region: "MIAMI",
+    location: "Miami, Florida",
+    website: "https://botanicalasamerica.com/es/pages/about-us",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["Santeria y Lucumi", "productos Ifa", "herramientas y coronas Ocha", "cuentas", "hierbas", "soperas"],
+    strengths: ["venta mayorista y minorista", "fabricacion personalizada", "dirigida por practicantes", "envios internacionales declarados"],
+    sourceEvidence: ["https://botanicalasamerica.com/es/pages/about-us"],
+    contacts: [
+      { label: "Telefono", value: "+1 (786) 558-8031", href: "tel:+17865588031" },
+      { label: "Correo", value: "botanicalasamericas@gmail.com", href: "mailto:botanicalasamericas@gmail.com" }
+    ],
+    sourcingPolicy: "CORE_RELIGIOUS",
+    researchPriority: 1
+  },
+  {
+    id: "herramientas-santeria-miami",
+    name: "Herramientas de Santeria",
+    region: "MIAMI",
+    location: "Miami, Florida",
+    website: "https://herramientasdesanteria.com/content/7-aboutus",
+    wholesale: true,
+    status: "REQUIRES_ACCOUNT",
+    categories: ["herramientas de santo", "atributos Orisha", "acero inoxidable", "fabricacion religiosa"],
+    strengths: ["fabricante directo en Miami", "mayoreo exclusivo", "minimo y descuentos publicados", "garantia declarada"],
+    sourceEvidence: ["https://herramientasdesanteria.com/content/7-aboutus"],
+    contacts: [{ label: "Cuenta mayorista", value: "Registro en linea", href: "https://herramientasdesanteria.com/login?create_account=1" }],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 1
+  },
+  {
+    id: "pedro-yoruba-jewelry-miami",
+    name: "Pedro Yoruba Jewelry",
+    region: "MIAMI",
+    location: "Miami, Florida",
+    website: "https://pedrojewelryyoruba.com/mayoreo",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["herramientas de santo", "atributos de Oricha", "piezas de acero inoxidable", "fabricacion personalizada"],
+    strengths: ["taller fabricante en Miami", "venta directa a botanicas", "catalogo mayorista por contacto"],
+    sourceEvidence: ["https://pedrojewelryyoruba.com/mayoreo"],
+    contacts: [{ label: "Catalogo mayorista", value: "+1 (305) 522-8490", href: "tel:+13055228490" }],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 1
+  },
+  {
+    id: "olofinire-hialeah",
+    name: "Botanica & Pet Shop Olofinire",
+    region: "MIAMI",
+    location: "Hialeah, Florida",
+    website: "https://botanicaolofinire.com/nosotros",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["velas artesanales", "jabones", "esencias", "productos espirituales de marca propia"],
+    strengths: ["fabricante directo local", "produccion artesanal propia", "declara abastecer otras botanicas de Miami"],
+    sourceEvidence: ["https://botanicaolofinire.com/nosotros"],
+    contacts: [{ label: "Telefono", value: "+1 (305) 833-4292", href: "tel:+13058334292" }],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 1
+  },
+  {
     id: "handmade-factory-miami",
     name: "Handmade Factory / Dolce Natura, Inc.",
     region: "MIAMI",
@@ -96,6 +186,10 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     categories: ["ildes", "azabaches", "Orisha necklaces", "handmade religious goods", "custom orders"],
     strengths: ["manufacturer", "business-only wholesale", "international shipping", "custom manufacturing"],
     sourceEvidence: ["https://botanicamayor.com/"],
+    contacts: [
+      { label: "Telefono / WhatsApp", value: "+1 (786) 610-9745", href: "tel:+17866109745" },
+      { label: "Correo", value: "dolcenaturainc@gmail.com", href: "mailto:dolcenaturainc@gmail.com" }
+    ],
     sourcingPolicy: "CUSTOM_MANUFACTURING",
     researchPriority: 1
   },
@@ -140,6 +234,34 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     sourceEvidence: ["https://rushofase.com/"],
     sourcingPolicy: "NIGERIA_YORUBA",
     researchPriority: 1
+  },
+  {
+    id: "ritual-scent-online",
+    name: "Ritual Scent",
+    region: "USA",
+    location: "Tienda en linea de Estados Unidos",
+    website: "https://www.ritualscent.com/",
+    wholesale: false,
+    status: "REQUIRES_CONTACT",
+    categories: ["Palo Monte y Mayombe", "Lucumi y Santeria", "Yoruba Isese", "herramientas Orisha", "ingredientes y suministros"],
+    strengths: ["creado por practicantes iniciados", "productos hechos o abastecidos por la tienda", "coleccion Palo Monte explicita"],
+    sourceEvidence: ["https://www.ritualscent.com/"],
+    sourcingPolicy: "PALO",
+    researchPriority: 1
+  },
+  {
+    id: "botanica-nena-miami",
+    name: "Botanica Nena",
+    region: "MIAMI",
+    location: "Miami, Florida",
+    website: "https://botanicanena.com/",
+    wholesale: false,
+    status: "REQUIRES_CONTACT",
+    categories: ["productos Ifa", "herramientas Orisha", "palos, hierbas y raices", "soperas", "cuentas", "productos de iniciacion"],
+    strengths: ["catalogo religioso amplio", "inventario con precios publicos", "candidato para negociar cuenta comercial"],
+    sourceEvidence: ["https://botanicanena.com/"],
+    sourcingPolicy: "PALO",
+    researchPriority: 2
   },
   {
     id: "mas-alla-usa",
@@ -392,6 +514,69 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     sourceEvidence: ["https://www.eacandle.com/private-label-manufacturing"],
     sourcingPolicy: "CUSTOM_MANUFACTURING",
     researchPriority: 3
+  },
+  {
+    id: "copiam-consumer-india",
+    name: "Copiam Consumer Care",
+    region: "INTERNATIONAL",
+    location: "Mumbai, Maharashtra, India",
+    website: "https://www.copiamconsumer.com/",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["velas en vaso", "velas de colores", "velas religiosas", "fabricacion y exportacion"],
+    strengths: ["fabricante de velas", "embarques aduaneros documentados a Religion Universe en Miami", "candidato directo India"],
+    sourceEvidence: ["https://www.copiamconsumer.com/pages/about-us", "https://www.copiamconsumer.com/policies/contact-information", "https://importkey.com/i/copiam-consumer-care"],
+    contacts: [
+      { label: "Correo comercial", value: "gayatri.kulkarni@copiamconsumer.com", href: "mailto:gayatri.kulkarni@copiamconsumer.com" },
+      { label: "Formulario", value: "Solicitar cotizacion", href: "https://www.copiamconsumer.com/pages/contact" }
+    ],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 1
+  },
+  {
+    id: "devini-llp-india",
+    name: "Devini LLP",
+    region: "INTERNATIONAL",
+    location: "Pitampura, Delhi, India",
+    website: "https://www.trademo.com/companies/monzon-brothers-ii/3810816",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["artesanias de acero inoxidable", "hierro y aluminio", "cuentas de vidrio", "fabricacion de componentes"],
+    strengths: ["proveedor aduanero documentado de Monzon Brothers", "embarques recientes desde India", "direccion comercial en conocimiento de embarque"],
+    sourceEvidence: ["https://www.trademo.com/companies/monzon-brothers-ii/3810816", "https://panjiva.com/Monzon-Brothers-II-Inc/2070950"],
+    contacts: [{ label: "Canal B2B", value: "Perfil de comercio exterior", href: "https://www.trademo.com/companies/monzon-brothers-ii/3810816" }],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 1
+  },
+  {
+    id: "china-western-hk",
+    name: "China Western HK Co. Limited",
+    region: "INTERNATIONAL",
+    location: "Hong Kong / China",
+    website: "https://www.pietrastudio.com/sourcing/suppliers/china-western-hk-co-ltd-ar3o",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["productos de madera", "fabricacion por contrato", "proyectos personalizados"],
+    strengths: ["proveedor aduanero documentado de Monzon Brothers", "canal B2B para solicitud personalizada", "MOQ y plazo requieren negociacion"],
+    sourceEvidence: ["https://importkey.com/i/monzon-brothers-ii", "https://www.pietrastudio.com/sourcing/suppliers/china-western-hk-co-ltd-ar3o"],
+    contacts: [{ label: "Solicitud B2B", value: "Contactar por Pietra", href: "https://www.pietrastudio.com/sourcing/suppliers/china-western-hk-co-ltd-ar3o" }],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 2
+  },
+  {
+    id: "shiva-creations-india",
+    name: "Shiva Creations",
+    region: "INTERNATIONAL",
+    location: "Jodhpur, Rajasthan, India",
+    website: "https://www.exportersindia.com/shivacreations/about-us.htm",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["artesanias", "madera", "muebles y piezas personalizadas", "fabricacion para exportacion"],
+    strengths: ["fabricante/exportador", "proveedor aduanero historico de Monzon Brothers", "formulario de consulta comercial"],
+    sourceEvidence: ["https://importkey.com/i/monzon-brothers-ii", "https://www.exportersindia.com/shivacreations/about-us.htm"],
+    contacts: [{ label: "Consulta comercial", value: "Formulario ExportersIndia", href: "https://www.exportersindia.com/shivacreations/about-us.htm" }],
+    sourcingPolicy: "CUSTOM_MANUFACTURING",
+    researchPriority: 2
   }
 ];
 
