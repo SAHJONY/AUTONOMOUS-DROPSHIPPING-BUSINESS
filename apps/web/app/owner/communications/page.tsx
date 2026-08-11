@@ -34,6 +34,7 @@ export default function OwnerCommunicationsPage() {
   const [emailStatus,setEmailStatus]=useState<EmailStatus|null>(null);
   const [emailTo,setEmailTo]=useState("");
   const [emailConfirmation,setEmailConfirmation]=useState("");
+  const [deletingEmailId,setDeletingEmailId]=useState("");
   const supplierTemplate=useMemo(()=>buildSupplierCommunication(templateKind,templateLanguage,supplierName||undefined),[supplierName,templateKind,templateLanguage]);
 
   useEffect(() => {
@@ -109,6 +110,18 @@ export default function OwnerCommunicationsPage() {
     } catch(e){setError(e instanceof Error?e.message:String(e));} finally{setSending(false);}
   }
 
+  async function deleteEmail(item: EmailMessage) {
+    if (!orgId || !window.confirm(`¿Eliminar permanentemente del historial este email?\n\n${item.subject}`)) return;
+    setDeletingEmailId(item.id); setError(""); setNotice("");
+    try {
+      const res=await fetch(`/api/orgs/${orgId}/communications/email`,{method:"DELETE",headers,body:JSON.stringify({message_id:item.id,confirmation:"DELETE EMAIL"})});
+      const body=await res.json().catch(()=>({})) as {detail?:string};
+      if(!res.ok) throw new Error(body.detail??`No se pudo eliminar el email (${res.status}).`);
+      setEmailStatus(current=>current?{...current,messages:current.messages.filter(message=>message.id!==item.id)}:current);
+      setNotice("Email eliminado del historial de BOTANICA OCHOSI.");
+    } catch(e){setError(e instanceof Error?e.message:String(e));} finally{setDeletingEmailId("");}
+  }
+
   return <main className={styles.shell}>
     <nav className={styles.nav}>
       <a className={styles.brand} href="/owner"><span className={styles.mark}>O</span><span className={styles.brandText}><strong>BOTANICA</strong><small>OCHOSI</small></span></a>
@@ -133,7 +146,7 @@ export default function OwnerCommunicationsPage() {
 
       <section className={styles.section}><div className={styles.sectionHead}><div><span>PAQUETE COMERCIAL · PROVEEDORES</span><h2>Comunicación lista para negociar.</h2><p>Envía y recibe como BOTANICA OCHOSI. Cada envío requiere confirmación explícita del propietario.</p></div></div><div className={styles.card}><div className={styles.form}><input className={styles.input} placeholder="Nombre del proveedor" value={supplierName} onChange={e=>setSupplierName(e.target.value)}/><select className={styles.input} value={templateKind} onChange={e=>setTemplateKind(e.target.value as SupplierCommunicationKind)}>{SUPPLIER_COMMUNICATION_KINDS.map(kind=><option key={kind.value} value={kind.value}>{kind.label}</option>)}</select><select className={styles.input} value={templateLanguage} onChange={e=>setTemplateLanguage(e.target.value as SupplierCommunicationLanguage)}><option value="es">Español · principal</option><option value="en">English · international</option></select><input className={`${styles.input} ${styles.full}`} readOnly aria-label="Asunto" value={supplierTemplate.subject}/><textarea className={`${styles.textarea} ${styles.full}`} rows={18} readOnly value={supplierTemplate.body}/><input className={styles.input} type="email" placeholder="proveedor@empresa.com" value={emailTo} onChange={e=>setEmailTo(e.target.value)}/><input className={styles.input} placeholder="Escribe SEND EMAIL" value={emailConfirmation} onChange={e=>setEmailConfirmation(e.target.value)}/><div className={`${styles.rowActions} ${styles.full}`}><button className={styles.primary} disabled={!emailStatus?.configured||sending||emailConfirmation!=="SEND EMAIL"||!emailTo} onClick={()=>void sendEmail()}>{sending?"Enviando…":"Enviar como BOTANICA OCHOSI"}</button><button className={styles.ghost} onClick={()=>void navigator.clipboard.writeText(`Asunto: ${supplierTemplate.subject}\n\n${supplierTemplate.body}`).then(()=>setCopyNotice("Mensaje copiado."))}>Copiar mensaje</button></div></div>{copyNotice&&<div className={styles.result}>{copyNotice}</div>}<p>Salida: {emailStatus?.from??"sin configurar"} · Respuestas: {emailStatus?.reply_to??"sin configurar"} · Recepción {emailStatus?.receiving_configured?"activa":"pendiente"}.</p></div></section>
 
-      <section className={styles.section}><div className={styles.sectionHead}><div><span>EMAIL · HISTORIAL</span><h2>Mensajes enviados y recibidos.</h2></div></div><div className={styles.actionGrid}>{emailStatus?.messages.length?emailStatus.messages.map(item=><article className={styles.card} key={item.id}><div className={styles.kicker}>{item.direction==="inbound"?"RECIBIDO":"ENVIADO"} · {new Date(item.created_at).toLocaleString()}</div><h2>{item.subject}</h2><p><strong>De:</strong> {item.from}<br/><strong>Para:</strong> {item.to.join(", ")}</p><details><summary>Ver mensaje</summary><pre style={{whiteSpace:"pre-wrap"}}>{item.text}</pre></details></article>):<div className={styles.card}>No hay mensajes registrados todavía.</div>}</div></section>
+      <section className={styles.section}><div className={styles.sectionHead}><div><span>EMAIL · HISTORIAL</span><h2>Mensajes enviados y recibidos.</h2></div></div><div className={styles.actionGrid}>{emailStatus?.messages.length?emailStatus.messages.map(item=><article className={styles.card} key={item.id}><div className={styles.kicker}>{item.direction==="inbound"?"RECIBIDO":"ENVIADO"} · {new Date(item.created_at).toLocaleString()}</div><h2>{item.subject}</h2><p><strong>De:</strong> {item.from}<br/><strong>Para:</strong> {item.to.join(", ")}</p><details><summary>Ver mensaje</summary><pre style={{whiteSpace:"pre-wrap"}}>{item.text}</pre></details><div className={styles.rowActions} style={{marginTop:16}}><button className={styles.ghost} disabled={Boolean(deletingEmailId)} onClick={()=>void deleteEmail(item)}>{deletingEmailId===item.id?"Eliminando…":"Eliminar email"}</button></div></article>):<div className={styles.card}>No hay mensajes registrados todavía.</div>}</div></section>
 
       <section className={styles.section}>
         <div className={styles.card}>

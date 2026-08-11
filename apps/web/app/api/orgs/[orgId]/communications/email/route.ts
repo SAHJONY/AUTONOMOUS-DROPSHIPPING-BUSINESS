@@ -1,5 +1,5 @@
 import { error, json, requireOrgRole } from "@/lib/api";
-import { getBotanicaEmailStatus, listBotanicaEmails, sendBotanicaEmail } from "@/lib/botanica-email";
+import { deleteBotanicaEmail, getBotanicaEmailStatus, listBotanicaEmails, sendBotanicaEmail } from "@/lib/botanica-email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,4 +24,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   if (!subject || !text) return error("Subject and message are required.", 400);
   try { return json({ ok:true, message:await sendBotanicaEmail({ orgId, to, subject, text }) }); }
   catch (cause) { return error(cause instanceof Error ? cause.message : "Email delivery failed.", 502); }
+}
+
+export async function DELETE(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params;
+  const auth = await requireOrgRole(req, orgId, ["owner"]);
+  if ("response" in auth) return auth.response;
+  const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+  if (body.confirmation !== "DELETE EMAIL") return error("Deletion confirmation is required.", 409);
+  const messageId = typeof body.message_id === "string" ? body.message_id.trim() : "";
+  if (!messageId) return error("Email message id is required.", 400);
+  if (!(await deleteBotanicaEmail(orgId, messageId))) return error("Email was not found.", 404);
+  return json({ ok: true, deleted_id: messageId });
 }

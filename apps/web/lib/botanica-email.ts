@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { kv, listGet, listPush } from "./kv";
+import { kv, listGet, listPush, listReplace } from "./kv";
 import { newId, nowISO } from "./store";
 import { notifyOwnerTelegram } from "./telegram";
 
@@ -38,6 +38,15 @@ export function getBotanicaEmailStatus() {
 
 export async function listBotanicaEmails(orgId: string): Promise<BotanicaEmailMessage[]> {
   return (await listGet<BotanicaEmailMessage>(key(orgId))).sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+/** Delete one message from the Owner OS history. Provider records remain untouched. */
+export async function deleteBotanicaEmail(orgId: string, messageId: string): Promise<boolean> {
+  const messages = await listGet<BotanicaEmailMessage>(key(orgId));
+  const remaining = messages.filter((message) => message.id !== messageId);
+  if (remaining.length === messages.length) return false;
+  await listReplace(key(orgId), remaining);
+  return true;
 }
 
 export async function sendBotanicaEmail(input: { orgId: string; to: string; subject: string; text: string }) {
