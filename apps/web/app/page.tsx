@@ -69,6 +69,13 @@ const ROSTER = [
   { name: "Support", desc: "Drafts empathetic replies; refunds need approval." },
 ];
 
+const OPERATING_LOOP = [
+  { step: "01", title: "Find the signal", body: "Product Hunter sources opportunities and applies a repeatable launch score before anything enters the pipeline." },
+  { step: "02", title: "Prove the economics", body: "Supplier and Finance validate landed cost, margin, and ad efficiency so every launch starts with a financial thesis." },
+  { step: "03", title: "Build the offer", body: "Store Builder and Marketing turn the winner into a premium listing, creative direction, and a channel-ready campaign." },
+  { step: "04", title: "Scale with control", body: "The CEO coordinates daily execution while spend, publishing, refunds, and other privileged actions stay governed." },
+];
+
 const QUICK_TASKS: Record<string, string[]> = {
   ceo: [
     "Review the business and write today's report",
@@ -558,6 +565,13 @@ export default function Home() {
   );
   const currentAgent = agents.find((a) => a.name === selectedAgent);
   const quicks = QUICK_TASKS[selectedAgent] ?? [];
+  const readiness = [
+    { label: "Supplier feed", ready: cj.connected, detail: cj.connected ? "CJ connected" : "Connect CJ" },
+    { label: "Storefront", ready: shopify.connected, detail: shopify.connected ? shopify.shop ?? "Connected" : "Connect Shopify" },
+    { label: "Creative studio", ready: higgs.connected, detail: higgs.connected ? "Higgsfield connected" : "Connect Higgsfield" },
+    { label: "Decision queue", ready: Boolean(dashboard) && pending.length === 0, detail: !dashboard ? "Checking queue" : pending.length === 0 ? "All clear" : `${pending.length} waiting` },
+  ];
+  const readyCount = readiness.filter((item) => item.ready).length;
 
   if (booting) return <div style={{ minHeight: "100vh" }} />;
 
@@ -567,14 +581,15 @@ export default function Home() {
       return (
         <>
           <nav className="nav">
-            <div className="wordmark"><span className="dot" /> SAHJONY <span>Commerce</span></div>
+            <a className="wordmark" href="#top" aria-label="SAHJONY Commerce home"><span className="dot" /> SAHJONY <span>Commerce</span></a>
             <div className="nav-right">
-              <span className="hide-sm">sahjony.com</span>
+              <a className="nav-link hide-sm" href="#how-it-works">How it works</a>
+              <a className="nav-link hide-sm" href="#fleet">The fleet</a>
               <button onClick={() => setView("login")}>Sign in</button>
             </div>
           </nav>
 
-          <div className="hero">
+          <div className="hero" id="top">
             <div className="hero-backdrop" />
             <div className="aurora" />
             <div className="hero-horizon" />
@@ -589,14 +604,39 @@ export default function Home() {
               <button className="btn btn-ghost" onClick={() => setView("login")}>Sign In</button>
             </div>
             <div className="hero-badges">
-              <span><b>7</b> Specialist agents</span>
+              <span><b>8</b> Coordinated agents</span>
               <span><b>85+</b> Launch score gate</span>
               <span><b>24/7</b> Autonomous cycle</span>
-              <span><b>Manual</b> Governance first</span>
+              <span><b>Human</b> Governance built in</span>
             </div>
           </div>
 
-          <div className="features">
+          <section className="proof-strip" aria-label="Platform capabilities">
+            <span>Product intelligence</span><i />
+            <span>Unit economics</span><i />
+            <span>Shopify publishing</span><i />
+            <span>Supplier sourcing</span><i />
+            <span>Approval governance</span>
+          </section>
+
+          <section className="operating-loop" id="how-it-works">
+            <div className="section-intro">
+              <div className="eyebrow">From signal to scale</div>
+              <h2>A complete operating loop.<br /><span className="gradient-text">Not another AI toy.</span></h2>
+              <p>Every specialist works from the same catalog, memory, economics, and governance policy. The result is one accountable system for moving a product from idea to storefront.</p>
+            </div>
+            <div className="loop-grid">
+              {OPERATING_LOOP.map((item) => (
+                <article className="loop-card" key={item.step}>
+                  <span className="loop-step">{item.step}</span>
+                  <h3>{item.title}</h3>
+                  <p>{item.body}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <div className="features" aria-label="Core capabilities">
             {FEATURES.map((f) => (
               <div className="feature" key={f.title}>
                 <div className="fi">{f.icon}</div>
@@ -606,7 +646,7 @@ export default function Home() {
             ))}
           </div>
 
-          <div className="roster">
+          <div className="roster" id="fleet">
             <h2>One brain. Eight hands.</h2>
             <p className="sub">The CEO agent orchestrates a fleet of specialists — each with real tools, real data, and hard guardrails on anything irreversible.</p>
             <div className="roster-grid">
@@ -668,7 +708,7 @@ export default function Home() {
   return (
     <>
       <nav className="nav">
-        <div className="wordmark"><span className="dot" /> SAHJONY <span>Commerce</span></div>
+        <a className="wordmark" href="#command" aria-label="SAHJONY Commerce command deck"><span className="dot" /> SAHJONY <span>Commerce</span></a>
         <div className="nav-right">
           {dashboard && (
             <span className={`pill-live ${dashboard.engine_online ? "" : "sim"}`}>
@@ -761,7 +801,27 @@ export default function Home() {
           </section>
         )}
 
-        <section>
+        <section className="readiness" aria-labelledby="readiness-title">
+          <div className="readiness-summary">
+            <div>
+              <div className="eyebrow">Launch readiness</div>
+              <h2 id="readiness-title">{readyCount} of {readiness.length} systems ready</h2>
+            </div>
+            <div className="readiness-meter" aria-label={`${readyCount} of ${readiness.length} systems ready`}>
+              <span style={{ width: `${(readyCount / readiness.length) * 100}%` }} />
+            </div>
+          </div>
+          <div className="readiness-grid">
+            {readiness.map((item) => (
+              <div className="readiness-item" key={item.label}>
+                <span className={`readiness-dot ${item.ready ? "ready" : ""}`} />
+                <div><b>{item.label}</b><small>{item.detail}</small></div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="command">
           <div className="section-head"><h2>Command</h2><span className="hint">Dispatch an agent</span></div>
           <div className="console-wrap">
             <div className="console">
