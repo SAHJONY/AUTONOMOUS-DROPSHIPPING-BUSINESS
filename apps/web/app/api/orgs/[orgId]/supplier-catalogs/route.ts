@@ -28,6 +28,8 @@ function sanitize(record: Record<string, unknown>): SecretSupplierProduct | null
     botanicaWholesaleEnabled: record.botanicaWholesaleEnabled === true, botanicaWholesalePrice: number(record.botanicaWholesalePrice), botanicaWholesaleMoq: Math.ceil(number(record.botanicaWholesaleMoq, 1)),
     notes: text(record.notes, 10_000), updatedAt: text(record.updatedAt, 100) || new Date().toISOString(),
     competitorUrl: text(record.competitorUrl, 2_000), competitorPriceUsd: number(record.competitorPriceUsd),
+    competitorName: text(record.competitorName, 300), competitorSourceType: text(record.competitorSourceType, 50),
+    competitorEvidence: text(record.competitorEvidence, 10_000), competitorEvidenceReference: text(record.competitorEvidenceReference, 1_000),
     competitorCurrency: text(record.competitorCurrency, 10).toUpperCase(), competitorScannedAt: text(record.competitorScannedAt, 100),
     competitorScanStatus: text(record.competitorScanStatus, 1_000), competitivePriceRecommendationUsd: number(record.competitivePriceRecommendationUsd),
     brandMode: text(record.brandMode, 50), resaleAuthorizationStatus: text(record.resaleAuthorizationStatus, 30),
