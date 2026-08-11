@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "../owner.module.css";
+import { buildSupplierCommunication, SUPPLIER_COMMUNICATION_KINDS, type SupplierCommunicationKind, type SupplierCommunicationLanguage } from "@/lib/supplier-communications";
 
 type Org = { id: string; name?: string; role?: string };
 type Me = { id: string; email: string; is_owner: boolean };
@@ -24,6 +25,11 @@ export default function OwnerCommunicationsPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [supplierName,setSupplierName]=useState("");
+  const [templateKind,setTemplateKind]=useState<SupplierCommunicationKind>("WHOLESALE_ACCOUNT");
+  const [templateLanguage,setTemplateLanguage]=useState<SupplierCommunicationLanguage>("es");
+  const [copyNotice,setCopyNotice]=useState("");
+  const supplierTemplate=useMemo(()=>buildSupplierCommunication(templateKind,templateLanguage,supplierName||undefined),[supplierName,templateKind,templateLanguage]);
 
   useEffect(() => {
     setToken(localStorage.getItem("commerce_os_token") ?? "");
@@ -104,6 +110,8 @@ export default function OwnerCommunicationsPage() {
         <div className={styles.card}><div className={styles.metricLabel}>Bot secret</div><div className={styles.metricValue}>{status?.token_configured ? "SET" : "MISSING"}</div><div className={styles.metricNote}>Server-side only; secret value is never returned.</div></div>
         <div className={styles.card}><div className={styles.metricLabel}>Channel</div><div className={styles.metricValue}>{status?.channel_configured ? "SET" : "MISSING"}</div><div className={styles.metricNote}>{status?.channel ?? "Set TELEGRAM_CHANNEL_ID or TELEGRAM_CHANNEL_USERNAME in runtime."}</div></div>
       </section>
+
+      <section className={styles.section}><div className={styles.sectionHead}><div><span>PAQUETE COMERCIAL · PROVEEDORES</span><h2>Comunicación lista para negociar.</h2><p>Selecciona el objetivo y el idioma, completa los campos entre corchetes y copia el mensaje. Español es el idioma principal; la versión inglesa está preparada para proveedores internacionales.</p></div></div><div className={styles.card}><div className={styles.form}><input className={styles.input} placeholder="Nombre del proveedor" value={supplierName} onChange={e=>setSupplierName(e.target.value)}/><select className={styles.input} value={templateKind} onChange={e=>setTemplateKind(e.target.value as SupplierCommunicationKind)}>{SUPPLIER_COMMUNICATION_KINDS.map(kind=><option key={kind.value} value={kind.value}>{kind.label}</option>)}</select><select className={styles.input} value={templateLanguage} onChange={e=>setTemplateLanguage(e.target.value as SupplierCommunicationLanguage)}><option value="es">Español · principal</option><option value="en">English · international</option></select><input className={`${styles.input} ${styles.full}`} readOnly aria-label="Asunto" value={supplierTemplate.subject}/><textarea className={`${styles.textarea} ${styles.full}`} rows={18} readOnly value={supplierTemplate.body}/><div className={`${styles.rowActions} ${styles.full}`}><button className={styles.primary} onClick={()=>void navigator.clipboard.writeText(`Asunto: ${supplierTemplate.subject}\n\n${supplierTemplate.body}`).then(()=>setCopyNotice("Mensaje copiado."))}>Copiar mensaje completo</button></div></div>{copyNotice&&<div className={styles.result}>{copyNotice}</div>}<p>Para idiomas distintos del español o inglés, usa traducción profesional y revisión cultural antes de enviar términos religiosos, legales o técnicos. Copiar no envía ni autoriza pedidos.</p></div></section>
 
       <section className={styles.section}>
         <div className={styles.card}>

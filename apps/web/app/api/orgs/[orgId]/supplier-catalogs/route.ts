@@ -30,6 +30,8 @@ function sanitize(record: Record<string, unknown>): SecretSupplierProduct | null
     competitorUrl: text(record.competitorUrl, 2_000), competitorPriceUsd: number(record.competitorPriceUsd),
     competitorCurrency: text(record.competitorCurrency, 10).toUpperCase(), competitorScannedAt: text(record.competitorScannedAt, 100),
     competitorScanStatus: text(record.competitorScanStatus, 1_000), competitivePriceRecommendationUsd: number(record.competitivePriceRecommendationUsd),
+    brandMode: text(record.brandMode, 50), resaleAuthorizationStatus: text(record.resaleAuthorizationStatus, 30),
+    authorizationReference: text(record.authorizationReference, 1_000), authorizationVerifiedAt: text(record.authorizationVerifiedAt, 100),
   };
 }
 
