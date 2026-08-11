@@ -23,5 +23,7 @@ describe("botanica supplier registry", () => {
     expect(religious.some((supplier) => supplier.id === "herramientas-santeria-miami")).toBe(true);
     expect(religious.some((supplier) => supplier.id === "pedro-yoruba-jewelry-miami")).toBe(true);
     expect(hasBotanicaSupplierPolicy(religious[0], "CORE_RELIGIOUS")).toBe(true);
+    expect(getBotanicaSuppliersByPolicy("NIGERIA_YORUBA").some((supplier) => supplier.id === "inshe-miami")).toBe(true);
+    expect(getBotanicaSuppliersByPolicy("PALO").some((supplier) => supplier.id === "nelstar-services-online")).toBe(true);
   });
 });
