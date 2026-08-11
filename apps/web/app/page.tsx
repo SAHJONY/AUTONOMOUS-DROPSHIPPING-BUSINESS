@@ -641,13 +641,13 @@ export default function Home() {
   );
   const currentAgent = agents.find((a) => a.name === selectedAgent);
   const quicks = QUICK_TASKS[selectedAgent] ?? [];
-  const readiness = [
+  const integrationReadiness = [
     { label: "Supplier feed", ready: cj.connected, detail: cj.connected ? "CJ connected" : "Connect CJ" },
     { label: "Storefront", ready: shopify.connected, detail: shopify.connected ? shopify.shop ?? "Connected" : "Connect Shopify" },
     { label: "Creative studio", ready: higgs.connected, detail: higgs.connected ? "Higgsfield connected" : "Connect Higgsfield" },
     { label: "Decision queue", ready: Boolean(dashboard) && pending.length === 0, detail: !dashboard ? "Checking queue" : pending.length === 0 ? "All clear" : `${pending.length} waiting` },
   ];
-  const readyCount = readiness.filter((item) => item.ready).length;
+  const readyCount = integrationReadiness.filter((item) => item.ready).length;
 
   if (booting) return <div style={{ minHeight: "100vh" }} />;
 
@@ -932,14 +932,14 @@ export default function Home() {
           <div className="readiness-summary">
             <div>
               <div className="eyebrow">Launch readiness</div>
-              <h2 id="readiness-title">{readyCount} of {readiness.length} systems ready</h2>
+              <h2 id="readiness-title">{readyCount} of {integrationReadiness.length} systems ready</h2>
             </div>
-            <div className="readiness-meter" aria-label={`${readyCount} of ${readiness.length} systems ready`}>
-              <span style={{ width: `${(readyCount / readiness.length) * 100}%` }} />
+            <div className="readiness-meter" aria-label={`${readyCount} of ${integrationReadiness.length} systems ready`}>
+              <span style={{ width: `${(readyCount / integrationReadiness.length) * 100}%` }} />
             </div>
           </div>
           <div className="readiness-grid">
-            {readiness.map((item) => (
+            {integrationReadiness.map((item) => (
               <div className="readiness-item" key={item.label}>
                 <span className={`readiness-dot ${item.ready ? "ready" : ""}`} />
                 <div><b>{item.label}</b><small>{item.detail}</small></div>
