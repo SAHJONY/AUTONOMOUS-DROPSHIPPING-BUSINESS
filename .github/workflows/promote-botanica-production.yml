@@ -38,7 +38,7 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel promote autonomous-dropshipping-business-j1ncr8du8.vercel.app \
+          vercel promote autonomous-dropshipping-business-5ql0w5umi.vercel.app \
             --token="$VERCEL_TOKEN" \
             --scope="juan-gonzalezs-projects-94b6dfe9" \
             --yes
@@ -50,11 +50,11 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
-          vercel alias set autonomous-dropshipping-business-j1ncr8du8.vercel.app www.botanicaochosi.com \
+          vercel alias set autonomous-dropshipping-business-5ql0w5umi.vercel.app www.botanicaochosi.com \
             --token="$VERCEL_TOKEN" \
             --scope="juan-gonzalezs-projects-94b6dfe9"
 
-      - name: Verify production domain and Owner registry
+      - name: Verify production domain and Spanish library
         id: verify
         if: steps.promote.outcome == 'success' || steps.alias.outcome == 'success'
         continue-on-error: true
@@ -62,18 +62,18 @@ jobs:
         run: |
           set -euo pipefail
           for i in {1..18}; do
-            OWNER=$(curl --fail --silent --show-error --location https://www.botanicaochosi.com/owner/suppliers || true)
+            OWNER=$(curl --fail --silent --show-error --location https://www.botanicaochosi.com/owner/biblioteca-espanol || true)
             STORE=$(curl --fail --silent --show-error --location https://www.botanicaochosi.com/shop || true)
             if [ -n "$OWNER" ] && [ -n "$STORE" ]; then
-              if printf '%s' "$OWNER" | grep -Fq 'IFÁ LIBRARY' && \
-                 printf '%s' "$OWNER" | grep -Fq 'Ifa Divination: Communication between Gods and Men in West Africa' && \
-                 printf '%s' "$OWNER" | grep -Fq 'Physical Ifá assortment'; then
+              if printf '%s' "$OWNER" | grep -Fq 'BIBLIOTECA EN ESPAÑOL' && \
+                 printf '%s' "$OWNER" | grep -Fq 'Los Meyi' && \
+                 printf '%s' "$OWNER" | grep -Fq 'El Monte'; then
                 exit 0
               fi
             fi
             sleep 5
           done
-          echo "Exact Ifa/Supplier registry artifact not detected on production domain"
+          echo "Spanish literature artifact not detected on production domain"
           exit 1
 
       - name: Report promotion result
@@ -88,11 +88,11 @@ jobs:
           script: |
             const releaseOk = process.env.PROMOTE_OUTCOME === 'success' || process.env.ALIAS_OUTCOME === 'success';
             const success = process.env.TOKEN_PRESENT === 'true' && releaseOk && process.env.VERIFY_OUTCOME === 'success';
-            const title = `BOTANICA production release ${success ? 'SUCCESS' : 'FAILED'} — run ${context.runId}`;
+            const title = `BOTANICA Spanish library release ${success ? 'SUCCESS' : 'FAILED'} — run ${context.runId}`;
             const body = [
-              `Artifact: autonomous-dropshipping-business-j1ncr8du8.vercel.app`,
-              `Deployment: dpl_6TVuW5HvjLCvx1v2eKSmDefEMd1Q`,
-              `Commit: 3df267279c528a161f37abf3af0ba75b65322f1e`,
+              `Artifact: autonomous-dropshipping-business-5ql0w5umi.vercel.app`,
+              `Deployment: dpl_EWceh7yPGi5PmBnjfABsJUuU4Lw7`,
+              `Commit: 7146d82a89caf1e29cc66ba2bc6c7334034441f5`,
               `Token present: ${process.env.TOKEN_PRESENT}`,
               `Promote outcome: ${process.env.PROMOTE_OUTCOME || 'not-run'}`,
               `Alias fallback outcome: ${process.env.ALIAS_OUTCOME || 'not-run'}`,
