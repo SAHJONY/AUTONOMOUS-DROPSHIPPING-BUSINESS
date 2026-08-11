@@ -35,6 +35,10 @@ function sanitize(record: Record<string, unknown>): SecretSupplierProduct | null
     materialType: text(record.materialType, 30) || "PRODUCT", spanishEditionClass: text(record.spanishEditionClass, 50), isbn: text(record.isbn, 40),
     publisher: text(record.publisher, 300), publicationCountry: text(record.publicationCountry, 100), authorizedReseller: text(record.authorizedReseller, 300),
     commercialEditionStatus: text(record.commercialEditionStatus, 30) || "PENDING", rightsReference: text(record.rightsReference, 1_000),
+    bookCollection: text(record.bookCollection, 50), primaryLanguage: text(record.primaryLanguage, 10) || "es",
+    yorubaValidated: record.yorubaValidated === true, englishSecondaryDescription: text(record.englishSecondaryDescription, 5_000),
+    originalSpanishDescription: text(record.originalSpanishDescription, 5_000), inventoryStatus: text(record.inventoryStatus, 30) || "UNKNOWN",
+    inventoryQuantity: Math.floor(number(record.inventoryQuantity)), inventoryVerifiedAt: text(record.inventoryVerifiedAt, 100),
   };
 }
 

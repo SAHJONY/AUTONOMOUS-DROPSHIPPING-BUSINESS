@@ -9,6 +9,12 @@ export function spanishBookReadiness(input: {
   authorizedReseller?: string;
   commercialEditionStatus?: string;
   rightsReference?: string;
+  bookCollection?: string;
+  wholesalePrice?: number;
+  inventoryStatus?: string;
+  originalSpanishDescription?: string;
+  primaryLanguage?: string;
+  yorubaValidated?: boolean;
 }) {
   if (input.materialType !== "BOOK") return { applicable:false, ready:true, blockers:[] as string[] };
   const blockers:string[]=[];
@@ -20,5 +26,11 @@ export function spanishBookReadiness(input: {
   if (!String(input.authorizedReseller??"").trim()) blockers.push("Falta reseller o distribuidor autorizado.");
   if (input.commercialEditionStatus !== "VERIFIED") blockers.push("La edición comercial no está verificada.");
   if (!String(input.rightsReference??"").trim()) blockers.push("Falta referencia de derechos o autorización comercial.");
+  if (!input.bookCollection) blockers.push("Falta asignar la colección editorial.");
+  if (!(Number(input.wholesalePrice)>0)) blockers.push("Falta precio mayorista verificable.");
+  if (!["IN_STOCK","PREORDER"].includes(String(input.inventoryStatus))) blockers.push("La disponibilidad comercial no está confirmada.");
+  if (!String(input.originalSpanishDescription??"").trim()) blockers.push("Falta descripción comercial original en español.");
+  if (input.primaryLanguage !== "es") blockers.push("Español debe ser el idioma principal.");
+  if (input.spanishEditionClass === "OFFICIAL_TRANSLATION" && !input.yorubaValidated) blockers.push("La edición/traducción Yoruba requiere validación.");
   return { applicable:true, ready:blockers.length===0, blockers };
 }
