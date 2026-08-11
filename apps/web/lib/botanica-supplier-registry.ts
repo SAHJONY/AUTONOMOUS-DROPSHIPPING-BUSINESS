@@ -20,6 +20,7 @@ export type BotanicaSupplier = {
     | "CONSUMABLES"
     | "CUSTOM_MANUFACTURING"
     | "GENERAL_SUPPORT";
+  secondarySourcingPolicies?: BotanicaSupplier["sourcingPolicy"][];
   researchPriority: 1 | 2 | 3;
 };
 
@@ -81,6 +82,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
       { label: "Miami Gardens", value: "(786) 939-9213", href: "tel:+17869399213" }
     ],
     sourcingPolicy: "CORE_RELIGIOUS",
+    secondarySourcingPolicies: ["NIGERIA_YORUBA"],
     researchPriority: 1
   },
   {
@@ -93,7 +95,12 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     status: "REQUIRES_CONTACT",
     categories: ["Lucumi supplies", "Yoruba supplies", "Ocha tools", "crowns", "religious articles"],
     strengths: ["Lucumi/Yoruba focus", "4,000+ products claimed", "custom Ocha tools and crowns", "wholesale and retail"],
-    sourceEvidence: ["https://www.viejolazaro.com/"],
+    sourceEvidence: ["https://www.viejolazaro.com/", "https://www.viejolazaro.com/pages/about-us-2"],
+    contacts: [
+      { label: "Telefono", value: "+1 (305) 269-0045", href: "tel:+13052690045" },
+      { label: "WhatsApp", value: "+1 (305) 984-0269", href: "https://wa.me/13059840269" },
+      { label: "Correo", value: "sales@viejolazaro.com", href: "mailto:sales@viejolazaro.com" }
+    ],
     sourcingPolicy: "CORE_RELIGIOUS",
     researchPriority: 1
   },
@@ -143,6 +150,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     sourceEvidence: ["https://herramientasdesanteria.com/content/7-aboutus"],
     contacts: [{ label: "Cuenta mayorista", value: "Registro en linea", href: "https://herramientasdesanteria.com/login?create_account=1" }],
     sourcingPolicy: "CUSTOM_MANUFACTURING",
+    secondarySourcingPolicies: ["CORE_RELIGIOUS"],
     researchPriority: 1
   },
   {
@@ -156,8 +164,13 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     categories: ["herramientas de santo", "atributos de Oricha", "piezas de acero inoxidable", "fabricacion personalizada"],
     strengths: ["taller fabricante en Miami", "venta directa a botanicas", "catalogo mayorista por contacto"],
     sourceEvidence: ["https://pedrojewelryyoruba.com/mayoreo"],
-    contacts: [{ label: "Catalogo mayorista", value: "+1 (305) 522-8490", href: "tel:+13055228490" }],
+    contacts: [
+      { label: "Catalogo / WhatsApp", value: "+1 (305) 522-8490", href: "https://wa.me/13055228490" },
+      { label: "Telefono alterno", value: "+1 (305) 901-9377", href: "tel:+13059019377" },
+      { label: "Correo", value: "pedro.yoruba.jewelry16@gmail.com", href: "mailto:pedro.yoruba.jewelry16@gmail.com" }
+    ],
     sourcingPolicy: "CUSTOM_MANUFACTURING",
+    secondarySourcingPolicies: ["CORE_RELIGIOUS"],
     researchPriority: 1
   },
   {
@@ -191,6 +204,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
       { label: "Correo", value: "dolcenaturainc@gmail.com", href: "mailto:dolcenaturainc@gmail.com" }
     ],
     sourcingPolicy: "CUSTOM_MANUFACTURING",
+    secondarySourcingPolicies: ["CORE_RELIGIOUS"],
     researchPriority: 1
   },
   {
@@ -203,7 +217,12 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     status: "VERIFIED_PUBLIC",
     categories: ["Opon Ifa", "Obi", "Orogbo", "Ewe", "Yoruba cultural goods", "West African plant products"],
     strengths: ["direct-from-source West African inventory", "wholesale program", "international shipping", "special orders"],
-    sourceEvidence: ["https://yorubaimports.com/"],
+    sourceEvidence: ["https://yorubaimports.com/", "https://yorubaimports.com/about.html"],
+    contacts: [
+      { label: "Telefono", value: "+1 (954) 683-1747", href: "tel:+19546831747" },
+      { label: "Correo", value: "yorubaimports@hotmail.com", href: "mailto:yorubaimports@hotmail.com" },
+      { label: "Cuenta mayorista", value: "Solicitud y requisitos", href: "https://yorubaimports.com/about.html" }
+    ],
     sourcingPolicy: "NIGERIA_YORUBA",
     researchPriority: 1
   },
@@ -247,6 +266,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     strengths: ["creado por practicantes iniciados", "productos hechos o abastecidos por la tienda", "coleccion Palo Monte explicita"],
     sourceEvidence: ["https://www.ritualscent.com/"],
     sourcingPolicy: "PALO",
+    secondarySourcingPolicies: ["CORE_RELIGIOUS"],
     researchPriority: 1
   },
   {
@@ -261,7 +281,42 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     strengths: ["catalogo religioso amplio", "inventario con precios publicos", "candidato para negociar cuenta comercial"],
     sourceEvidence: ["https://botanicanena.com/"],
     sourcingPolicy: "PALO",
+    secondarySourcingPolicies: ["CORE_RELIGIOUS"],
     researchPriority: 2
+  },
+  {
+    id: "nelstar-services-online",
+    name: "Nelstar Services Inc.",
+    region: "USA",
+    location: "Tienda en linea de Estados Unidos",
+    website: "https://www.auctions609.com/",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["herramientas de santo", "soperas", "elekes y cuentas", "productos Ifa", "hierbas y palos", "libros en espanol"],
+    strengths: ["catalogo Lucumi/Santeria especializado", "declara abastecimiento mayorista desde 2003", "inventario para botanicas y revendedores"],
+    sourceEvidence: ["https://www.auctions609.com/blogs/news/best-wholesale-religious-supplies-botanicas", "https://www.auctions609.com/pages/contact-us"],
+    contacts: [{ label: "Contacto comercial", value: "Formulario y canales oficiales", href: "https://www.auctions609.com/pages/contact-us" }],
+    sourcingPolicy: "CORE_RELIGIOUS",
+    secondarySourcingPolicies: ["PALO"],
+    researchPriority: 1
+  },
+  {
+    id: "original-publications-wholesale-new-york",
+    name: "Original Publications Wholesale",
+    region: "USA",
+    location: "New York, Estados Unidos / envios internacionales",
+    website: "https://www.originalpublicationsw.com/",
+    wholesale: true,
+    status: "VERIFIED_PUBLIC",
+    categories: ["libros Santeria", "libros Ifa y Yoruba", "titulos Lucumi", "libros en espanol", "material educativo"],
+    strengths: ["precios mayoristas publicados", "ISBN y precio por titulo", "plazos domesticos e internacionales publicados"],
+    sourceEvidence: ["https://www.originalpublicationsw.com/seofafdi.html", "https://www.originalpublicationsw.com/santeria-ifa-yoruba-voodoo.html"],
+    contacts: [
+      { label: "Telefono USA", value: "+1 (888) 622-8581", href: "tel:+18886228581" },
+      { label: "Fuera de USA", value: "+1 (516) 605-0547", href: "tel:+15166050547" }
+    ],
+    sourcingPolicy: "CORE_RELIGIOUS",
+    researchPriority: 1
   },
   {
     id: "mas-alla-usa",
@@ -289,6 +344,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     strengths: ["B2B wholesale only", "$100 minimum publicly stated", "broad botanica/metaphysical inventory"],
     sourceEvidence: ["https://www.babonsono.com/", "https://www.babonsono.com/products", "https://www.babonsono.com/about-us"],
     sourcingPolicy: "GENERAL_SUPPORT",
+    secondarySourcingPolicies: ["CORE_RELIGIOUS"],
     researchPriority: 2
   },
   {
@@ -319,6 +375,24 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     contacts: [
       { label: "Telefono / WhatsApp", value: "+234 815 779 7017", href: "https://wa.me/2348157797017" },
       { label: "Tienda y pedidos", value: "Contacto en linea", href: "https://www.getabetterlifetv.com/" }
+    ],
+    sourcingPolicy: "NIGERIA_YORUBA",
+    researchPriority: 1
+  },
+  {
+    id: "ogunda-onisese-osogbo",
+    name: "Ogunda Onisese Ifa Temple / Ifakemi Store",
+    region: "NIGERIA",
+    location: "Osogbo, Osun State / Ikorodu, Lagos State, Nigeria",
+    website: "https://www.ogundaonisese.com/coming-soon-02",
+    wholesale: false,
+    status: "REQUIRES_CONTACT",
+    categories: ["productos Ifa", "productos Yoruba cultivados", "articulos botanica", "materiales Isese", "pedidos especiales"],
+    strengths: ["fuente directa en Nigeria", "declara fabricar y cultivar sus productos", "contacto comercial publico"],
+    sourceEvidence: ["https://www.ogundaonisese.com/coming-soon-02"],
+    contacts: [
+      { label: "Telefono", value: "+234 803 381 2886", href: "https://wa.me/2348033812886" },
+      { label: "Correo", value: "Ogundaonisesetemple@gmail.com", href: "mailto:Ogundaonisesetemple@gmail.com" }
     ],
     sourcingPolicy: "NIGERIA_YORUBA",
     researchPriority: 1
@@ -403,6 +477,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     strengths: ["South Florida storefront", "public wholesale offer", "Spanish-language sales"],
     sourceEvidence: ["https://www.botanica8.com/nosotros"],
     sourcingPolicy: "GENERAL_SUPPORT",
+    secondarySourcingPolicies: ["CORE_RELIGIOUS"],
     researchPriority: 2
   },
   {
@@ -604,7 +679,14 @@ export function getBotanicaSuppliersByPriority(priority: 1 | 2 | 3) {
 }
 
 export function getBotanicaSuppliersByPolicy(policy: BotanicaSupplier["sourcingPolicy"]) {
-  return BOTANICA_SUPPLIERS.filter((supplier) => supplier.sourcingPolicy === policy);
+  return BOTANICA_SUPPLIERS.filter((supplier) => hasBotanicaSupplierPolicy(supplier, policy));
+}
+
+export function hasBotanicaSupplierPolicy(
+  supplier: BotanicaSupplier,
+  policy: BotanicaSupplier["sourcingPolicy"]
+) {
+  return supplier.sourcingPolicy === policy || supplier.secondarySourcingPolicies?.includes(policy) === true;
 }
 
 export function getBotanicaSuppliersByRegion(region: BotanicaSupplierRegion) {

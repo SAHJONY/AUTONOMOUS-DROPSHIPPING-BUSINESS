@@ -1,7 +1,7 @@
 "use client";
 import { useEffect,useState } from "react";
 import styles from "../owner.module.css";
-import { BOTANICA_SUPPLIERS } from "@/lib/botanica-supplier-registry";
+import { BOTANICA_SUPPLIERS, hasBotanicaSupplierPolicy } from "@/lib/botanica-supplier-registry";
 
 type Book={title:string;author:string;category:string;language:string;price:string;stock:string;source:string;url:string;descriptionES:string;descriptionEN:string;rights:string};
 type MaterialGroup={category:string;gate:string;items:string[]};
@@ -39,7 +39,7 @@ const resellerPrograms=[
 ];
 
 const supplierSections=[
- {title:"Santeria cubana, Lucumi y Regla de Ocha",detail:"Mayoristas y especialistas con catalogos publicos para herramientas, soperas, cuentas, coronas y articulos religiosos.",suppliers:BOTANICA_SUPPLIERS.filter(s=>s.sourcingPolicy==="CORE_RELIGIOUS")},
+ {title:"Santeria cubana, Lucumi y Regla de Ocha",detail:"Mayoristas y especialistas con catalogos publicos para herramientas, soperas, cuentas, coronas, literatura y articulos religiosos.",suppliers:BOTANICA_SUPPLIERS.filter(s=>hasBotanicaSupplierPolicy(s,"CORE_RELIGIOUS"))},
  {title:"Ifa y Yoruba · puentes comerciales en EE. UU.",detail:"Importadores y proveedores estadounidenses que conectan con inventario Yoruba y de Africa occidental.",suppliers:BOTANICA_SUPPLIERS.filter(s=>s.sourcingPolicy==="NIGERIA_YORUBA"&&s.region!=="NIGERIA")},
  {title:"Nigeria · abastecimiento directo",detail:"Fuentes nigerianas para desarrollar relaciones directas. Cada articulo requiere procedencia, tradicion prevista, exportabilidad y revision de materiales.",suppliers:BOTANICA_SUPPLIERS.filter(s=>s.region==="NIGERIA")},
  {title:"Palo Monte y tradiciones afrocubanas",detail:"Fuentes con catalogos Palo explicitos. Palo religioso no se confunde con madera de palo santo; no se publica ningun articulo sin validar procedencia y uso.",suppliers:BOTANICA_SUPPLIERS.filter(s=>s.sourcingPolicy==="PALO")},
