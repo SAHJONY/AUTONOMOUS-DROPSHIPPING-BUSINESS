@@ -5,11 +5,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  if (!CRON_SECRET || req.headers.get("authorization") !== `Bearer ${CRON_SECRET}`) {
+  const telegramSecret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
+  const cronAuthorized = Boolean(CRON_SECRET) && req.headers.get("authorization") === `Bearer ${CRON_SECRET}`;
+  const telegramAuthorized = Boolean(telegramSecret) &&
+    req.headers.get("x-telegram-bot-api-secret-token") === telegramSecret;
+  if (!cronAuthorized && !telegramAuthorized) {
     return error("Not authorized.", 401);
   }
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
+  const secret = telegramSecret;
   if (!token || !secret) return error("Telegram webhook configuration is incomplete.", 503);
 
   const webhookUrl = `${PUBLIC_BASE_URL.replace(/\/$/, "")}/api/webhooks/telegram`;
