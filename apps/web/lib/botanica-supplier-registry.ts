@@ -309,7 +309,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     id: "get-a-better-life-tv-akure",
     name: "Get a Better Life TV Isese Bookshop & Divination/Spiritual Items Store",
     region: "NIGERIA",
-    location: "Akure, Ondo State, Nigeria",
+    location: "Oyemekun Road, Near Road Block, Akure 340110, Ondo State, Nigeria",
     website: "https://www.getabetterlifetv.com/",
     wholesale: false,
     status: "REQUIRES_CONTACT",
@@ -336,6 +336,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     sourceEvidence: ["https://okinifatemple.com.ng/"],
     contacts: [
       { label: "WhatsApp", value: "+234 916 503 5248", href: "https://wa.me/2349165035248" },
+      { label: "Contacto", value: "Adifala Ifadamilare", href: "https://okinifatemple.com.ng/#contact" },
       { label: "Formulario", value: "Contacto directo", href: "https://okinifatemple.com.ng/#contact" }
     ],
     sourcingPolicy: "NIGERIA_YORUBA",
@@ -370,6 +371,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     contacts: [
       { label: "WhatsApp mayorista", value: "+234 813 506 2094", href: "https://wa.me/2348135062094" },
       { label: "Correo mayorista", value: "bykessy1@gmail.com", href: "mailto:bykessy1@gmail.com" },
+      { label: "Instagram", value: "@bykessy__", href: "https://www.instagram.com/bykessy__/" },
       { label: "Formulario", value: "Pedidos personalizados", href: "https://bykessy.com/pages/contact" }
     ],
     sourcingPolicy: "CUSTOM_MANUFACTURING",
@@ -533,7 +535,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     id: "copiam-consumer-india",
     name: "Copiam Consumer Care",
     region: "INTERNATIONAL",
-    location: "Mumbai, Maharashtra, India",
+    location: "D.N. Nagar, Moongipa Arcade, Andheri West, Mumbai 400053, Maharashtra, India",
     website: "https://www.copiamconsumer.com/",
     wholesale: true,
     status: "REQUIRES_CONTACT",
@@ -551,7 +553,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     id: "devini-llp-india",
     name: "Devini LLP",
     region: "INTERNATIONAL",
-    location: "Pitampura, Delhi, India",
+    location: "88 Apna Ghar Society, Pitampura, Delhi 110034, India",
     website: "https://www.trademo.com/companies/monzon-brothers-ii/3810816",
     wholesale: true,
     status: "REQUIRES_CONTACT",
@@ -566,7 +568,7 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     id: "china-western-hk",
     name: "China Western HK Co. Limited",
     region: "INTERNATIONAL",
-    location: "Hong Kong / China",
+    location: "12/F San Toi Building, 137-139 Connaught Road Central, Hong Kong / China",
     website: "https://www.pietrastudio.com/sourcing/suppliers/china-western-hk-co-ltd-ar3o",
     wholesale: true,
     status: "REQUIRES_CONTACT",
@@ -581,14 +583,17 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     id: "shiva-creations-india",
     name: "Shiva Creations",
     region: "INTERNATIONAL",
-    location: "Jodhpur, Rajasthan, India",
+    location: "H-78, Shastri Nagar, Jodhpur, Rajasthan 342001, India",
     website: "https://www.exportersindia.com/shivacreations/about-us.htm",
     wholesale: true,
     status: "REQUIRES_CONTACT",
     categories: ["artesanias", "madera", "muebles y piezas personalizadas", "fabricacion para exportacion"],
     strengths: ["fabricante/exportador", "proveedor aduanero historico de Monzon Brothers", "formulario de consulta comercial"],
     sourceEvidence: ["https://importkey.com/i/monzon-brothers-ii", "https://www.exportersindia.com/shivacreations/about-us.htm"],
-    contacts: [{ label: "Consulta comercial", value: "Formulario ExportersIndia", href: "https://www.exportersindia.com/shivacreations/about-us.htm" }],
+    contacts: [
+      { label: "Contacto comercial", value: "Pradeep", href: "https://www.exportersindia.com/shivacreations/about-us.htm" },
+      { label: "Consulta comercial", value: "Formulario ExportersIndia", href: "https://www.exportersindia.com/shivacreations/about-us.htm" }
+    ],
     sourcingPolicy: "CUSTOM_MANUFACTURING",
     researchPriority: 2
   }

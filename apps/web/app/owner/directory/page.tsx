@@ -55,8 +55,10 @@ export default function OwnerDirectoryPage() {
       const current=byWebsite.get(s.website.toLowerCase());
       const phone=s.contacts?.find(c=>c.href.startsWith("tel:")||c.href.includes("wa.me"))?.value??"";
       const email=s.contacts?.find(c=>c.href.startsWith("mailto:"))?.value??"";
-      const supplierNotes=`${s.categories.join(" · ")}\n${s.strengths.join(" · ")}`;
-      return current?{...current,phone:current.phone||phone,email:current.email||email,location:current.location||s.location,notes:current.notes||supplierNotes,updatedAt:now}:{id:crypto.randomUUID(),name:s.name,organization:s.name,category:s.region==="INTERNATIONAL"?"Importador":s.sourcingPolicy==="CUSTOM_MANUFACTURING"?"Fabricante":"Proveedor",phone,email,website:s.website,location:s.location,notes:supplierNotes,favorite:s.researchPriority===1,updatedAt:now};
+      const contactNotes=s.contacts?.map(contact=>`${contact.label}: ${contact.value} — ${contact.href}`).join("\n")??"";
+      const supplierNotes=`${s.categories.join(" · ")}\n${s.strengths.join(" · ")}${contactNotes?`\n\nContactos comerciales:\n${contactNotes}`:""}`;
+      const refreshedNotes=current?.notes&&!current.notes.includes("Contactos comerciales:")&&contactNotes?`${current.notes}\n\nContactos comerciales:\n${contactNotes}`:current?.notes||supplierNotes;
+      return current?{...current,phone:current.phone||phone,email:current.email||email,location:s.location,notes:refreshedNotes,updatedAt:now}:{id:crypto.randomUUID(),name:s.name,organization:s.name,category:s.region==="INTERNATIONAL"?"Importador":s.sourcingPolicy==="CUSTOM_MANUFACTURING"?"Fabricante":"Proveedor",phone,email,website:s.website,location:s.location,notes:supplierNotes,favorite:s.researchPriority===1,updatedAt:now};
     });
     const supplierWebsites=new Set(BOTANICA_SUPPLIERS.map(s=>s.website.toLowerCase()));
     persist([...entries.filter(entry=>!supplierWebsites.has(entry.website.toLowerCase())),...imported]);
