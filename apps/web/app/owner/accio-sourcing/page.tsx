@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ACCIO_OWNER_RULES, assessAccioCandidate, type AccioCandidate } from "@/lib/accio-sourcing";
+import { parseAccioQuote } from "@/lib/accio-quote-parser";
 import styles from "../owner.module.css";
 
 const blank: AccioCandidate = {
@@ -37,15 +38,36 @@ const routeCopy: Record<string, { title: string; note: string }> = {
 
 export default function AccioSourcingPage() {
   const [input, setInput] = useState(blank), [ready, setReady] = useState(false), [authorized, setAuthorized] = useState(false);
+  const [paste, setPaste] = useState(""), [parseNote, setParseNote] = useState<{ found: string[]; warnings: string[] } | null>(null);
   useEffect(() => { setAuthorized(Boolean(localStorage.getItem("commerce_os_token") && localStorage.getItem("commerce_os_org"))); setReady(true); }, []);
   const result = useMemo(() => assessAccioCandidate(input), [input]);
   const copy = routeCopy[result.route];
+
+  // A blank form is not a failing quote. Judge nothing until there is a quote.
+  const started = input.wholesalePrice > 0 || String(input.supplierName ?? "").trim().length > 0;
+
+  const fillFromPaste = () => {
+    const parsed = parseAccioQuote(paste);
+    setInput(current => ({ ...current, ...parsed.fields }));
+    setParseNote({ found: parsed.found, warnings: parsed.warnings });
+  };
 
   if (!ready) return <main className={styles.shell}><div className={styles.content}><div className={styles.result}>Verificando acceso Owner…</div></div></main>;
   if (!authorized) return <main className={styles.shell}><div className={styles.content}><div className={styles.error}><strong>Acceso privado requerido.</strong><p>Inicia sesión como propietario.</p><a className={styles.primary} href="/owner/login">Iniciar sesión</a></div></div></main>;
 
   return <main className={styles.shell}><nav className={styles.nav}><a className={styles.brand} href="/owner"><span className={styles.mark}>O</span><span className={styles.brandText}><strong>BOTANICA</strong><small>OCHOSI</small></span></a><div className={styles.navLinks}><a className={styles.ghost} href="/owner/supplier-catalogs">Catálogos</a><a className={styles.primary} href="/owner">Owner OS</a></div></nav><div className={styles.content}>
     <section className={styles.hero}><div className={styles.kicker}>ABASTECIMIENTO ACCIO · OWNER</div><h1>Cotizaciones de <em>Accio Work.</em></h1><p>Accio Work es una aplicación de escritorio que tú operas: busca proveedores en Alibaba, envía consultas y consolida cotizaciones. No tiene API de servidor, así que nada aquí se conecta a Accio. Pega la cotización que traes y decide qué significa para este negocio.</p></section>
+
+    <section className={styles.section}><div className={styles.card}>
+      <h2>Pega la respuesta de Accio</h2>
+      <p>Copia la fila o el párrafo tal como lo escribió Accio. Se extraen precio, MOQ, flete, plazo y muestra; los rangos se toman por el extremo caro. Las verificaciones siguen siendo tuyas.</p>
+      <textarea className={styles.input} rows={4} value={paste} placeholder="| Opon Ifá — Large | Qianmu Wood | ~$2.33–3.50 | MOQ 10 | $25–35 (Air) | 32 Days | Sample ~$30 | https://…" onChange={event => setPaste(event.target.value)} />
+      <button className={styles.primary} onClick={fillFromPaste} disabled={!paste.trim()}>Rellenar desde el texto</button>
+      {parseNote && <div className={parseNote.found.length > 0 ? styles.result : styles.error}>
+        {parseNote.found.length > 0 ? <><strong>Campos extraídos:</strong> {parseNote.found.join(", ")}.</> : <strong>No se reconoció ningún dato en ese texto.</strong>}
+        {parseNote.warnings.length > 0 && <ul>{parseNote.warnings.map(w => <li key={w}>{w}</li>)}</ul>}
+      </div>}
+    </div></section>
 
     <section className={styles.section}><div className={styles.card}><div className={styles.form}>
       {texts.map(([key, label, placeholder]) => <label key={key}>{label}<input className={styles.input} type="text" placeholder={placeholder} value={String(input[key] ?? "")} onChange={event => setInput({ ...input, [key]: event.target.value })} /></label>)}
@@ -58,7 +80,9 @@ export default function AccioSourcingPage() {
       <label>Verifiqué esta cotización en el perfil del proveedor<select className={styles.input} value={input.ownerVerifiedQuote ? "yes" : "no"} onChange={event => setInput({ ...input, ownerVerifiedQuote: event.target.value === "yes" })}><option value="no">No</option><option value="yes">Sí</option></select></label>
     </div></div></section>
 
-    <div className={result.route === "ORDER_FUNDED" ? styles.result : styles.error}><strong>{copy.title}.</strong> {copy.note}</div>
+    {started
+      ? <div className={result.route === "ORDER_FUNDED" ? styles.result : styles.error}><strong>{copy.title}.</strong> {copy.note}</div>
+      : <div className={styles.result}><strong>Esperando una cotización.</strong> Pega el texto de Accio arriba o escribe el precio y el proveedor. La evaluación aparece en cuanto haya datos.</div>}
 
     <section className={styles.metricGrid}>
       <Metric label="Costo puesto en almacén" value={result.landedUnitCostUsd} />
@@ -69,14 +93,14 @@ export default function AccioSourcingPage() {
       <Metric label="Utilidad del lote" value={result.retailProfitPerSupplierOrderUsd} />
     </section>
 
-    {result.route === "INVENTORY_REQUIRED" && <section className={styles.metricGrid}>
+    {started && result.route === "INVENTORY_REQUIRED" && <section className={styles.metricGrid}>
       <Metric label="Unidades para recuperar capital" value={result.unitsToRecoverCapital} raw />
       <Metric label="Venta necesaria del lote" value={result.breakEvenSellThroughPercent} percent />
       <Metric label="Plazo total (días)" value={result.totalDays} raw />
     </section>}
 
-    {result.disqualifiers.length > 0 && <section className={styles.section}><div className={styles.card}><h2>Puntos a resolver</h2><ul>{result.disqualifiers.map(item => <li key={item}>{item}</li>)}</ul></div></section>}
-    {result.actions.length > 0 && <section className={styles.section}><div className={styles.card}><h2>Siguientes pasos</h2><ul>{result.actions.map(item => <li key={item}>{item}</li>)}</ul></div></section>}
+    {started && result.disqualifiers.length > 0 && <section className={styles.section}><div className={styles.card}><h2>Puntos a resolver</h2><ul>{result.disqualifiers.map(item => <li key={item}>{item}</li>)}</ul></div></section>}
+    {started && result.actions.length > 0 && <section className={styles.section}><div className={styles.card}><h2>Siguientes pasos</h2><ul>{result.actions.map(item => <li key={item}>{item}</li>)}</ul></div></section>}
 
     <section className={styles.section}><div className={styles.card}><h2>Reglas de operación con Accio</h2><ul>{ACCIO_OWNER_RULES.map(rule => <li key={rule}>{rule}</li>)}</ul></div></section>
   </div></main>;
