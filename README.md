@@ -2,7 +2,7 @@
 
 An autonomous AI dropshipping operator that runs a **complete** business — not just the shopfront.
 
-A **Claude Fable 5** CEO agent coordinates seven specialists (product hunting, suppliers,
+An **OpenAI Codex** CEO agent coordinates seven specialists (product hunting, suppliers,
 store building, marketing, advertising, finance, customer support). They discover and score
 products, publish them to a real Shopify store, and then run the half of the business that
 actually earns money: **taking orders, buying the goods from the supplier, shipping them with real
@@ -97,7 +97,7 @@ user, product, run, and approval across the platform, surfaced in the dashboard'
 ```
 apps/
   web/   Next.js 15 full-stack app — the production product. Route handlers under
-         app/api/* implement auth, orgs, the Fable 5 agent brain, product scoring,
+         app/api/* implement auth, orgs, the Codex agent brain, product scoring,
          orders, fulfillment, the accounting ledger, approvals, business memory,
          dashboard, owner god-mode, webhooks, and the crons.
          Business logic lives in apps/web/lib/*; tests in apps/web/tests/*.
@@ -124,7 +124,7 @@ vercel.json          Vercel build + cron configuration.
 ## Architecture (Vercel-native)
 
 ```
-                 CLAUDE FABLE 5  ── the brain & engine (lib/brain.ts)
+                  OPENAI CODEX  ── the brain & engine (lib/brain.ts)
                         │  manual agentic loop, approval-gated
         ┌───────────────┴───────────────────────────────────────┐
         │        │        │        │        │        │        │
@@ -159,15 +159,22 @@ Key design decisions:
   trend 15%, risk 10%. Only products scoring **85+** are launch-ready.
 - **Business memory** (`lib/store.ts`): agents persist learnings and reports per organization and
   recall them in later runs — the operation compounds.
-- **Graceful degradation**: with no `ANTHROPIC_API_KEY` the brain runs in deterministic
+- **Graceful degradation**: with no `OPENAI_API_KEY` the brain runs in deterministic
   **simulation mode**, so the platform is fully usable out of the box; set the key to go live.
   Without webhook configuration, orders are still collected by the polling sync on each cron pass.
 
 ## Deploy on Vercel
 
+Two guides cover setup in detail:
+
+- **[docs/FREE_TIER_GO_LIVE.md](docs/FREE_TIER_GO_LIVE.md)** — taking the deployment to zero
+  readiness blockers without paying for infrastructure, and what genuinely cannot be free.
+- **[docs/ACCIO_SOURCING.md](docs/ACCIO_SOURCING.md)** — using Alibaba's Accio Work desktop agent
+  as an owner-operated sourcing tool, and why it is not (and cannot be) a server integration.
+
 1. Import the repo (Vercel auto-detects the config in `vercel.json`).
 2. Set environment variables (see `.env.example`):
-   - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL=claude-fable-5` — activate the live brain.
+   - `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-5.6` — activate the live brain.
    - `JWT_SECRET` — a long random string.
    - `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` — durable 24/7 storage
      (Vercel's Upstash marketplace integration also provides `KV_REST_API_URL/TOKEN`).
@@ -215,9 +222,120 @@ product_hunter → supplier → store_builder → marketing → advertising → 
 spend stays bounded to one agent per tick rather than eight.
 
 Deterministic work that needs no model runs on **every** tick, before any agent: fulfillment of paid
-orders, supplier sourcing when stock is thin, autopilot approvals within safe thresholds, and
-publishing everything launch-ready. So customers get their packages and the storefront keeps
+orders, supplier sourcing when stock is thin, competitor re-pricing against public listings, the
+current projection filed into business memory, the standing intelligence sweep, autopilot approvals
+within safe thresholds, and publishing everything launch-ready. So customers get their packages and the storefront keeps
 stocking itself even if the engine is unreachable or an agent shift fails.
+
+### The standing intelligence sweep
+
+The registries and sourcing matrices in this repo were built as things the owner consults, which
+means they are only as fresh as the last time somebody remembered to look. Every tick
+(`lib/intelligence.ts`) now joins the 25-SKU sourcing basket against the live catalog and works out
+what is genuinely not covered — ranked P1 first, each gap carrying its next action and its missing
+evidence — then files the brief into business memory as `intelligence:assortment-gap`.
+
+The agent on duty receives the headline numbers as task context, so a shift starts from the real
+worklist instead of spending its budget rediscovering what the catalog is already missing. A healthy
+catalog adds no tokens: the briefing is empty when the sweep has nothing to say.
+
+`GET /api/orgs/{org}/intelligence` returns the same gap on demand.
+
+The one paid lookup — NBD customs/trade data — fires only for a supplier the org has **no** trade
+profile for yet, and files what it finds under `trade:{supplier}`. Research is something you finish,
+so in the steady state this makes zero calls. It is skipped entirely without `NBD_RAPIDAPI_KEY`, and
+`AUTONOMY_TRADE_LOOKUPS=0` disables it outright.
+
+### Finding suppliers nobody told it about
+
+The sweep knows what is missing; `lib/supplier-discovery.ts` goes looking for someone who can supply
+it. Each unmet gap becomes a web search, the results are filtered down to plausible suppliers, and
+what survives is filed under `supplier-candidate:{host}` for the shift on duty and the owner.
+
+- **The niche gate is fail-closed.** A query is built from the gap's *lane*, which fixes the
+  religious tradition, then asserted against `botanica-policy`. A query that cannot be shown to
+  target Botanica/Lucumi/Orisha merchandise is never run.
+- **All four supply-chain tiers are hunted and classified.** Manufacturers, distributors,
+  wholesalers and resellers each get asked for in the words those businesses use about themselves,
+  in English and Spanish. Where a candidate sits in the chain is what ranks it — a manufacturer
+  sells at the lowest cost and can private-label, a reseller is the thinnest margin of the four —
+  and when a page claims several, the strongest one wins, because a factory that also says
+  "wholesale" is still a factory. Resellers are ranked last, never filtered out.
+- **Consumer marketplaces are rejected, not ranked down.** Amazon, Etsy, AliExpress listings and
+  social results are not suppliers to onboard, whatever tier they claim. Niche relevance is the
+  price of entry.
+- **Only HTTPS public hosts.** Private and loopback addresses are refused, reusing the same
+  guard as the competitor scanner.
+- **It converges.** A host already on file is never searched for again, so spend falls to nothing
+  once the bench is built.
+
+The tier hunted **rotates by UTC hour**, the same trick the agent shift rotation uses: the whole
+supply chain is covered across a day without four times the query spend.
+
+| Tier | Why it ranks there |
+|---|---|
+| `MANUFACTURER` | Lowest cost, and the only tier that can private-label |
+| `DISTRIBUTOR` | Breadth of catalog, one step from the source |
+| `WHOLESALER` | The MOQ-friendly middle |
+| `RESELLER` | Thinnest margin, but still a real route to stock |
+
+Every candidate is an unverified web result. Nothing discovered is a vetted supplier and none of it
+authorizes a purchase — `GET /api/orgs/{org}/supplier-discovery` returns the list with that notice
+attached, and runs no searches itself.
+
+#### Search costs, and the brake
+
+Discovery is **off** until you configure a provider, and neither available provider caps your
+spending — so this module keeps its own hard ceiling.
+
+| Provider | Reality as of August 2026 |
+|---|---|
+| `BRAVE_SEARCH_API_KEY` | Free tier ended February 2026. $5 per 1,000 queries past a $5 monthly credit, **billed with no spending cap** |
+| `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_ID` | Still 100 queries/day free, but **closed to new customers** and retiring January 1, 2027 |
+
+`SUPPLIER_DISCOVERY_DAILY_BUDGET` (default **50**) is a platform-wide ceiling on paid queries per UTC
+day, counted in the KV store and enforced before every request. `SUPPLIER_DISCOVERY_QUERIES_PER_TICK`
+(default 2) bounds one org's share. Either set to `0` disables discovery outright. On the default
+budget with Brave, the worst case is roughly **$0.25/day**; on Google CSE it stays inside the free
+100/day.
+
+### Accio Work, plugged in
+
+Autonomous discovery costs money because web search does. The free alternative is to let Accio Work
+— Alibaba's desktop sourcing agent — do the searching instead, on its own free tier.
+
+Accio has no server API, but it is an **MCP client**, so the integration runs backwards from the
+obvious direction: this app publishes an MCP server at `/api/mcp` and Accio connects to it from the
+desktop. It pulls the sourcing gap, goes and finds suppliers, and files them back.
+
+| Tool | What it does |
+|---|---|
+| `get_sourcing_gap` | The SKUs still needing a supplier, P1 first |
+| `list_supplier_candidates` | What is already on file, so nothing is researched twice |
+| `submit_supplier_candidate` | Files a supplier Accio found — tier-classified and scored |
+| `classify_supplier_tier` | Manufacturer / distributor / wholesaler / reseller |
+| `assess_supplier_quote` | ORDER_FUNDED, INVENTORY_REQUIRED (capital named), or REJECTED |
+
+**No tool on that surface moves money or reaches a customer** — the six approval-gated actions stay
+inside the agent brain where an outside client cannot reach them, and `tests/mcp.test.ts` pins the
+exposed list so adding a money-moving tool fails CI. Submitted candidates go through the same
+fail-closed niche filter as autonomous discovery, and `assess_supplier_quote` always reports owner
+verification as outstanding — an external client cannot attest on the owner's behalf.
+
+Fail-closed like the crons: `MCP_ACCESS_TOKEN` and `MCP_ORG_ID` must both be set or the endpoint
+returns `503`. Setup is in [docs/ACCIO_SOURCING.md](docs/ACCIO_SOURCING.md).
+
+### The loop refuses to trade on an unfit deployment
+
+Autonomy multiplies whatever the deployment already is. On the in-memory fallback that means buying
+goods against books that silently reset; on the default `JWT_SECRET` it means doing so on a
+deployment anyone can sign into as the owner. A human pressing **✦ Fulfill now** sees those warnings
+on the deck — a cron at 3am does not.
+
+So the loop checks for itself. While either blocker stands, the money-moving steps — fulfillment,
+autopilot approvals and publishing — are held back and reported as `held_for_readiness`, on the tick,
+on both crons (`423`), and on `GET /api/health`. Read-only intelligence still runs, because it costs
+nothing. Clear the blockers and the same code starts trading with no further change.
 
 | Control | Effect |
 |---|---|
@@ -225,10 +343,13 @@ stocking itself even if the engine is unreachable or an agent shift fails.
 | `?all=1` | Run the entire roster in one tick |
 | `?agent=marketing,finance` | Run specific agents |
 | `?include_idle=1` | Also advance orgs with no integrations and no catalog |
-| `GET /api/health` | Live status: engine, storage durability, roster, who is on duty |
+| `POST /api/mcp` | MCP server for Accio Work and other desktop MCP clients (token-secured) |
+| `GET /api/health` | Live status: engine, storage durability, roster, who is on duty, whether money-moving work is enabled |
 
 Tuning: `AUTONOMY_MAX_ORGS` (default 25) bounds orgs advanced per tick; `AUTONOMY_DEADLINE_MS`
-(default 240000) stops new work before the function time limit.
+(default 240000) stops new work before the function time limit; `AUTONOMY_COMPETITOR_SCAN_LIMIT`
+(default 10) bounds competitor listings re-priced per org per tick; `AUTONOMY_TRADE_LOOKUPS`
+(default 2) bounds paid trade lookups per org per tick.
 
 ### Getting a true 24/7 cadence on the Hobby plan
 
@@ -274,6 +395,8 @@ Without any env vars the app boots in simulation + in-memory mode. Add `.env.loc
 | `POST /api/orgs/{org}/orders/sync` | Pull orders from Shopify, or run a full fulfillment cycle |
 | `GET /api/orgs/{org}/pnl` | Real P&L across five windows, the ledger, and per-product performance |
 | `GET /api/orgs/{org}/readiness` | Go-live preflight (owner/admin) |
+| `GET /api/orgs/{org}/intelligence` | Current assortment gap against the sourcing basket |
+| `GET /api/orgs/{org}/supplier-discovery` | Supplier candidates found on the open web, counted by tier; `?tier=MANUFACTURER` filters (owner-only) |
 | `POST /api/webhooks/shopify/{topic}` | HMAC-verified order feed (orders, cancellations, refunds) |
 | `GET /api/orgs/{org}/dashboard` | Metrics summary |
 | `GET /api/orgs/{org}/memory` | Business memory |

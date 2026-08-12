@@ -42,6 +42,28 @@ export interface ReadinessFacts {
   autoFulfillEnabled: boolean;
 }
 
+/**
+ * The subset of readiness that decides whether *unattended* work may touch
+ * money or customers.
+ *
+ * Autonomy multiplies whatever the deployment already is. On the in-memory
+ * fallback that means buying goods against books that will silently reset, and
+ * on the default signing key it means doing so on a deployment anyone can log
+ * into as the owner. A human pressing the button can see the warning on the
+ * deck; a cron at 3am cannot. So the loop checks this itself and skips the
+ * money-moving steps rather than trusting the operator to have read the
+ * checklist first.
+ *
+ * Read-only and advisory work is unaffected — it costs nothing and is not
+ * destructive.
+ */
+export function assessAutonomySafety(f: Pick<ReadinessFacts, "storageMode" | "jwtSecretIsDefault">) {
+  const blockers: string[] = [];
+  if (f.storageMode !== "upstash") blockers.push("Almacenamiento en memoria: los pedidos y el libro contable se pierden en el próximo arranque en frío.");
+  if (f.jwtSecretIsDefault) blockers.push("JWT_SECRET sigue siendo el valor por defecto, que es público en el código fuente.");
+  return { safe: blockers.length === 0, blockers };
+}
+
 export function assessReadiness(f: ReadinessFacts): Readiness {
   const checks: ReadinessCheck[] = [];
 

@@ -9,7 +9,14 @@
 import { autoApprovePending, runAgent } from "./brain";
 import { runBotanicaCatalogCouncil } from "./botanica-council";
 import { BOTANICA_AGENT_DIRECTIVE } from "./botanica-policy";
+import { scanCompetitorPricesForOrg } from "./competitor-price-monitor";
+import { JWT_SECRET } from "./config";
+import { buildForecast } from "./forecast";
 import { runFulfillmentCycle } from "./fulfillment";
+import { STORAGE_MODE } from "./kv";
+import { runIntelligenceSweep } from "./intelligence";
+import { getPnl } from "./ledger";
+import { assessAutonomySafety } from "./readiness";
 import {
   autoPublishReady,
   autonomousSource,
@@ -17,7 +24,19 @@ import {
   getShopifyCreds,
   listAllOrgs,
   listProducts,
+  remember,
 } from "./store";
+
+/** The default baked into config.ts — public in the source, so unusable in production. */
+const DEFAULT_JWT_SECRET = "change-me-in-production-commerce-os";
+
+/** Whether this deployment is fit for unattended money-moving work, right now. */
+export function autonomySafety() {
+  return assessAutonomySafety({ storageMode: STORAGE_MODE, jwtSecretIsDefault: JWT_SECRET === DEFAULT_JWT_SECRET });
+}
+
+/** How many competitor listings one org may re-price per tick. */
+const COMPETITOR_SCAN_LIMIT = Number(process.env.AUTONOMY_COMPETITOR_SCAN_LIMIT ?? 10);
 
 /** Max organizations advanced per tick — bounds cost on a busy platform. */
 export const MAX_ORGS_PER_TICK = Number(process.env.AUTONOMY_MAX_ORGS ?? 25);
@@ -126,7 +145,64 @@ export interface OrgTickResult {
   council?: Awaited<ReturnType<typeof runBotanicaCatalogCouncil>>;
   auto_approved?: number;
   auto_published?: number;
+  competitor_scan?: Awaited<ReturnType<typeof scanCompetitorPricesForOrg>>;
+  forecast_recorded?: boolean;
+  intelligence?: { coverage_percent: number; p1_missing: number; researched: number; discovered: number; tier: string };
+  intelligence_error?: string;
+  /** Set when the deployment is unfit and money-moving steps were skipped. */
+  held_for_readiness?: string[];
   error?: string;
+}
+
+/**
+ * Deterministic intelligence that used to wait for a button press.
+ *
+ * None of it spends, publishes, or contacts anyone: it re-prices against public
+ * competitor listings, files the current projection into business memory, and
+ * sweeps the sourcing basket against the live catalog so the next agent shift
+ * reasons from live numbers and a real worklist instead of rediscovering them.
+ * Because it is harmless it runs even when the deployment is unfit to trade.
+ */
+async function runOrgIntelligence(orgId: string, result: OrgTickResult): Promise<void> {
+  try {
+    result.competitor_scan = await scanCompetitorPricesForOrg(orgId, COMPETITOR_SCAN_LIMIT);
+  } catch (e) {
+    result.competitor_scan = { scanned: 0, updated: 0, failed: 0, error: (e as Error).message } as never;
+  }
+  let products: Awaited<ReturnType<typeof listProducts>> = [];
+  try {
+    const [loaded, pnl] = await Promise.all([listProducts(orgId), getPnl(orgId, "90d")]);
+    products = loaded;
+    const forecast = buildForecast(products, pnl);
+    await remember(orgId, "forecast", JSON.stringify(forecast), "autonomy");
+    result.forecast_recorded = true;
+  } catch {
+    result.forecast_recorded = false;
+  }
+  try {
+    const brief = await runIntelligenceSweep(orgId, products);
+    result.intelligence = { coverage_percent: brief.assortment.coveragePercent, p1_missing: brief.assortment.p1Missing, researched: brief.trade.researched.length, discovered: brief.discovery.candidates.length, tier: brief.discovery.tier };
+  } catch (e) {
+    result.intelligence_error = (e as Error).message;
+  }
+}
+
+/**
+ * The sweep's findings as task context for the agent on duty. Empty when the
+ * sweep found nothing to say, so a healthy catalog adds no tokens.
+ */
+export function intelligenceBriefing(result: Pick<OrgTickResult, "intelligence" | "competitor_scan">): string {
+  const lines: string[] = [];
+  if (result.intelligence) {
+    const { coverage_percent, p1_missing, researched, discovered } = result.intelligence;
+    lines.push(`Cobertura de la cesta de sourcing: ${coverage_percent}%. Faltan ${p1_missing} SKU de prioridad P1.`);
+    if (researched > 0) lines.push(`Se investigaron ${researched} proveedores nuevos con datos de comercio; consulta la memoria con la clave "trade:".`);
+    if (discovered > 0) lines.push(`Se encontraron ${discovered} proveedores candidatos nuevos en la web (turno de búsqueda: ${result.intelligence.tier}); están en memoria con la clave "supplier-candidate:" y requieren verificación del propietario antes de cualquier compromiso. Prioriza fabricantes y distribuidores sobre revendedores.`);
+  }
+  const scan = result.competitor_scan;
+  if (scan && scan.updated > 0) lines.push(`Se actualizaron ${scan.updated} precios de competencia esta ronda.`);
+  if (lines.length === 0) return "";
+  return `\n\nBarrido de inteligencia de esta ronda (ya ejecutado, no lo repitas):\n${lines.map((line) => `- ${line}`).join("\n")}\nRecupera "intelligence:assortment-gap" en memoria para la lista completa de SKU faltantes antes de buscar candidatos nuevos.`;
 }
 
 /**
@@ -141,9 +217,12 @@ export async function runOrgShift(
   shifts: Shift[],
 ): Promise<OrgTickResult> {
   const result: OrgTickResult = { org: orgId, name: orgName };
+  const safety = autonomySafety();
+  if (!safety.safe) result.held_for_readiness = safety.blockers;
   try {
-    // 1. Ship what is already sold. Paid orders outrank everything else.
-    result.fulfillment = (await getShopifyCreds(orgId))
+    // 1. Ship what is already sold. Paid orders outrank everything else —
+    // unless the deployment cannot be trusted to remember that it shipped them.
+    result.fulfillment = safety.safe && (await getShopifyCreds(orgId))
       ? await runFulfillmentCycle(orgId)
       : null;
 
@@ -154,13 +233,19 @@ export async function runOrgShift(
       if (sourced.error) result.source_error = sourced.error;
     }
 
-    // 3. The agent(s) on duty, with explicit Botanica task context.
+    // 3. Deterministic intelligence, so the shift reasons from live numbers.
+    await runOrgIntelligence(orgId, result);
+
+    // 4. The agent(s) on duty, with explicit Botanica task context and the
+    // sweep's findings, so the shift starts from the real worklist rather than
+    // spending its budget rediscovering what the catalog is already missing.
     const agents: string[] = [];
+    const briefing = intelligenceBriefing(result);
     for (const shift of shifts) {
       const run = await runAgent({
         orgId,
         agentName: shift.agent,
-        task: `${BOTANICA_AGENT_DIRECTIVE}\n\n${shift.duty}`,
+        task: `${BOTANICA_AGENT_DIRECTIVE}\n\n${shift.duty}${briefing}`,
       });
       agents.push(shift.agent);
       result.run_id = run.id;
@@ -168,14 +253,17 @@ export async function runOrgShift(
     }
     result.agent = agents.join(", ");
 
-    // 4. Deterministic Council gate. Any launch candidate that lacks explicit
+    // 5. Deterministic Council gate. Any launch candidate that lacks explicit
     // Botanica relevance, supplier evidence, positive economics, margin floor,
     // or safe claims is moved back to analyzed before autonomous publishing.
     result.council = await runBotanicaCatalogCouncil(orgId);
 
-    // 5. Clear safe approvals, then publish only what remains launch-ready.
-    result.auto_approved = await autoApprovePending(orgId);
-    result.auto_published = await autoPublishReady(orgId);
+    // 6. Clear safe approvals, then publish only what remains launch-ready.
+    // Both execute real actions, so both wait for a deployment fit to trade.
+    if (safety.safe) {
+      result.auto_approved = await autoApprovePending(orgId);
+      result.auto_published = await autoPublishReady(orgId);
+    }
   } catch (e) {
     result.error = (e as Error).message;
   }
@@ -230,9 +318,13 @@ export async function runAutonomousTick(opts: TickOptions = {}) {
     results.push(await runOrgShift(org.id, org.name, roster));
   }
 
+  const safety = autonomySafety();
   return {
     ran: results.length,
     skipped_idle: skipped,
+    /** False when money-moving steps were held back this tick, and why. */
+    money_moving_enabled: safety.safe,
+    held_for_readiness: safety.safe ? undefined : safety.blockers,
     shift: roster.map((s) => s.agent),
     at: new Date().toISOString(),
     duration_ms: Date.now() - startedAt,
