@@ -11,17 +11,21 @@
  * works out what is genuinely not covered, and files the result into business
  * memory where the next agent shift recalls it.
  *
+ * It then goes looking for someone who can supply the gaps — see
+ * `supplier-discovery.ts`, which carries its own budget brake.
+ *
  * Two properties keep it cheap enough to run forever:
  *
  *  - The analysis is pure and deterministic — no model, no network.
- *  - The one paid lookup (NBD customs/trade data) only fires for a supplier the
- *    org has no trade profile for yet, and files what it finds. Research is
- *    something you finish, so in the steady state this makes zero calls.
+ *  - Every paid call converges. The NBD trade lookup fires only for a supplier
+ *    the org has no profile for yet, and discovery only for a host it has never
+ *    seen. Research is something you finish, so the steady state is zero calls.
  */
 import { getBotanicaFirst25SourcingMatrix } from "./botanica-first-25-sourcing-matrix";
 import { BOTANICA_FIRST_25_SKU_CANDIDATES } from "./botanica-first-25-sku-candidates";
 import { getPublicPriceEvidenceForSupplier } from "./botanica-public-price-evidence";
 import { getNbdTradeStatus, nbdFindCompanies } from "./nbd-trade";
+import { discoverSuppliers, type DiscoveryResult } from "./supplier-discovery";
 import { recall, remember } from "./store";
 
 /** Trade lookups attempted per org per tick. Zero disables the paid API entirely. */
@@ -105,13 +109,15 @@ export interface IntelligenceBrief {
   generated_at: string;
   assortment: ReturnType<typeof buildAssortmentGap>;
   trade: { configured: boolean; researched: string[]; failed: string[]; skipped_known: number };
+  discovery: DiscoveryResult;
 }
 
 /**
  * Run the sweep for one org and file the brief into business memory.
  *
  * Never publishes, never spends at a supplier, never contacts anyone. The only
- * outbound call is the trade lookup, and only for a supplier not yet researched.
+ * outbound calls are the trade lookup and web search, both bounded and both
+ * skipped for anything already researched.
  */
 export async function runIntelligenceSweep(orgId: string, products: Array<{ sku?: string; title?: string }>): Promise<IntelligenceBrief> {
   const assortment = buildAssortmentGap(products);
@@ -139,7 +145,10 @@ export async function runIntelligenceSweep(orgId: string, products: Array<{ sku?
     }
   }
 
-  const brief: IntelligenceBrief = { generated_at: new Date().toISOString(), assortment, trade };
+  // Go looking for someone who can supply what the catalog is missing.
+  const discovery = await discoverSuppliers(orgId, assortment.missing);
+
+  const brief: IntelligenceBrief = { generated_at: new Date().toISOString(), assortment, trade, discovery };
   await remember(orgId, "intelligence:assortment-gap", JSON.stringify(brief).slice(0, 8000), "intelligence");
   return brief;
 }

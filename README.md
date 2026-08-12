@@ -246,6 +246,43 @@ profile for yet, and files what it finds under `trade:{supplier}`. Research is s
 so in the steady state this makes zero calls. It is skipped entirely without `NBD_RAPIDAPI_KEY`, and
 `AUTONOMY_TRADE_LOOKUPS=0` disables it outright.
 
+### Finding suppliers nobody told it about
+
+The sweep knows what is missing; `lib/supplier-discovery.ts` goes looking for someone who can supply
+it. Each unmet gap becomes a web search, the results are filtered down to plausible suppliers, and
+what survives is filed under `supplier-candidate:{host}` for the shift on duty and the owner.
+
+- **The niche gate is fail-closed.** A query is built from the gap's *lane*, which fixes the
+  religious tradition, then asserted against `botanica-policy`. A query that cannot be shown to
+  target Botanica/Lucumi/Orisha merchandise is never run.
+- **Consumer marketplaces are rejected, not ranked down.** Amazon, Etsy, AliExpress listings and
+  social results are not suppliers to onboard. Niche relevance is the price of entry; wholesale
+  intent (`wholesale`, `mayorista`, `MOQ`, `distribuidor`, …) is what ranks.
+- **Only HTTPS public hosts.** Private and loopback addresses are refused, reusing the same
+  guard as the competitor scanner.
+- **It converges.** A host already on file is never searched for again, so spend falls to nothing
+  once the bench is built.
+
+Every candidate is an unverified web result. Nothing discovered is a vetted supplier and none of it
+authorizes a purchase — `GET /api/orgs/{org}/supplier-discovery` returns the list with that notice
+attached, and runs no searches itself.
+
+#### Search costs, and the brake
+
+Discovery is **off** until you configure a provider, and neither available provider caps your
+spending — so this module keeps its own hard ceiling.
+
+| Provider | Reality as of August 2026 |
+|---|---|
+| `BRAVE_SEARCH_API_KEY` | Free tier ended February 2026. $5 per 1,000 queries past a $5 monthly credit, **billed with no spending cap** |
+| `GOOGLE_CSE_API_KEY` + `GOOGLE_CSE_ID` | Still 100 queries/day free, but **closed to new customers** and retiring January 1, 2027 |
+
+`SUPPLIER_DISCOVERY_DAILY_BUDGET` (default **50**) is a platform-wide ceiling on paid queries per UTC
+day, counted in the KV store and enforced before every request. `SUPPLIER_DISCOVERY_QUERIES_PER_TICK`
+(default 2) bounds one org's share. Either set to `0` disables discovery outright. On the default
+budget with Brave, the worst case is roughly **$0.25/day**; on Google CSE it stays inside the free
+100/day.
+
 ### The loop refuses to trade on an unfit deployment
 
 Autonomy multiplies whatever the deployment already is. On the in-memory fallback that means buying
@@ -316,6 +353,7 @@ Without any env vars the app boots in simulation + in-memory mode. Add `.env.loc
 | `GET /api/orgs/{org}/pnl` | Real P&L across five windows, the ledger, and per-product performance |
 | `GET /api/orgs/{org}/readiness` | Go-live preflight (owner/admin) |
 | `GET /api/orgs/{org}/intelligence` | Current assortment gap against the sourcing basket |
+| `GET /api/orgs/{org}/supplier-discovery` | Supplier candidates found on the open web (owner-only) |
 | `POST /api/webhooks/shopify/{topic}` | HMAC-verified order feed (orders, cancellations, refunds) |
 | `GET /api/orgs/{org}/dashboard` | Metrics summary |
 | `GET /api/orgs/{org}/memory` | Business memory |

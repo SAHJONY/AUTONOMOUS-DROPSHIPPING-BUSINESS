@@ -16,12 +16,19 @@ authority on whether you are there — this document is how to make it green.
 | Telegram bot | Free | Yes |
 | Accio Work | Free tier | Yes for research — see [ACCIO_SOURCING.md](./ACCIO_SOURCING.md) |
 | **Shopify** | **Trial only, then paid** | **No.** This is the one unavoidable cost |
+| **Web search** (supplier discovery) | **Effectively gone** | **No.** Brave's free tier ended Feb 2026; Google CSE is closed to new signups |
 | **OpenAI API** | **Paid per token** | **Optional.** Without it the app runs in deterministic simulation mode |
 
-Two honest notes:
+Three honest notes:
 
 - **Shopify is not free after the trial.** Without a connected store nothing can be sold or
   fulfilled. Everything else here can run free indefinitely; the storefront cannot.
+- **Autonomous supplier discovery can no longer be free.** Brave ended its free search tier in
+  February 2026 and now bills past a $5 monthly credit with no spending cap; Google's Custom Search
+  JSON API is still free to 100 queries/day but closed to new customers and retires in January 2027.
+  Discovery ships **off**, and when you enable it the app enforces its own daily ceiling
+  (`SUPPLIER_DISCOVERY_DAILY_BUDGET`, default 50 — worst case about $0.25/day on Brave). Leave it off
+  and everything else in the sweep still runs for nothing.
 - **No engine key is a warning, not a blocker.** With `OPENAI_API_KEY` unset the agents run in
   deterministic standby. The order and fulfillment loops do not use the model, so orders still get
   taken, bought and shipped. You can go live without paying for tokens.
