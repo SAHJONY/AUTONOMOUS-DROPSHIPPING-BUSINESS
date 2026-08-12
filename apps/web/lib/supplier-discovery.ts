@@ -65,7 +65,15 @@ export const SUPPLIER_TIERS: Array<Exclude<SupplierTier, "UNKNOWN">> = ["MANUFAC
 
 /** Bilingual vocabulary per tier — this catalog's suppliers advertise in both. */
 const TIER_SIGNALS: Record<Exclude<SupplierTier, "UNKNOWN">, string[]> = {
-  MANUFACTURER: ["manufacturer", "fabricante", "factory", "fábrica", "fabrica", "oem", "odm", "private label", "marca propia", "we manufacture", "nuestra fábrica"],
+  // Factory vocabulary plus the words small-batch makers actually use. A
+  // Nashville workshop pouring oils by hand is a manufacturer; it just never
+  // says "OEM".
+  MANUFACTURER: [
+    "manufacturer", "fabricante", "factory", "fábrica", "fabrica", "oem", "odm",
+    "private label", "marca propia", "we manufacture", "nuestra fábrica",
+    "handmade in-house", "made in-house", "artisan-made", "artesanal", "hecho a mano",
+    "our workshop", "nuestro taller", "we produce", "producimos", "poured in", "we pour",
+  ],
   DISTRIBUTOR: ["distributor", "distribuidor", "distribuidora", "importer", "importador", "importadora", "authorized dealer", "distribución"],
   WHOLESALER: ["wholesale", "mayorista", "mayoreo", "al por mayor", "bulk", "moq", "minimum order", "pedido mínimo"],
   RESELLER: ["reseller", "revendedor", "trade account", "cuenta de comerciante", "dealer", "b2b"],

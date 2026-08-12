@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MCP_PROTOCOL_VERSION, MCP_TOOLS, handleMcpRequest } from "@/lib/mcp";
+import { MCP_PROTOCOL_VERSION, MCP_TOOLS, handleMcpRequest, mcpConfigured, resolveMcpOrgId } from "@/lib/mcp";
 
 const ORG = "org-test";
 const call = (method: string, params?: Record<string, unknown>, id: string | number | null = 1) =>
@@ -114,5 +114,41 @@ describe("quote assessment over MCP", () => {
     const { data } = await payload("assess_supplier_quote", { ...quote, moq: 1, ownerVerifiedQuote: true });
     expect(data.eligibleForOrderFunding).toBe(false);
     expect(data.disqualifiers.join(" ")).toContain("no ha sido verificada");
+  });
+});
+
+describe("which organization the session acts on", () => {
+  /**
+   * Setting MCP_ORG_ID was pure friction on a one-org deployment: copying a
+   * UUID into Vercel to name the only thing it could possibly mean.
+   */
+  it("requires only the token, not the org id", () => {
+    const before = process.env.MCP_ACCESS_TOKEN;
+    process.env.MCP_ACCESS_TOKEN = "t";
+    delete process.env.MCP_ORG_ID;
+    const status = mcpConfigured();
+    expect(status.configured).toBe(true);
+    expect(status.missing).toEqual([]);
+    expect(status.orgBinding).toBe("auto");
+    if (before === undefined) delete process.env.MCP_ACCESS_TOKEN; else process.env.MCP_ACCESS_TOKEN = before;
+  });
+
+  it("still reports the token as missing when it is", () => {
+    const before = process.env.MCP_ACCESS_TOKEN;
+    delete process.env.MCP_ACCESS_TOKEN;
+    expect(mcpConfigured().missing).toEqual(["MCP_ACCESS_TOKEN"]);
+    if (before !== undefined) process.env.MCP_ACCESS_TOKEN = before;
+  });
+
+  it("uses an explicit org id when one is set", async () => {
+    process.env.MCP_ORG_ID = "org-explicit";
+    await expect(resolveMcpOrgId()).resolves.toEqual({ orgId: "org-explicit" });
+    delete process.env.MCP_ORG_ID;
+  });
+
+  it("refuses rather than guessing when no organization exists", async () => {
+    delete process.env.MCP_ORG_ID;
+    const resolved = await resolveMcpOrgId();
+    expect("error" in resolved).toBe(true);
   });
 });

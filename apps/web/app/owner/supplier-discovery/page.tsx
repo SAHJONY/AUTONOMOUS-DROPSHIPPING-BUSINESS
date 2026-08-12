@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import styles from "../owner.module.css";
 
 type Candidate = { host: string; title?: string; url?: string; description?: string; tier?: string; score?: number; signals?: string[]; found_at?: string };
-type Mcp = { configured: boolean; missing: string[]; path: string; tools: string[] };
+type Mcp = { configured: boolean; missing: string[]; path: string; tools: string[]; orgBinding?: "explicit" | "auto" };
 type Snapshot = { provider: string; hunting_now?: string; daily_budget: number; budget_remaining_today: number; total: number; by_tier: Record<string, number>; candidates: Candidate[]; notice: string; mcp?: Mcp };
 type RunResult = { provider: string; tier_hunted: string; queries_spent: number; budget_remaining_today: number; found: number; known_hosts_skipped: number; stopped?: string; assortment: { coverage_percent: number; p1_missing: number; total: number }; notice: string };
 
@@ -105,9 +105,14 @@ export default function SupplierDiscoveryPage() {
         <p>Accio Work busca desde tu escritorio y archiva aquí lo que encuentra, sin costo por consulta. Es la alternativa gratuita a una clave de búsqueda de pago.</p>
         {snapshot?.mcp?.configured
           ? <div className={styles.result}><strong>Servidor MCP activo.</strong> Añade esta dirección en Accio Work → MCP y usa el token que configuraste en Vercel.</div>
-          : <div className={styles.error}><strong>Servidor MCP sin configurar.</strong> Falta en Vercel: {(snapshot?.mcp?.missing ?? ["MCP_ACCESS_TOKEN", "MCP_ORG_ID"]).join(", ")}. El endpoint responde 503 hasta que estén las dos.</div>}
+          : <div className={styles.error}><strong>Servidor MCP sin configurar.</strong> Falta una sola variable en Vercel: <code>{(snapshot?.mcp?.missing ?? ["MCP_ACCESS_TOKEN"]).join(", ")}</code>. Genérala con <code>./ops/generate-secrets.sh</code>, guárdala en Vercel y vuelve a desplegar.</div>}
         <p className={styles.metricNote}>Endpoint: <code>{endpoint}</code></p>
-        <p className={styles.metricNote}>Tu organización (MCP_ORG_ID): <code>{orgId || "—"}</code></p>
+        <p className={styles.metricNote}>
+          Organización: <code>{orgId || "—"}</code>{" "}
+          {snapshot?.mcp?.orgBinding === "explicit"
+            ? "(fijada con MCP_ORG_ID)"
+            : "(detectada automáticamente; solo necesitas MCP_ORG_ID si algún día tienes más de una organización)"}
+        </p>
         {snapshot?.mcp?.tools?.length ? <p className={styles.metricNote}>Herramientas expuestas: {snapshot.mcp.tools.join(", ")} — ninguna mueve dinero.</p> : null}
       </div></section>
 

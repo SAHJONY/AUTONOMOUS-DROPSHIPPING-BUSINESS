@@ -167,3 +167,25 @@ describe("supply-chain tiers", () => {
     expect(hunted.size).toBe(SUPPLIER_TIERS.length);
   });
 });
+
+describe("small-batch makers", () => {
+  /**
+   * Found in the wild: a Nashville workshop that pours its own oils scored
+   * UNKNOWN because the vocabulary only knew factories. It is a manufacturer.
+   */
+  it("recognizes an artisan maker as a manufacturer", () => {
+    expect(classifySupplierTier("Our workshop produces artisan-made oils, handmade in-house by practitioners").tier).toBe("MANUFACTURER");
+    expect(classifySupplierTier("candles designed and poured in Los Angeles").tier).toBe("MANUFACTURER");
+    expect(classifySupplierTier("productos artesanal hecho a mano en nuestro taller").tier).toBe("MANUFACTURER");
+  });
+
+  it("still ranks a maker above a reseller selling the same goods", () => {
+    const score = (text: string) => scoreSupplierCandidate({ title: text, url: "https://ejemplo-santeria.com", description: "santeria botanica" })!.score;
+    expect(score("handmade in-house")).toBeGreaterThan(score("revendedor"));
+  });
+
+  it("does not promote a shop that merely stocks handmade goods", () => {
+    // "handmade" alone describes the product, not who made it.
+    expect(classifySupplierTier("we sell handmade candles from local artists").tier).not.toBe("MANUFACTURER");
+  });
+});

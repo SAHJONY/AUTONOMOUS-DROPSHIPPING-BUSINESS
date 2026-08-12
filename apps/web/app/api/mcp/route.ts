@@ -1,5 +1,5 @@
 import { error } from "@/lib/api";
-import { handleMcpRequest } from "@/lib/mcp";
+import { handleMcpRequest, resolveMcpOrgId } from "@/lib/mcp";
 import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -15,7 +15,6 @@ export const maxDuration = 60;
  * cannot spend anything, but it can read the business, hence the auth.
  */
 const MCP_ACCESS_TOKEN = process.env.MCP_ACCESS_TOKEN ?? "";
-const MCP_ORG_ID = process.env.MCP_ORG_ID ?? "";
 
 function timingSafeEqual(a: string, b: string): boolean {
   const aBytes = Buffer.from(a, "utf8");
@@ -28,21 +27,25 @@ function timingSafeEqual(a: string, b: string): boolean {
 
 export async function POST(req: Request) {
   if (!MCP_ACCESS_TOKEN) return error("MCP server is disabled: MCP_ACCESS_TOKEN is not configured.", 503);
-  if (!MCP_ORG_ID) return error("MCP server is disabled: MCP_ORG_ID is not configured.", 503);
 
   const header = req.headers.get("authorization") ?? "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
   if (!token || !timingSafeEqual(token, MCP_ACCESS_TOKEN)) return error("Unauthorized", 401);
+
+  // Resolved after auth so an unauthenticated caller learns nothing about which
+  // organizations exist here.
+  const org = await resolveMcpOrgId();
+  if ("error" in org) return error(org.error, 503);
 
   const body = await req.json().catch(() => null);
   if (body === null) return error("Invalid JSON body.", 400);
 
   // A batch is a JSON array; anything that produces no response is a notification.
   if (Array.isArray(body)) {
-    const responses = (await Promise.all(body.map((entry) => handleMcpRequest(MCP_ORG_ID, entry)))).filter(Boolean);
+    const responses = (await Promise.all(body.map((entry) => handleMcpRequest(org.orgId, entry)))).filter(Boolean);
     return responses.length === 0 ? new NextResponse(null, { status: 202 }) : NextResponse.json(responses);
   }
 
-  const response = await handleMcpRequest(MCP_ORG_ID, body);
+  const response = await handleMcpRequest(org.orgId, body);
   return response === null ? new NextResponse(null, { status: 202 }) : NextResponse.json(response);
 }

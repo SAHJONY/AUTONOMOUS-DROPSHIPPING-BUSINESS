@@ -27,14 +27,18 @@ paid web-search provider for `supplier-discovery.ts` unless you want discovery r
 
 ## Connecting Accio Work to Owner OS
 
-Set two variables on the Vercel project:
+Set **one** variable on the Vercel project:
 
 | Variable | Value |
 |---|---|
 | `MCP_ACCESS_TOKEN` | A long random string — generate one with `./ops/generate-secrets.sh` |
-| `MCP_ORG_ID` | The Owner OS organization ID the tools should read and write |
 
-The endpoint is **fail-closed**: without both set it returns `503` rather than serving anonymously.
+The organization is worked out on its own when the deployment has exactly one, which is the normal
+case. `MCP_ORG_ID` only becomes necessary once there are several — and with several the server
+refuses and names them rather than guessing, because binding to the wrong one would file suppliers
+against the wrong business.
+
+The endpoint is **fail-closed**: without the token it returns `503` rather than serving anonymously.
 The token is checked in constant time and sent as `Authorization: Bearer <token>`.
 
 Then add the server in Accio Work's MCP settings, pointing at

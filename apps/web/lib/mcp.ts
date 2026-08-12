@@ -31,15 +31,40 @@ import {
 /**
  * Whether the MCP endpoint is actually serving.
  *
- * Reports only that both variables are present — never their values — so the
- * owner console can tell you what to fix without becoming a way to read the
- * token back out.
+ * Only the token is genuinely required: it is authentication, and nothing can
+ * stand in for it. The organization can be worked out on its own whenever the
+ * deployment has exactly one — see `resolveMcpOrgId` — so asking the owner to
+ * copy a UUID into Vercel was friction for nothing.
+ *
+ * Reports presence only, never values, so the owner console can say what to fix
+ * without becoming a way to read the token back out.
  */
-export function mcpConfigured(): { configured: boolean; missing: string[] } {
+export function mcpConfigured(): { configured: boolean; missing: string[]; orgBinding: "explicit" | "auto" } {
   const missing: string[] = [];
   if (!process.env.MCP_ACCESS_TOKEN?.trim()) missing.push("MCP_ACCESS_TOKEN");
-  if (!process.env.MCP_ORG_ID?.trim()) missing.push("MCP_ORG_ID");
-  return { configured: missing.length === 0, missing };
+  return {
+    configured: missing.length === 0,
+    missing,
+    orgBinding: process.env.MCP_ORG_ID?.trim() ? "explicit" : "auto",
+  };
+}
+
+/**
+ * Which organization this MCP session acts on.
+ *
+ * An explicit MCP_ORG_ID always wins. Otherwise the single organization on the
+ * deployment is used — and *only* a single one. With several, guessing would
+ * quietly file suppliers against the wrong business, so it refuses and names
+ * the candidates instead.
+ */
+export async function resolveMcpOrgId(): Promise<{ orgId: string } | { error: string }> {
+  const explicit = process.env.MCP_ORG_ID?.trim();
+  if (explicit) return { orgId: explicit };
+  const { listAllOrgs } = await import("./store");
+  const orgs = await listAllOrgs();
+  if (orgs.length === 1) return { orgId: orgs[0].id };
+  if (orgs.length === 0) return { error: "MCP server is disabled: this deployment has no organization yet. Create one in Owner OS, or set MCP_ORG_ID." };
+  return { error: `MCP server is disabled: ${orgs.length} organizations exist, so set MCP_ORG_ID to the one Accio should work on (${orgs.map((org) => org.id).join(", ")}).` };
 }
 
 export const MCP_PROTOCOL_VERSION = "2025-06-18";
