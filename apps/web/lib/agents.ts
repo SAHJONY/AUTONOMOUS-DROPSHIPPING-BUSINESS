@@ -41,7 +41,7 @@ import {
 } from "./fulfillment";
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type { Product } from "./types";
-import { listBotanicaEmails, sendBotanicaEmail } from "./botanica-email";
+import { isAllowedEmailRecipient, listBotanicaEmails, sendBotanicaEmail } from "./botanica-email";
 
 export interface AgentContext {
   orgId: string;
@@ -136,14 +136,44 @@ const listEmailTool: ToolDef = {
   },
 };
 
+/**
+ * Language that commits the business, in both languages it writes in.
+ *
+ * The previous guard was English-only while every template here defaults to
+ * Spanish, so "Confirmamos el pedido y autorizamos el pago" passed untouched.
+ * This is defence in depth behind the recipient rule, not the control itself:
+ * wording can always be rephrased, whereas a stranger cannot make himself into
+ * someone we have corresponded with.
+ */
+const COMMITMENT_LANGUAGE = new RegExp(
+  [
+    // English commitments
+    "\\b(place|confirm|authorize|authorise|accept|execute|approve)\\b.{0,40}\\b(order|purchase|contract|agreement|payment|invoice|terms)\\b",
+    "\\b(wire transfer|bank transfer|remit|remittance|proceed with production|we agree to)\\b",
+    // Spanish commitments
+    "\\b(confirmamos|autorizamos|aceptamos|aprobamos|realizamos|emitimos)\\b.{0,40}\\b(pedido|orden|compra|contrato|acuerdo|pago|factura|condiciones|términos|terminos)\\b",
+    "\\b(transferencia bancaria|giro bancario|procede con la producción|procede con la produccion|quedamos de acuerdo)\\b",
+    // Secrets, either language
+    "credit card|tarjeta de cr[ée]dito|api key|clave de api|password|contrase[ñn]a|token de acceso",
+  ].join("|"),
+  "i",
+);
+
 const sendRoutineEmailTool: ToolDef = {
   name: "send_supplier_email",
-  description: "Send a routine supplier inquiry or response as BOTANICA OCHOSI. Never use it to place orders, accept contracts, promise payment, share secrets, or make legal commitments.",
+  description: "Reply to a supplier who has already written to BOTANICA OCHOSI. Only addresses that have sent us mail can be reached this way — cold outreach to a new supplier is the owner's to send from Owner OS. Never use it to place orders, accept contracts, promise payment, share secrets, or make legal commitments.",
   input_schema:{type:"object",properties:{to:{type:"string"},subject:{type:"string"},text:{type:"string"}},required:["to","subject","text"]},
   handler:async(ctx,args)=>{
     const text=String(args.text??"");
-    if(/\b(place|confirm|authorize|accept|execute)\b.{0,30}\b(order|purchase|contract|agreement|payment)\b|credit card|api key|password/i.test(text)) return "BLOCKED: email appears to authorize a purchase, contract, payment, or secret disclosure; owner approval is required.";
-    const message=await sendBotanicaEmail({orgId:ctx.orgId,to:String(args.to),subject:String(args.subject),text});
+    const to=String(args.to??"");
+    // Who, before what. Inbound email is written by strangers and reaches this
+    // agent's context through list_supplier_email, so the recipient is the part
+    // an injected instruction would most want to choose. An agent may answer
+    // the mail; opening a conversation is the owner's to do, by hand, from
+    // Owner OS where every send is confirmed.
+    if(!(await isAllowedEmailRecipient(ctx.orgId,to))) return `BLOCKED: ${to} has never written to this business, so this would be cold outreach rather than a reply. Ask the owner to send it from Owner OS.`;
+    if(COMMITMENT_LANGUAGE.test(text)) return "BLOCKED: email appears to authorize a purchase, contract, payment, or secret disclosure; owner approval is required.";
+    const message=await sendBotanicaEmail({orgId:ctx.orgId,to,subject:String(args.subject),text});
     return `Sent as BOTANICA OCHOSI (message ${message.provider_id}).`;
   },
 };

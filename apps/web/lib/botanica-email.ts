@@ -49,6 +49,34 @@ export async function deleteBotanicaEmail(orgId: string, messageId: string): Pro
   return true;
 }
 
+/** The bare address out of "Name <addr@host>", lowercased. */
+export function emailAddressOf(value: string): string {
+  return (String(value ?? "").match(/<([^>]+)>/)?.[1] ?? String(value ?? "")).trim().toLowerCase();
+}
+
+/**
+ * Who an agent may write to without the owner pressing the button.
+ *
+ * Replying to someone who wrote to us first is ordinary correspondence.
+ * Starting one is not: cold outreach picks the recipient, and the recipient is
+ * the part an injected instruction would most like to control. So the rule is
+ * simply that an agent may answer the mail, and the owner opens conversations
+ * from Owner OS where every send is confirmed by hand.
+ */
+export async function emailReplyAllowlist(orgId: string): Promise<Set<string>> {
+  const allowed = new Set<string>();
+  for (const message of await listBotanicaEmails(orgId)) {
+    if (message.direction !== "inbound") continue;
+    const address = emailAddressOf(message.from);
+    if (address.includes("@")) allowed.add(address);
+  }
+  return allowed;
+}
+
+export async function isAllowedEmailRecipient(orgId: string, to: string): Promise<boolean> {
+  return (await emailReplyAllowlist(orgId)).has(emailAddressOf(to));
+}
+
 export async function sendBotanicaEmail(input: { orgId: string; to: string; subject: string; text: string }) {
   if (!apiKey) throw new Error("RESEND_API_KEY is not configured.");
   const idempotencyKey = `botanica-${input.orgId}-${await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${input.to}\n${input.subject}\n${input.text}`)).then((v) => Buffer.from(v).toString("hex").slice(0, 32))}`;
@@ -68,13 +96,14 @@ export async function sendBotanicaEmail(input: { orgId: string; to: string; subj
 
 export async function storeInboundBotanicaEmail(emailId: string) {
   if (!BOTANICA_EMAIL_ORG_ID) throw new Error("BOTANICA_EMAIL_ORG_ID is not configured.");
-  const duplicate = await kv.get<boolean>(`botanica_email:provider:${emailId}`);
-  if (duplicate) return null;
+  // Claim the id before storing. Setting it afterwards left a window where a
+  // webhook retry between the store and the claim duplicated the message and
+  // notified twice.
+  if (!(await kv.setIfAbsent(`botanica_email:provider:${emailId}`, true, 60 * 60 * 24 * 30))) return null;
   const { data, error } = await resend.emails.receiving.get(emailId);
   if (error || !data) throw new Error(error?.message ?? "Unable to retrieve inbound email.");
   const message: BotanicaEmailMessage = { id:newId(), org_id:BOTANICA_EMAIL_ORG_ID, direction:"inbound", from:data.from, to:data.to, subject:data.subject, text:data.text ?? "", provider_id:data.id, status:"received", created_at:data.created_at };
   await listPush(key(BOTANICA_EMAIL_ORG_ID), message, 1000);
-  await kv.set(`botanica_email:provider:${emailId}`, true);
   await notifyOwnerTelegram("EMAIL RECEIVED", `${message.subject}\nFrom: ${message.from}`);
   return { message, headers:data.headers ?? {} };
 }
@@ -90,10 +119,30 @@ export function shouldAutoRespondToInbound(input: { from:string; subject:string;
   return true;
 }
 
+/** Automatic acknowledgements sent to one address in a day. */
+export const MAX_ACKS_PER_SENDER_PER_DAY = Math.max(0, Number(process.env.EMAIL_ACK_DAILY_LIMIT ?? 3) || 0);
+
+/**
+ * Claim one acknowledgement for this sender today.
+ *
+ * The loop filters stop well-behaved autoresponders. They do not bound a broken
+ * or hostile one, and every distinct message id passes the duplicate check, so
+ * without this a single sender could draw unlimited replies out of us.
+ */
+export async function claimAcknowledgement(orgId: string, from: string): Promise<boolean> {
+  if (MAX_ACKS_PER_SENDER_PER_DAY <= 0) return false;
+  const day = new Date().toISOString().slice(0, 10);
+  const counterKey = `botanica_email:ack:${orgId}:${day}:${emailAddressOf(from)}`;
+  const used = Number((await kv.get<number>(counterKey)) ?? 0);
+  if (used >= MAX_ACKS_PER_SENDER_PER_DAY) return false;
+  await kv.set(counterKey, used + 1);
+  return true;
+}
+
 export async function acknowledgeInboundEmail(message: BotanicaEmailMessage) {
   return sendBotanicaEmail({
     orgId:message.org_id,
-    to:message.from.match(/<([^>]+)>/)?.[1]??message.from,
+    to:emailAddressOf(message.from),
     subject:/^re:/i.test(message.subject)?message.subject:`Re: ${message.subject}`,
     text:"Thank you for contacting BOTANICA OCHOSI. We received your message and our supplier operations team is reviewing it. We will respond with the appropriate next step using verified catalog, pricing, fulfillment, and authorization information.\n\nThis acknowledgment does not authorize a purchase, contract, payment, resale commitment, or disclosure of credentials.\n\nBOTANICA OCHOSI\nhttps://www.botanicaochosi.com",
   });
