@@ -2,7 +2,7 @@
 
 An autonomous AI dropshipping operator that runs a **complete** business — not just the shopfront.
 
-A **Claude Fable 5** CEO agent coordinates seven specialists (product hunting, suppliers,
+An **OpenAI Codex** CEO agent coordinates seven specialists (product hunting, suppliers,
 store building, marketing, advertising, finance, customer support). They discover and score
 products, publish them to a real Shopify store, and then run the half of the business that
 actually earns money: **taking orders, buying the goods from the supplier, shipping them with real
@@ -97,7 +97,7 @@ user, product, run, and approval across the platform, surfaced in the dashboard'
 ```
 apps/
   web/   Next.js 15 full-stack app — the production product. Route handlers under
-         app/api/* implement auth, orgs, the Fable 5 agent brain, product scoring,
+         app/api/* implement auth, orgs, the Codex agent brain, product scoring,
          orders, fulfillment, the accounting ledger, approvals, business memory,
          dashboard, owner god-mode, webhooks, and the crons.
          Business logic lives in apps/web/lib/*; tests in apps/web/tests/*.
@@ -124,7 +124,7 @@ vercel.json          Vercel build + cron configuration.
 ## Architecture (Vercel-native)
 
 ```
-                 CLAUDE FABLE 5  ── the brain & engine (lib/brain.ts)
+                  OPENAI CODEX  ── the brain & engine (lib/brain.ts)
                         │  manual agentic loop, approval-gated
         ┌───────────────┴───────────────────────────────────────┐
         │        │        │        │        │        │        │
@@ -159,15 +159,22 @@ Key design decisions:
   trend 15%, risk 10%. Only products scoring **85+** are launch-ready.
 - **Business memory** (`lib/store.ts`): agents persist learnings and reports per organization and
   recall them in later runs — the operation compounds.
-- **Graceful degradation**: with no `ANTHROPIC_API_KEY` the brain runs in deterministic
+- **Graceful degradation**: with no `OPENAI_API_KEY` the brain runs in deterministic
   **simulation mode**, so the platform is fully usable out of the box; set the key to go live.
   Without webhook configuration, orders are still collected by the polling sync on each cron pass.
 
 ## Deploy on Vercel
 
+Two guides cover setup in detail:
+
+- **[docs/FREE_TIER_GO_LIVE.md](docs/FREE_TIER_GO_LIVE.md)** — taking the deployment to zero
+  readiness blockers without paying for infrastructure, and what genuinely cannot be free.
+- **[docs/ACCIO_SOURCING.md](docs/ACCIO_SOURCING.md)** — using Alibaba's Accio Work desktop agent
+  as an owner-operated sourcing tool, and why it is not (and cannot be) a server integration.
+
 1. Import the repo (Vercel auto-detects the config in `vercel.json`).
 2. Set environment variables (see `.env.example`):
-   - `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL=claude-fable-5` — activate the live brain.
+   - `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-5.6` — activate the live brain.
    - `JWT_SECRET` — a long random string.
    - `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` — durable 24/7 storage
      (Vercel's Upstash marketplace integration also provides `KV_REST_API_URL/TOKEN`).
