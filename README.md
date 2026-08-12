@@ -223,9 +223,28 @@ spend stays bounded to one agent per tick rather than eight.
 
 Deterministic work that needs no model runs on **every** tick, before any agent: fulfillment of paid
 orders, supplier sourcing when stock is thin, competitor re-pricing against public listings, the
-current projection filed into business memory, autopilot approvals within safe thresholds, and
-publishing everything launch-ready. So customers get their packages and the storefront keeps
+current projection filed into business memory, the standing intelligence sweep, autopilot approvals
+within safe thresholds, and publishing everything launch-ready. So customers get their packages and the storefront keeps
 stocking itself even if the engine is unreachable or an agent shift fails.
+
+### The standing intelligence sweep
+
+The registries and sourcing matrices in this repo were built as things the owner consults, which
+means they are only as fresh as the last time somebody remembered to look. Every tick
+(`lib/intelligence.ts`) now joins the 25-SKU sourcing basket against the live catalog and works out
+what is genuinely not covered — ranked P1 first, each gap carrying its next action and its missing
+evidence — then files the brief into business memory as `intelligence:assortment-gap`.
+
+The agent on duty receives the headline numbers as task context, so a shift starts from the real
+worklist instead of spending its budget rediscovering what the catalog is already missing. A healthy
+catalog adds no tokens: the briefing is empty when the sweep has nothing to say.
+
+`GET /api/orgs/{org}/intelligence` returns the same gap on demand.
+
+The one paid lookup — NBD customs/trade data — fires only for a supplier the org has **no** trade
+profile for yet, and files what it finds under `trade:{supplier}`. Research is something you finish,
+so in the steady state this makes zero calls. It is skipped entirely without `NBD_RAPIDAPI_KEY`, and
+`AUTONOMY_TRADE_LOOKUPS=0` disables it outright.
 
 ### The loop refuses to trade on an unfit deployment
 
@@ -249,7 +268,8 @@ nothing. Clear the blockers and the same code starts trading with no further cha
 
 Tuning: `AUTONOMY_MAX_ORGS` (default 25) bounds orgs advanced per tick; `AUTONOMY_DEADLINE_MS`
 (default 240000) stops new work before the function time limit; `AUTONOMY_COMPETITOR_SCAN_LIMIT`
-(default 10) bounds competitor listings re-priced per org per tick.
+(default 10) bounds competitor listings re-priced per org per tick; `AUTONOMY_TRADE_LOOKUPS`
+(default 2) bounds paid trade lookups per org per tick.
 
 ### Getting a true 24/7 cadence on the Hobby plan
 
@@ -295,6 +315,7 @@ Without any env vars the app boots in simulation + in-memory mode. Add `.env.loc
 | `POST /api/orgs/{org}/orders/sync` | Pull orders from Shopify, or run a full fulfillment cycle |
 | `GET /api/orgs/{org}/pnl` | Real P&L across five windows, the ledger, and per-product performance |
 | `GET /api/orgs/{org}/readiness` | Go-live preflight (owner/admin) |
+| `GET /api/orgs/{org}/intelligence` | Current assortment gap against the sourcing basket |
 | `POST /api/webhooks/shopify/{topic}` | HMAC-verified order feed (orders, cancellations, refunds) |
 | `GET /api/orgs/{org}/dashboard` | Metrics summary |
 | `GET /api/orgs/{org}/memory` | Business memory |

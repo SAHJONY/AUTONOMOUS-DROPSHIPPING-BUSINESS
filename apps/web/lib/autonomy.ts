@@ -14,6 +14,7 @@ import { JWT_SECRET } from "./config";
 import { buildForecast } from "./forecast";
 import { runFulfillmentCycle } from "./fulfillment";
 import { STORAGE_MODE } from "./kv";
+import { runIntelligenceSweep } from "./intelligence";
 import { getPnl } from "./ledger";
 import { assessAutonomySafety } from "./readiness";
 import {
@@ -146,6 +147,8 @@ export interface OrgTickResult {
   auto_published?: number;
   competitor_scan?: Awaited<ReturnType<typeof scanCompetitorPricesForOrg>>;
   forecast_recorded?: boolean;
+  intelligence?: { coverage_percent: number; p1_missing: number; researched: number };
+  intelligence_error?: string;
   /** Set when the deployment is unfit and money-moving steps were skipped. */
   held_for_readiness?: string[];
   error?: string;
@@ -155,8 +158,9 @@ export interface OrgTickResult {
  * Deterministic intelligence that used to wait for a button press.
  *
  * None of it spends, publishes, or contacts anyone: it re-prices against public
- * competitor listings and files the current projection into business memory so
- * the next agent shift reasons from live numbers instead of rediscovering them.
+ * competitor listings, files the current projection into business memory, and
+ * sweeps the sourcing basket against the live catalog so the next agent shift
+ * reasons from live numbers and a real worklist instead of rediscovering them.
  * Because it is harmless it runs even when the deployment is unfit to trade.
  */
 async function runOrgIntelligence(orgId: string, result: OrgTickResult): Promise<void> {
@@ -165,14 +169,39 @@ async function runOrgIntelligence(orgId: string, result: OrgTickResult): Promise
   } catch (e) {
     result.competitor_scan = { scanned: 0, updated: 0, failed: 0, error: (e as Error).message } as never;
   }
+  let products: Awaited<ReturnType<typeof listProducts>> = [];
   try {
-    const [products, pnl] = await Promise.all([listProducts(orgId), getPnl(orgId, "90d")]);
+    const [loaded, pnl] = await Promise.all([listProducts(orgId), getPnl(orgId, "90d")]);
+    products = loaded;
     const forecast = buildForecast(products, pnl);
     await remember(orgId, "forecast", JSON.stringify(forecast), "autonomy");
     result.forecast_recorded = true;
   } catch {
     result.forecast_recorded = false;
   }
+  try {
+    const brief = await runIntelligenceSweep(orgId, products);
+    result.intelligence = { coverage_percent: brief.assortment.coveragePercent, p1_missing: brief.assortment.p1Missing, researched: brief.trade.researched.length };
+  } catch (e) {
+    result.intelligence_error = (e as Error).message;
+  }
+}
+
+/**
+ * The sweep's findings as task context for the agent on duty. Empty when the
+ * sweep found nothing to say, so a healthy catalog adds no tokens.
+ */
+export function intelligenceBriefing(result: Pick<OrgTickResult, "intelligence" | "competitor_scan">): string {
+  const lines: string[] = [];
+  if (result.intelligence) {
+    const { coverage_percent, p1_missing, researched } = result.intelligence;
+    lines.push(`Cobertura de la cesta de sourcing: ${coverage_percent}%. Faltan ${p1_missing} SKU de prioridad P1.`);
+    if (researched > 0) lines.push(`Se investigaron ${researched} proveedores nuevos con datos de comercio; consulta la memoria con la clave "trade:".`);
+  }
+  const scan = result.competitor_scan;
+  if (scan && scan.updated > 0) lines.push(`Se actualizaron ${scan.updated} precios de competencia esta ronda.`);
+  if (lines.length === 0) return "";
+  return `\n\nBarrido de inteligencia de esta ronda (ya ejecutado, no lo repitas):\n${lines.map((line) => `- ${line}`).join("\n")}\nRecupera "intelligence:assortment-gap" en memoria para la lista completa de SKU faltantes antes de buscar candidatos nuevos.`;
 }
 
 /**
@@ -206,13 +235,16 @@ export async function runOrgShift(
     // 3. Deterministic intelligence, so the shift reasons from live numbers.
     await runOrgIntelligence(orgId, result);
 
-    // 4. The agent(s) on duty, with explicit Botanica task context.
+    // 4. The agent(s) on duty, with explicit Botanica task context and the
+    // sweep's findings, so the shift starts from the real worklist rather than
+    // spending its budget rediscovering what the catalog is already missing.
     const agents: string[] = [];
+    const briefing = intelligenceBriefing(result);
     for (const shift of shifts) {
       const run = await runAgent({
         orgId,
         agentName: shift.agent,
-        task: `${BOTANICA_AGENT_DIRECTIVE}\n\n${shift.duty}`,
+        task: `${BOTANICA_AGENT_DIRECTIVE}\n\n${shift.duty}${briefing}`,
       });
       agents.push(shift.agent);
       result.run_id = run.id;
