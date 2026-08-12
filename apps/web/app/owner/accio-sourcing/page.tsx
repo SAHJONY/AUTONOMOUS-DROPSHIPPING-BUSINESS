@@ -9,12 +9,12 @@ const blank: AccioCandidate = {
   wholesalePrice: 0, shippingCost: 0, handlingCost: 0, markupPercent: 100, currency: "USD", usdExchangeRate: 1, moq: 1,
   supplierProcessingDays: 0, importTransitDays: 0, handlingDays: 0, customerShippingDays: 0,
   inventoryStatus: "UNKNOWN", inventoryVerifiedAt: "", resaleAuthorizationStatus: "PENDING", authorizationReference: "",
-  sampleOrderAvailable: false, samplePriceUsd: 0,
+  sampleOrderAvailable: false, samplePriceUsd: 0, freightMode: "PER_UNIT",
 };
 
 const numbers: Array<[keyof AccioCandidate, string, string]> = [
   ["wholesalePrice", "Precio unitario del proveedor", "0.01"], ["moq", "MOQ (unidades mínimas)", "1"],
-  ["shippingCost", "Envío de importación por unidad", "0.01"], ["handlingCost", "Manejo por unidad", "0.01"],
+  ["shippingCost", "Flete de importación", "0.01"], ["handlingCost", "Manejo por unidad", "0.01"],
   ["markupPercent", "Margen aplicado (%)", "1"], ["usdExchangeRate", "Tipo de cambio a USD", "0.0001"],
   ["supplierProcessingDays", "Días de producción", "1"], ["importTransitDays", "Días de tránsito", "1"],
   ["handlingDays", "Días de manejo", "1"], ["customerShippingDays", "Días de envío al cliente", "1"],
@@ -51,6 +51,7 @@ export default function AccioSourcingPage() {
       {texts.map(([key, label, placeholder]) => <label key={key}>{label}<input className={styles.input} type="text" placeholder={placeholder} value={String(input[key] ?? "")} onChange={event => setInput({ ...input, [key]: event.target.value })} /></label>)}
       <label>Moneda<input className={styles.input} type="text" value={input.currency} onChange={event => setInput({ ...input, currency: event.target.value })} /></label>
       {numbers.map(([key, label, step]) => <label key={key}>{label}<input className={styles.input} type="number" min="0" step={step} value={Number(input[key]) || ""} onChange={event => setInput({ ...input, [key]: Number(event.target.value) })} /></label>)}
+      <label>Cómo cotizó el flete<select className={styles.input} value={input.freightMode ?? "PER_UNIT"} onChange={event => setInput({ ...input, freightMode: event.target.value as "PER_UNIT" | "PER_SHIPMENT" })}><option value="PER_UNIT">Por unidad (aéreo)</option><option value="PER_SHIPMENT">Por embarque completo (marítimo o consolidado)</option></select></label>
       <label>Inventario<select className={styles.input} value={input.inventoryStatus} onChange={event => setInput({ ...input, inventoryStatus: event.target.value })}><option value="UNKNOWN">Sin verificar</option><option value="IN_STOCK">Verificado en existencia</option></select></label>
       <label>Autorización de reventa<select className={styles.input} value={input.resaleAuthorizationStatus} onChange={event => setInput({ ...input, resaleAuthorizationStatus: event.target.value })}><option value="PENDING">Pendiente</option><option value="VERIFIED">Verificada</option></select></label>
       <label>Muestra disponible<select className={styles.input} value={input.sampleOrderAvailable ? "yes" : "no"} onChange={event => setInput({ ...input, sampleOrderAvailable: event.target.value === "yes" })}><option value="no">No</option><option value="yes">Sí</option></select></label>
