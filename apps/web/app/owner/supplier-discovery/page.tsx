@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import styles from "../owner.module.css";
 
 type Candidate = { host: string; title?: string; url?: string; description?: string; tier?: string; score?: number; signals?: string[]; found_at?: string };
-type Snapshot = { provider: string; hunting_now?: string; daily_budget: number; budget_remaining_today: number; total: number; by_tier: Record<string, number>; candidates: Candidate[]; notice: string };
+type Mcp = { configured: boolean; missing: string[]; path: string; tools: string[] };
+type Snapshot = { provider: string; hunting_now?: string; daily_budget: number; budget_remaining_today: number; total: number; by_tier: Record<string, number>; candidates: Candidate[]; notice: string; mcp?: Mcp };
 type RunResult = { provider: string; tier_hunted: string; queries_spent: number; budget_remaining_today: number; found: number; known_hosts_skipped: number; stopped?: string; assortment: { coverage_percent: number; p1_missing: number; total: number }; notice: string };
 
 const TIERS = ["MANUFACTURER", "DISTRIBUTOR", "WHOLESALER", "RESELLER"] as const;
@@ -74,6 +75,7 @@ export default function SupplierDiscoveryPage() {
   if (!authorized) return <main className={styles.shell}><div className={styles.content}><div className={styles.error}><strong>Acceso privado requerido.</strong><p>{message || "Inicia sesión como propietario."}</p><a className={styles.primary} href="/owner/login">Iniciar sesión</a></div></div></main>;
 
   const noProvider = snapshot?.provider === "none";
+  const endpoint = typeof window === "undefined" ? "/api/mcp" : `${window.location.origin}${snapshot?.mcp?.path ?? "/api/mcp"}`;
 
   return <main className={styles.shell}>
     <nav className={styles.nav}><a className={styles.brand} href="/owner"><span className={styles.mark}>O</span><span className={styles.brandText}><strong>BOTANICA</strong><small>OCHOSI</small></span></a><div className={styles.navLinks}><a className={styles.ghost} href="/owner/accio-sourcing">Cotizaciones</a><a className={styles.primary} href="/owner">Owner OS</a></div></nav>
@@ -94,8 +96,19 @@ export default function SupplierDiscoveryPage() {
         </p>
         {noProvider && <div className={styles.error}>
           <strong>Sin proveedor de búsqueda.</strong>
-          <p>Conecta Accio Work por MCP (<code>/api/mcp</code>) para que busque desde tu escritorio sin costo por consulta, o define <code>BRAVE_SEARCH_API_KEY</code> para búsqueda automática de pago.</p>
+          <p>La búsqueda automática está apagada. Conecta Accio Work por MCP (panel de abajo) para buscar desde tu escritorio sin costo por consulta, o define <code>BRAVE_SEARCH_API_KEY</code> para búsqueda automática de pago.</p>
         </div>}
+      </div></section>
+
+      <section className={styles.section}><div className={styles.card}>
+        <h2>Accio Work por MCP</h2>
+        <p>Accio Work busca desde tu escritorio y archiva aquí lo que encuentra, sin costo por consulta. Es la alternativa gratuita a una clave de búsqueda de pago.</p>
+        {snapshot?.mcp?.configured
+          ? <div className={styles.result}><strong>Servidor MCP activo.</strong> Añade esta dirección en Accio Work → MCP y usa el token que configuraste en Vercel.</div>
+          : <div className={styles.error}><strong>Servidor MCP sin configurar.</strong> Falta en Vercel: {(snapshot?.mcp?.missing ?? ["MCP_ACCESS_TOKEN", "MCP_ORG_ID"]).join(", ")}. El endpoint responde 503 hasta que estén las dos.</div>}
+        <p className={styles.metricNote}>Endpoint: <code>{endpoint}</code></p>
+        <p className={styles.metricNote}>Tu organización (MCP_ORG_ID): <code>{orgId || "—"}</code></p>
+        {snapshot?.mcp?.tools?.length ? <p className={styles.metricNote}>Herramientas expuestas: {snapshot.mcp.tools.join(", ")} — ninguna mueve dinero.</p> : null}
       </div></section>
 
       {message && <div className={styles.result}>{message}</div>}

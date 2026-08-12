@@ -28,6 +28,20 @@ import {
   scoreSupplierCandidate,
 } from "./supplier-discovery";
 
+/**
+ * Whether the MCP endpoint is actually serving.
+ *
+ * Reports only that both variables are present — never their values — so the
+ * owner console can tell you what to fix without becoming a way to read the
+ * token back out.
+ */
+export function mcpConfigured(): { configured: boolean; missing: string[] } {
+  const missing: string[] = [];
+  if (!process.env.MCP_ACCESS_TOKEN?.trim()) missing.push("MCP_ACCESS_TOKEN");
+  if (!process.env.MCP_ORG_ID?.trim()) missing.push("MCP_ORG_ID");
+  return { configured: missing.length === 0, missing };
+}
+
 export const MCP_PROTOCOL_VERSION = "2025-06-18";
 export const MCP_SERVER_INFO = { name: "botanica-commerce-os", version: "1.0.0" } as const;
 

@@ -2,6 +2,7 @@ import { json, requireOrgRole } from "@/lib/api";
 import { CANDIDATE_MEMORY_PREFIX, DISCOVERY_DAILY_BUDGET, discoveryBudgetRemaining, discoveryProvider, tierForTick, type SupplierTier } from "@/lib/supplier-discovery";
 import { recall, listProducts } from "@/lib/store";
 import { runIntelligenceSweep } from "@/lib/intelligence";
+import { MCP_TOOLS, mcpConfigured } from "@/lib/mcp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     total: candidates.length,
     by_tier: byTier,
     candidates: filtered,
+    // How to get discovery working without paying per query: let Accio Work
+    // search from the desktop and file results through /api/mcp.
+    mcp: { ...mcpConfigured(), path: "/api/mcp", tools: MCP_TOOLS.map((tool) => tool.name) },
     notice: "Candidatos web sin verificar. Confirma identidad, autorización de reventa y precios antes de cualquier compromiso.",
   });
 }
