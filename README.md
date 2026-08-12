@@ -299,6 +299,32 @@ day, counted in the KV store and enforced before every request. `SUPPLIER_DISCOV
 budget with Brave, the worst case is roughly **$0.25/day**; on Google CSE it stays inside the free
 100/day.
 
+### Accio Work, plugged in
+
+Autonomous discovery costs money because web search does. The free alternative is to let Accio Work
+— Alibaba's desktop sourcing agent — do the searching instead, on its own free tier.
+
+Accio has no server API, but it is an **MCP client**, so the integration runs backwards from the
+obvious direction: this app publishes an MCP server at `/api/mcp` and Accio connects to it from the
+desktop. It pulls the sourcing gap, goes and finds suppliers, and files them back.
+
+| Tool | What it does |
+|---|---|
+| `get_sourcing_gap` | The SKUs still needing a supplier, P1 first |
+| `list_supplier_candidates` | What is already on file, so nothing is researched twice |
+| `submit_supplier_candidate` | Files a supplier Accio found — tier-classified and scored |
+| `classify_supplier_tier` | Manufacturer / distributor / wholesaler / reseller |
+| `assess_supplier_quote` | ORDER_FUNDED, INVENTORY_REQUIRED (capital named), or REJECTED |
+
+**No tool on that surface moves money or reaches a customer** — the six approval-gated actions stay
+inside the agent brain where an outside client cannot reach them, and `tests/mcp.test.ts` pins the
+exposed list so adding a money-moving tool fails CI. Submitted candidates go through the same
+fail-closed niche filter as autonomous discovery, and `assess_supplier_quote` always reports owner
+verification as outstanding — an external client cannot attest on the owner's behalf.
+
+Fail-closed like the crons: `MCP_ACCESS_TOKEN` and `MCP_ORG_ID` must both be set or the endpoint
+returns `503`. Setup is in [docs/ACCIO_SOURCING.md](docs/ACCIO_SOURCING.md).
+
 ### The loop refuses to trade on an unfit deployment
 
 Autonomy multiplies whatever the deployment already is. On the in-memory fallback that means buying
@@ -317,6 +343,7 @@ nothing. Clear the blockers and the same code starts trading with no further cha
 | `?all=1` | Run the entire roster in one tick |
 | `?agent=marketing,finance` | Run specific agents |
 | `?include_idle=1` | Also advance orgs with no integrations and no catalog |
+| `POST /api/mcp` | MCP server for Accio Work and other desktop MCP clients (token-secured) |
 | `GET /api/health` | Live status: engine, storage durability, roster, who is on duty, whether money-moving work is enabled |
 
 Tuning: `AUTONOMY_MAX_ORGS` (default 25) bounds orgs advanced per tick; `AUTONOMY_DEADLINE_MS`

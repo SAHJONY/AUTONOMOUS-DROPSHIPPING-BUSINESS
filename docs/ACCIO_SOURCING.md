@@ -5,7 +5,10 @@ inquiries, consolidates quotes, and follows up on negotiations around the clock.
 using it on the **free tier** as an owner-operated research tool, and bringing the results back into
 Owner OS.
 
-## Why it is not an integration
+> **There is now a real integration** — see [Connecting Accio Work to Owner OS](#connecting-accio-work-to-owner-os)
+> below. The manual workflow in this document still works and is still the fastest way to start.
+
+## Why it runs backwards
 
 Three facts decide the shape of this workflow:
 
@@ -15,11 +18,52 @@ Three facts decide the shape of this workflow:
    A desktop agent cannot run inside a Vercel function.
 2. **There is no public Accio server API.** Nothing for a route handler to call.
 3. **Accio is an MCP client, not an MCP server.** It consumes external tool servers; it does not
-   expose itself as one. Any future integration would mean *this app* publishing an MCP server for
-   Accio to connect to from the desktop — a separate project, and one that would have to respect the
-   approval gates pinned by `tests/agent-tools.test.ts`.
+   expose itself as one.
 
-So Accio is operated by you, by hand. Owner OS assesses what you bring back.
+The third point is the opening. This app now publishes an MCP server at `/api/mcp` that Accio Work
+connects to from your desktop — so Accio's own sourcing engine does the searching on its free tier,
+and hands the results back through this codebase's existing rules. That also means you do not need a
+paid web-search provider for `supplier-discovery.ts` unless you want discovery running unattended.
+
+## Connecting Accio Work to Owner OS
+
+Set two variables on the Vercel project:
+
+| Variable | Value |
+|---|---|
+| `MCP_ACCESS_TOKEN` | A long random string — generate one with `./ops/generate-secrets.sh` |
+| `MCP_ORG_ID` | The Owner OS organization ID the tools should read and write |
+
+The endpoint is **fail-closed**: without both set it returns `503` rather than serving anonymously.
+The token is checked in constant time and sent as `Authorization: Bearer <token>`.
+
+Then add the server in Accio Work's MCP settings, pointing at
+`https://<your-deployment>/api/mcp` with that bearer token.
+
+### What Accio can and cannot do through it
+
+| Tool | What it does |
+|---|---|
+| `get_sourcing_gap` | The SKUs still needing a supplier, P1 first, with next actions and missing evidence |
+| `list_supplier_candidates` | Suppliers already on file, filterable by tier, so nothing is researched twice |
+| `submit_supplier_candidate` | Files a supplier Accio found — classified by tier and scored |
+| `classify_supplier_tier` | Manufacturer / distributor / wholesaler / reseller, from the company's own wording |
+| `assess_supplier_quote` | ORDER_FUNDED, INVENTORY_REQUIRED (capital named) or REJECTED |
+
+**Nothing on that surface moves money or reaches a customer.** No supplier orders, no publishing, no
+refunds, no ad budgets, no store creation. Those six actions stay approval-gated inside the agent
+brain, and an outside client never gets to touch them — `tests/mcp.test.ts` pins the exposed tool
+list so adding a money-moving tool here fails CI.
+
+Two rules survive the integration intact. `submit_supplier_candidate` runs the same fail-closed niche
+filter as autonomous discovery, so a consumer marketplace or an off-niche site is rejected no matter
+how Accio describes it. And `assess_supplier_quote` **always** reports owner verification as
+outstanding — an external client cannot attest on your behalf, even if it claims to.
+
+## The manual workflow
+
+Everything below still applies, and is the fastest way to start before wiring up MCP: you drive
+Accio by hand, and Owner OS assesses what you bring back.
 
 ## The MOQ problem, stated plainly
 
