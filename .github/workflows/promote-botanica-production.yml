@@ -1,11 +1,19 @@
 name: Promote BOTANICA Production
 
+# Promotion names the artifact it promotes, every time.
+#
+# This workflow used to hardcode one deployment URL and also fire on any push
+# touching this file. Both were wrong together: the pinned artifact aged out of
+# the deployment list, so running it would have published long-stale code over
+# the live site, and the push trigger meant editing this file could do that by
+# itself. The URL is now a required input, and there is no automatic trigger.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/promote-botanica-production.yml'
   workflow_dispatch:
+    inputs:
+      artifact:
+        description: "Deployment URL to promote, e.g. autonomous-dropshipping-business-6dgb2cr2i.vercel.app (find it in the Vercel dashboard or `vercel ls`)"
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -37,8 +45,9 @@ jobs:
         continue-on-error: true
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          ARTIFACT: ${{ inputs.artifact }}
         run: |
-          vercel promote autonomous-dropshipping-business-azic4lrmd.vercel.app \
+          vercel promote "$ARTIFACT" \
             --token="$VERCEL_TOKEN" \
             --scope="juan-gonzalezs-projects-94b6dfe9" \
             --yes
@@ -59,12 +68,13 @@ jobs:
           TOKEN_PRESENT: ${{ steps.token.outputs.present }}
           PROMOTE_OUTCOME: ${{ steps.promote.outcome }}
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          ARTIFACT: ${{ inputs.artifact }}
         with:
           script: |
             const success = process.env.TOKEN_PRESENT === 'true' && process.env.PROMOTE_OUTCOME === 'success' && process.env.VERIFY_OUTCOME === 'success';
             const title = `BOTANICA production promotion ${success ? 'SUCCESS' : 'FAILED'} — run ${context.runId}`;
             const body = [
-              `Artifact: autonomous-dropshipping-business-azic4lrmd.vercel.app`,
+              `Artifact: ${process.env.ARTIFACT}`,
               `Token present: ${process.env.TOKEN_PRESENT}`,
               `Promotion outcome: ${process.env.PROMOTE_OUTCOME || 'not-run'}`,
               `Domain verification: ${process.env.VERIFY_OUTCOME || 'not-run'}`,
