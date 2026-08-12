@@ -1,6 +1,7 @@
 import { json, requireOrgRole } from "@/lib/api";
 import { CANDIDATE_MEMORY_PREFIX, DISCOVERY_DAILY_BUDGET, discoveryBudgetRemaining, discoveryProvider, tierForTick, type SupplierTier } from "@/lib/supplier-discovery";
-import { recall } from "@/lib/store";
+import { recall, listProducts } from "@/lib/store";
+import { runIntelligenceSweep } from "@/lib/intelligence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,5 +48,44 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     by_tier: byTier,
     candidates: filtered,
     notice: "Candidatos web sin verificar. Confirma identidad, autorización de reventa y precios antes de cualquier compromiso.",
+  });
+}
+
+/**
+ * Run a discovery sweep now, instead of waiting for the next tick.
+ *
+ * This is the only path in the app that spends search budget on demand, so it
+ * is owner-only and reports what it cost. It runs the same code the autonomous
+ * tick runs — the gap analysis, the trade lookups and the web search — against
+ * the same platform-wide daily ceiling, so pressing the button can never spend
+ * more than the loop would have.
+ *
+ * It still buys nothing and contacts nobody: the result is candidates.
+ */
+export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params;
+  const auth = await requireOrgRole(req, orgId, ["owner"]);
+  if ("response" in auth) return auth.response;
+
+  const before = await discoveryBudgetRemaining();
+  const brief = await runIntelligenceSweep(orgId, await listProducts(orgId));
+  const after = await discoveryBudgetRemaining();
+
+  return json({
+    ran_at: brief.generated_at,
+    provider: brief.discovery.provider,
+    tier_hunted: brief.discovery.tier,
+    queries_spent: before - after,
+    budget_remaining_today: after,
+    found: brief.discovery.candidates.length,
+    known_hosts_skipped: brief.discovery.known_hosts_skipped,
+    by_tier: brief.discovery.by_tier,
+    candidates: brief.discovery.candidates,
+    stopped: brief.discovery.stopped,
+    assortment: { coverage_percent: brief.assortment.coveragePercent, p1_missing: brief.assortment.p1Missing, total: brief.assortment.total },
+    trade: brief.trade,
+    notice: brief.discovery.provider === "none"
+      ? "No hay proveedor de búsqueda configurado. Conecta Accio Work por MCP (/api/mcp) o define BRAVE_SEARCH_API_KEY para búsqueda automática."
+      : "Candidatos web sin verificar. Confirma identidad, autorización de reventa y precios antes de cualquier compromiso.",
   });
 }
