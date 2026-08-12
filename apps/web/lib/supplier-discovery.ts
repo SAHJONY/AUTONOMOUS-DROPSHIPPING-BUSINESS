@@ -50,16 +50,64 @@ const MARKETPLACE_HOSTS = [
   "x.com", "twitter.", "linkedin.", "quora.", "alibaba.com/product-detail",
 ];
 
-/** Words that distinguish someone who sells *to a business* from someone who sells to a shopper. */
-const WHOLESALE_SIGNALS = [
-  "wholesale", "mayorista", "mayoreo", "distributor", "distribuidor", "bulk",
-  "moq", "minimum order", "trade account", "reseller", "al por mayor", "b2b", "supplier",
-];
+/**
+ * The four tiers of the supply chain, best counterparty first.
+ *
+ * The tier matters more than any other signal: a manufacturer sells at the
+ * lowest cost and can private-label, a distributor carries breadth, a wholesaler
+ * is the MOQ-friendly middle, and a reseller is the thinnest margin of the four.
+ * All four are worth finding — they are ranked, not filtered.
+ */
+export type SupplierTier = "MANUFACTURER" | "DISTRIBUTOR" | "WHOLESALER" | "RESELLER" | "UNKNOWN";
+
+/** Ordered strongest-first: the first tier whose vocabulary matches wins. */
+export const SUPPLIER_TIERS: Array<Exclude<SupplierTier, "UNKNOWN">> = ["MANUFACTURER", "DISTRIBUTOR", "WHOLESALER", "RESELLER"];
+
+/** Bilingual vocabulary per tier — this catalog's suppliers advertise in both. */
+const TIER_SIGNALS: Record<Exclude<SupplierTier, "UNKNOWN">, string[]> = {
+  MANUFACTURER: ["manufacturer", "fabricante", "factory", "fábrica", "fabrica", "oem", "odm", "private label", "marca propia", "we manufacture", "nuestra fábrica"],
+  DISTRIBUTOR: ["distributor", "distribuidor", "distribuidora", "importer", "importador", "importadora", "authorized dealer", "distribución"],
+  WHOLESALER: ["wholesale", "mayorista", "mayoreo", "al por mayor", "bulk", "moq", "minimum order", "pedido mínimo"],
+  RESELLER: ["reseller", "revendedor", "trade account", "cuenta de comerciante", "dealer", "b2b"],
+};
+
+/** Generic trade words: they show business intent but do not identify a tier. */
+const TRADE_SIGNALS = ["supplier", "proveedor", "catalog", "catálogo", "price list", "lista de precios", "wholesale inquiry"];
+
+/** How much each tier is worth as a counterparty. */
+const TIER_SCORE: Record<SupplierTier, number> = { MANUFACTURER: 45, DISTRIBUTOR: 35, WHOLESALER: 28, RESELLER: 12, UNKNOWN: 0 };
+
+/** The tier a page advertises itself as, with the words that said so. */
+export function classifySupplierTier(text: string): { tier: SupplierTier; signals: string[] } {
+  const haystack = text.toLowerCase();
+  for (const tier of SUPPLIER_TIERS) {
+    const signals = TIER_SIGNALS[tier].filter((signal) => haystack.includes(signal));
+    if (signals.length > 0) return { tier, signals };
+  }
+  return { tier: "UNKNOWN", signals: [] };
+}
 
 export function discoveryProvider(): SearchProvider {
   if (process.env.BRAVE_SEARCH_API_KEY?.trim()) return "brave";
   if (process.env.GOOGLE_CSE_API_KEY?.trim() && process.env.GOOGLE_CSE_ID?.trim()) return "google_cse";
   return "none";
+}
+
+/** How to ask for each tier, in the words those businesses use about themselves. */
+const TIER_QUERY: Record<Exclude<SupplierTier, "UNKNOWN">, string> = {
+  MANUFACTURER: "manufacturer factory OEM private label",
+  DISTRIBUTOR: "distributor importer distribuidor",
+  WHOLESALER: "wholesale supplier mayorista",
+  RESELLER: "reseller trade account revendedor",
+};
+
+/**
+ * Which tier this tick hunts for. Rotating rather than firing all four at once
+ * keeps the query spend flat while still covering the whole supply chain — the
+ * same trick the agent shift rotation uses.
+ */
+export function tierForTick(date: Date = new Date()): Exclude<SupplierTier, "UNKNOWN"> {
+  return SUPPLIER_TIERS[date.getUTCHours() % SUPPLIER_TIERS.length];
 }
 
 /** The religious tradition each sourcing lane belongs to — the query's real anchor. */
@@ -75,17 +123,18 @@ const LANE_ANCHOR: Record<string, string> = {
  * Pure, and fail-closed: anything that cannot be shown to target the niche is
  * dropped rather than searched.
  */
-export function buildDiscoveryQueries(missing: AssortmentGapItem[]): string[] {
+export function buildDiscoveryQueries(missing: AssortmentGapItem[], tier: Exclude<SupplierTier, "UNKNOWN"> = "WHOLESALER"): string[] {
+  const ask = TIER_QUERY[tier];
   const queries: string[] = [];
   for (const item of missing) {
     const anchor = LANE_ANCHOR[item.lane];
     if (!anchor) continue;
-    const query = `${item.title} ${anchor} wholesale supplier`;
+    const query = `${item.title} ${anchor} ${ask}`;
     if (assertBotanicaSourcingQuery(query).ok) queries.push(query);
   }
   // With nothing missing, fall back to the standing niche queries so discovery
   // still widens the supplier bench rather than idling.
-  if (queries.length === 0) queries.push(...BOTANICA_SOURCING_QUERIES.map((q) => `${q} wholesale supplier`));
+  if (queries.length === 0) queries.push(...BOTANICA_SOURCING_QUERIES.map((q) => `${q} ${ask}`));
   return queries;
 }
 
@@ -93,6 +142,7 @@ export interface SearchHit { title: string; url: string; description: string }
 
 export interface SupplierCandidate extends SearchHit {
   host: string;
+  tier: SupplierTier;
   score: number;
   signals: string[];
   query: string;
@@ -120,10 +170,12 @@ export function scoreSupplierCandidate(hit: SearchHit, query = ""): SupplierCand
   if (MARKETPLACE_HOSTS.some((marketplace) => haystack.includes(marketplace))) return null;
   if (!botanicaRelevantText(haystack)) return null;
 
-  const signals = WHOLESALE_SIGNALS.filter((signal) => haystack.includes(signal));
-  // Niche relevance is the price of entry; wholesale intent is what ranks.
-  const score = Math.min(100, 40 + signals.length * 15);
-  return { ...hit, host, score, signals, query };
+  // Niche relevance is the price of entry; where the candidate sits in the
+  // supply chain is what ranks, with generic trade wording as a tie-breaker.
+  const { tier, signals } = classifySupplierTier(haystack);
+  const trade = TRADE_SIGNALS.filter((signal) => haystack.includes(signal));
+  const score = Math.min(100, 30 + TIER_SCORE[tier] + Math.min(20, (signals.length + trade.length) * 5));
+  return { ...hit, host, tier, score, signals: [...signals, ...trade], query };
 }
 
 const budgetKey = () => `discovery:budget:${new Date().toISOString().slice(0, 10)}`;
@@ -180,8 +232,11 @@ export async function searchWeb(query: string): Promise<SearchHit[]> {
 
 export interface DiscoveryResult {
   provider: SearchProvider;
+  /** The supply-chain tier hunted this tick. */
+  tier: Exclude<SupplierTier, "UNKNOWN">;
   queries_run: number;
   candidates: SupplierCandidate[];
+  by_tier: Record<SupplierTier, number>;
   known_hosts_skipped: number;
   budget_remaining: number;
   /** Set when discovery stopped early rather than completing its queries. */
@@ -194,9 +249,13 @@ export interface DiscoveryResult {
  * Bounded three ways: the per-tick query allowance, the platform-wide daily
  * budget, and the fact that an already-known host is never searched for twice.
  */
-export async function discoverSuppliers(orgId: string, missing: AssortmentGapItem[]): Promise<DiscoveryResult> {
+export async function discoverSuppliers(orgId: string, missing: AssortmentGapItem[], tier = tierForTick()): Promise<DiscoveryResult> {
   const provider = discoveryProvider();
-  const result: DiscoveryResult = { provider, queries_run: 0, candidates: [], known_hosts_skipped: 0, budget_remaining: await discoveryBudgetRemaining() };
+  const result: DiscoveryResult = {
+    provider, tier, queries_run: 0, candidates: [],
+    by_tier: { MANUFACTURER: 0, DISTRIBUTOR: 0, WHOLESALER: 0, RESELLER: 0, UNKNOWN: 0 },
+    known_hosts_skipped: 0, budget_remaining: await discoveryBudgetRemaining(),
+  };
   if (provider === "none") return { ...result, stopped: "no_provider" };
   if (DISCOVERY_QUERIES_PER_TICK <= 0 || DISCOVERY_DAILY_BUDGET <= 0) return { ...result, stopped: "disabled" };
 
@@ -206,7 +265,7 @@ export async function discoverSuppliers(orgId: string, missing: AssortmentGapIte
       .map((entry) => entry.key.slice(CANDIDATE_MEMORY_PREFIX.length)),
   );
 
-  for (const query of buildDiscoveryQueries(missing)) {
+  for (const query of buildDiscoveryQueries(missing, tier)) {
     if (result.queries_run >= DISCOVERY_QUERIES_PER_TICK) break;
     if (!(await claimBudget())) {
       result.stopped = "budget_spent";
@@ -222,6 +281,7 @@ export async function discoverSuppliers(orgId: string, missing: AssortmentGapIte
       }
       known.add(candidate.host);
       result.candidates.push(candidate);
+      result.by_tier[candidate.tier]++;
       await remember(orgId, `${CANDIDATE_MEMORY_PREFIX}${candidate.host}`, JSON.stringify(candidate).slice(0, 2000), "discovery");
     }
   }

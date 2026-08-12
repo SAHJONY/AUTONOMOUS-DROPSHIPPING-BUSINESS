@@ -147,7 +147,7 @@ export interface OrgTickResult {
   auto_published?: number;
   competitor_scan?: Awaited<ReturnType<typeof scanCompetitorPricesForOrg>>;
   forecast_recorded?: boolean;
-  intelligence?: { coverage_percent: number; p1_missing: number; researched: number; discovered: number };
+  intelligence?: { coverage_percent: number; p1_missing: number; researched: number; discovered: number; tier: string };
   intelligence_error?: string;
   /** Set when the deployment is unfit and money-moving steps were skipped. */
   held_for_readiness?: string[];
@@ -181,7 +181,7 @@ async function runOrgIntelligence(orgId: string, result: OrgTickResult): Promise
   }
   try {
     const brief = await runIntelligenceSweep(orgId, products);
-    result.intelligence = { coverage_percent: brief.assortment.coveragePercent, p1_missing: brief.assortment.p1Missing, researched: brief.trade.researched.length, discovered: brief.discovery.candidates.length };
+    result.intelligence = { coverage_percent: brief.assortment.coveragePercent, p1_missing: brief.assortment.p1Missing, researched: brief.trade.researched.length, discovered: brief.discovery.candidates.length, tier: brief.discovery.tier };
   } catch (e) {
     result.intelligence_error = (e as Error).message;
   }
@@ -197,7 +197,7 @@ export function intelligenceBriefing(result: Pick<OrgTickResult, "intelligence" 
     const { coverage_percent, p1_missing, researched, discovered } = result.intelligence;
     lines.push(`Cobertura de la cesta de sourcing: ${coverage_percent}%. Faltan ${p1_missing} SKU de prioridad P1.`);
     if (researched > 0) lines.push(`Se investigaron ${researched} proveedores nuevos con datos de comercio; consulta la memoria con la clave "trade:".`);
-    if (discovered > 0) lines.push(`Se encontraron ${discovered} proveedores candidatos nuevos en la web; están en memoria con la clave "supplier-candidate:" y requieren verificación del propietario antes de cualquier compromiso.`);
+    if (discovered > 0) lines.push(`Se encontraron ${discovered} proveedores candidatos nuevos en la web (turno de búsqueda: ${result.intelligence.tier}); están en memoria con la clave "supplier-candidate:" y requieren verificación del propietario antes de cualquier compromiso. Prioriza fabricantes y distribuidores sobre revendedores.`);
   }
   const scan = result.competitor_scan;
   if (scan && scan.updated > 0) lines.push(`Se actualizaron ${scan.updated} precios de competencia esta ronda.`);

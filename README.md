@@ -255,13 +255,29 @@ what survives is filed under `supplier-candidate:{host}` for the shift on duty a
 - **The niche gate is fail-closed.** A query is built from the gap's *lane*, which fixes the
   religious tradition, then asserted against `botanica-policy`. A query that cannot be shown to
   target Botanica/Lucumi/Orisha merchandise is never run.
+- **All four supply-chain tiers are hunted and classified.** Manufacturers, distributors,
+  wholesalers and resellers each get asked for in the words those businesses use about themselves,
+  in English and Spanish. Where a candidate sits in the chain is what ranks it — a manufacturer
+  sells at the lowest cost and can private-label, a reseller is the thinnest margin of the four —
+  and when a page claims several, the strongest one wins, because a factory that also says
+  "wholesale" is still a factory. Resellers are ranked last, never filtered out.
 - **Consumer marketplaces are rejected, not ranked down.** Amazon, Etsy, AliExpress listings and
-  social results are not suppliers to onboard. Niche relevance is the price of entry; wholesale
-  intent (`wholesale`, `mayorista`, `MOQ`, `distribuidor`, …) is what ranks.
+  social results are not suppliers to onboard, whatever tier they claim. Niche relevance is the
+  price of entry.
 - **Only HTTPS public hosts.** Private and loopback addresses are refused, reusing the same
   guard as the competitor scanner.
 - **It converges.** A host already on file is never searched for again, so spend falls to nothing
   once the bench is built.
+
+The tier hunted **rotates by UTC hour**, the same trick the agent shift rotation uses: the whole
+supply chain is covered across a day without four times the query spend.
+
+| Tier | Why it ranks there |
+|---|---|
+| `MANUFACTURER` | Lowest cost, and the only tier that can private-label |
+| `DISTRIBUTOR` | Breadth of catalog, one step from the source |
+| `WHOLESALER` | The MOQ-friendly middle |
+| `RESELLER` | Thinnest margin, but still a real route to stock |
 
 Every candidate is an unverified web result. Nothing discovered is a vetted supplier and none of it
 authorizes a purchase — `GET /api/orgs/{org}/supplier-discovery` returns the list with that notice
@@ -353,7 +369,7 @@ Without any env vars the app boots in simulation + in-memory mode. Add `.env.loc
 | `GET /api/orgs/{org}/pnl` | Real P&L across five windows, the ledger, and per-product performance |
 | `GET /api/orgs/{org}/readiness` | Go-live preflight (owner/admin) |
 | `GET /api/orgs/{org}/intelligence` | Current assortment gap against the sourcing basket |
-| `GET /api/orgs/{org}/supplier-discovery` | Supplier candidates found on the open web (owner-only) |
+| `GET /api/orgs/{org}/supplier-discovery` | Supplier candidates found on the open web, counted by tier; `?tier=MANUFACTURER` filters (owner-only) |
 | `POST /api/webhooks/shopify/{topic}` | HMAC-verified order feed (orders, cancellations, refunds) |
 | `GET /api/orgs/{org}/dashboard` | Metrics summary |
 | `GET /api/orgs/{org}/memory` | Business memory |

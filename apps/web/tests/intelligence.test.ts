@@ -72,22 +72,23 @@ describe("the shift briefing", () => {
   });
 
   it("hands the shift the coverage, the P1 gap and where to find the full list", () => {
-    const briefing = intelligenceBriefing({ intelligence: { coverage_percent: 12.5, p1_missing: 9, researched: 0, discovered: 0 } });
+    const briefing = intelligenceBriefing({ intelligence: { coverage_percent: 12.5, p1_missing: 9, researched: 0, discovered: 0, tier: "WHOLESALER" } });
     expect(briefing).toContain("12.5%");
     expect(briefing).toContain("9 SKU");
     expect(briefing).toContain("intelligence:assortment-gap");
   });
 
   it("mentions new trade research only when there was some", () => {
-    const none = intelligenceBriefing({ intelligence: { coverage_percent: 0, p1_missing: 1, researched: 0, discovered: 0 } });
+    const none = intelligenceBriefing({ intelligence: { coverage_percent: 0, p1_missing: 1, researched: 0, discovered: 0, tier: "WHOLESALER" } });
     expect(none).not.toContain("trade:");
-    const some = intelligenceBriefing({ intelligence: { coverage_percent: 0, p1_missing: 1, researched: 3, discovered: 0 } });
+    const some = intelligenceBriefing({ intelligence: { coverage_percent: 0, p1_missing: 1, researched: 3, discovered: 0, tier: "WHOLESALER" } });
     expect(some).toContain("3 proveedores");
   });
 
   it("points the shift at newly discovered suppliers and at the verification they need", () => {
-    const briefing = intelligenceBriefing({ intelligence: { coverage_percent: 0, p1_missing: 1, researched: 0, discovered: 4 } });
+    const briefing = intelligenceBriefing({ intelligence: { coverage_percent: 0, p1_missing: 1, researched: 0, discovered: 4, tier: "MANUFACTURER" } });
     expect(briefing).toContain("4 proveedores candidatos");
+    expect(briefing).toContain("MANUFACTURER");
     expect(briefing).toContain("supplier-candidate:");
     expect(briefing).toContain("verificación del propietario");
   });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDiscoveryQueries, hostOf, scoreSupplierCandidate } from "@/lib/supplier-discovery";
+import { SUPPLIER_TIERS, buildDiscoveryQueries, classifySupplierTier, hostOf, scoreSupplierCandidate, tierForTick } from "@/lib/supplier-discovery";
 import { botanicaRelevantText } from "@/lib/botanica-policy";
 import type { AssortmentGapItem } from "@/lib/intelligence";
 
@@ -53,13 +53,14 @@ describe("candidate scoring", () => {
   const hit = {
     title: "Mayorista de artículos de santeria",
     url: "https://proveedor-ejemplo.com/wholesale",
-    description: "Wholesale santeria religious supplies, MOQ 12 units, distributor pricing.",
+    description: "Wholesale santeria religious supplies, MOQ 12 units, bulk pricing.",
   };
 
-  it("accepts a niche wholesaler and ranks it on wholesale intent", () => {
+  it("accepts a niche wholesaler and classifies it as one", () => {
     const candidate = scoreSupplierCandidate(hit);
     expect(candidate).not.toBeNull();
     expect(candidate!.host).toBe("proveedor-ejemplo.com");
+    expect(candidate!.tier).toBe("WHOLESALER");
     expect(candidate!.score).toBeGreaterThan(40);
     expect(candidate!.signals).toContain("wholesale");
   });
@@ -77,7 +78,7 @@ describe("candidate scoring", () => {
     })).toBeNull();
   });
 
-  it("scores a bare niche page below one with wholesale signals", () => {
+  it("scores a niche page with no tier below a classified supplier", () => {
     const bare = scoreSupplierCandidate({ title: "Botanica", url: "https://a-example.com", description: "orisha items" });
     const rich = scoreSupplierCandidate(hit);
     expect(bare).not.toBeNull();
@@ -91,5 +92,78 @@ describe("candidate scoring", () => {
       description: "moq minimum order trade account reseller al por mayor b2b supplier orisha",
     });
     expect(candidate!.score).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("supply-chain tiers", () => {
+  it("recognizes each tier in English and Spanish", () => {
+    expect(classifySupplierTier("we are a candle manufacturer").tier).toBe("MANUFACTURER");
+    expect(classifySupplierTier("fabricante de velas").tier).toBe("MANUFACTURER");
+    expect(classifySupplierTier("authorized distributor").tier).toBe("DISTRIBUTOR");
+    expect(classifySupplierTier("distribuidora nacional").tier).toBe("DISTRIBUTOR");
+    expect(classifySupplierTier("wholesale, MOQ 12").tier).toBe("WHOLESALER");
+    expect(classifySupplierTier("venta al por mayor").tier).toBe("WHOLESALER");
+    expect(classifySupplierTier("reseller trade account").tier).toBe("RESELLER");
+    expect(classifySupplierTier("revendedor autorizado").tier).toBe("RESELLER");
+  });
+
+  it("returns UNKNOWN rather than guessing when nothing identifies a tier", () => {
+    const result = classifySupplierTier("santeria items for your home");
+    expect(result.tier).toBe("UNKNOWN");
+    expect(result.signals).toEqual([]);
+  });
+
+  it("takes the strongest tier when a page claims several", () => {
+    // Factories routinely also say "wholesale" — the factory is the real fact.
+    expect(classifySupplierTier("factory direct wholesale, MOQ 50, distributor pricing").tier).toBe("MANUFACTURER");
+    expect(classifySupplierTier("distributor offering wholesale and reseller accounts").tier).toBe("DISTRIBUTOR");
+  });
+
+  it("ranks a manufacturer above a distributor above a wholesaler above a reseller", () => {
+    const at = (text: string) => scoreSupplierCandidate({
+      title: text, url: "https://proveedor-ejemplo.com", description: "santeria religious goods",
+    })!.score;
+    expect(at("fabricante")).toBeGreaterThan(at("distribuidor"));
+    expect(at("distribuidor")).toBeGreaterThan(at("mayorista"));
+    expect(at("mayorista")).toBeGreaterThan(at("revendedor"));
+  });
+
+  it("keeps resellers as candidates rather than filtering them out", () => {
+    const candidate = scoreSupplierCandidate({
+      title: "Revendedor de articulos de santeria",
+      url: "https://revendedor-ejemplo.com",
+      description: "trade account available",
+    });
+    expect(candidate).not.toBeNull();
+    expect(candidate!.tier).toBe("RESELLER");
+  });
+
+  it("still rejects a consumer marketplace whatever tier it claims", () => {
+    expect(scoreSupplierCandidate({
+      title: "Wholesale santeria candles from the factory",
+      url: "https://www.amazon.com/dp/B01",
+      description: "manufacturer direct, MOQ 1",
+    })).toBeNull();
+  });
+
+  it("asks each tier for itself in the words those businesses use", () => {
+    const gapItem = gap();
+    expect(buildDiscoveryQueries([gapItem], "MANUFACTURER")[0]).toContain("manufacturer factory OEM");
+    expect(buildDiscoveryQueries([gapItem], "DISTRIBUTOR")[0]).toContain("distributor importer");
+    expect(buildDiscoveryQueries([gapItem], "RESELLER")[0]).toContain("reseller trade account");
+  });
+
+  it("keeps every tier query inside the fail-closed niche gate", () => {
+    for (const tier of SUPPLIER_TIERS) {
+      for (const query of buildDiscoveryQueries([gap()], tier)) {
+        expect(botanicaRelevantText(query)).toBe(true);
+      }
+    }
+  });
+
+  it("covers the whole supply chain across a day without raising query spend", () => {
+    const hunted = new Set<string>();
+    for (let hour = 0; hour < 24; hour++) hunted.add(tierForTick(new Date(Date.UTC(2026, 0, 1, hour))));
+    expect(hunted.size).toBe(SUPPLIER_TIERS.length);
   });
 });
