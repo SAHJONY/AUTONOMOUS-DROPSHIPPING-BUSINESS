@@ -42,6 +42,7 @@ import {
 import { marginScoreFromPrices, scoreProduct, VERDICT_LAUNCH } from "./scoring";
 import type { Product } from "./types";
 import { listBotanicaEmails, sendBotanicaEmail } from "./botanica-email";
+import { buildAccioSourcingBrief } from "./accio-work";
 
 export interface AgentContext {
   orgId: string;
@@ -426,6 +427,48 @@ const supplier: Agent = {
   ],
 };
 
+/* ---------- Accio Work sourcing research ---------- */
+
+const accioSourcing: Agent = {
+  name: "accio_sourcing",
+  description:
+    "Prepares governed Accio Work research briefs and evaluates returned supplier evidence without ordering or spending.",
+  system_prompt:
+    "You are the Accio Work Sourcing Research specialist for BOTANICA OCHOSI. Use Accio only as a read-only second-source research and supplier-vetting layer. Prepare precise briefs with prepare_accio_sourcing_brief, then persist any externally returned evidence with remember. Never claim that a search ran unless evidence was actually supplied. Never contact suppliers, negotiate, place orders, authorize payments or contracts, publish listings, or treat Accio output as verified truth. Every candidate remains HOLD until source URLs, identity, exact SKU/specification, current price, MOQ, stock, landed shipping, authorization, compliance, cultural provenance, and Botanica Council checks pass.",
+  tools: () => [
+    {
+      name: "prepare_accio_sourcing_brief",
+      description:
+        "Create a fail-closed, copy-ready Accio Work prompt for Botanica supplier discovery and evidence collection. This does not run Accio or contact suppliers.",
+      input_schema: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Explicit Botanica/Lucumi/Orisha/Santeria sourcing need" },
+          destination: { type: "string", description: "Import/shipping destination (default United States)" },
+          target_retail_usd: { type: "number", description: "Optional target retail price in USD" },
+          maximum_moq: { type: "number", description: "Maximum acceptable supplier MOQ (default 1)" },
+        },
+        required: ["query"],
+      },
+      handler: async (_ctx, args) => {
+        try {
+          return JSON.stringify(
+            buildAccioSourcingBrief({
+              query: String(args.query ?? ""),
+              destination: args.destination ? String(args.destination) : undefined,
+              targetRetailUsd: args.target_retail_usd == null ? undefined : Number(args.target_retail_usd),
+              maximumMoq: args.maximum_moq == null ? undefined : Number(args.maximum_moq),
+            }),
+          );
+        } catch (error) {
+          return `BLOCKED: ${error instanceof Error ? error.message : String(error)}`;
+        }
+      },
+    },
+    ...commonTools("accio_sourcing"),
+  ],
+};
+
 /* ---------- store builder ---------- */
 
 const storeBuilder: Agent = {
@@ -756,6 +799,7 @@ const support: Agent = {
 export const SPECIALISTS: Agent[] = [
   productHunter,
   supplier,
+  accioSourcing,
   storeBuilder,
   marketing,
   advertising,

@@ -70,6 +70,12 @@ export const SHIFTS: Shift[] = [
       "issues in memory. If no relevant product can be verified, return zero candidates rather than broadening the niche.",
   },
   {
+    agent: "accio_sourcing",
+    duty:
+      BOTANICA_SHIFT_PREFIX +
+      "Independent sourcing-research shift. Review catalog gaps and prepare one tightly scoped Accio Work brief for the highest-value missing Botanica category. Use Accio only for read-only discovery and evidence gathering. Never claim the external search ran without returned evidence; never contact suppliers, negotiate, publish, order, or pay. Keep every candidate on HOLD until exact SKU, supplier identity, current terms, landed cost, authorization, compliance, cultural provenance, and Council review are documented.",
+  },
+  {
     agent: "store_builder",
     duty:
       BOTANICA_SHIFT_PREFIX +
