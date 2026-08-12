@@ -30,6 +30,11 @@ Two honest notes:
 
 Nothing else matters until these are done. Both are free.
 
+> **The loop enforces this itself.** While either blocker stands, the autonomous tick and both crons
+> hold back fulfillment, autopilot approvals and publishing, and report `held_for_readiness` instead
+> (the crons answer `423`). Read-only intelligence still runs. You cannot accidentally trade on a
+> deployment that would lose the books — but you also will not sell anything until this step is done.
+
 **Durable storage.** Without Upstash the app uses an in-memory fallback, and on serverless that is
 not a degraded mode — it is data loss on a loop. Orders, ledger entries, products and accounts reset
 on the next cold start while the books appear to keep working.
@@ -108,8 +113,9 @@ store, setting an ad budget, issuing a refund, and killing a product. That set i
 `tests/agent-tools.test.ts`, so adding a money-moving tool without a gate fails CI rather than
 production.
 
-`AUTOPILOT_MAX_ORDER_COST` (default 150) is the ceiling on what a single order may spend without
-asking you. Set it to something you would be relaxed about losing before enabling `AUTO_FULFILL`.
+`AUTOPILOT_MAX_ORDER_COST` is the ceiling on what a single order may spend without asking you.
+It defaults to **100** and `lib/config.ts` hard-caps it at 100 during the lean launch, so a larger
+value in the environment is clamped rather than honoured. Lower it if you want a tighter leash.
 
 ## Minimum free configuration
 

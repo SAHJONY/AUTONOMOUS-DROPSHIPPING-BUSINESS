@@ -9,7 +9,13 @@
 import { autoApprovePending, runAgent } from "./brain";
 import { runBotanicaCatalogCouncil } from "./botanica-council";
 import { BOTANICA_AGENT_DIRECTIVE } from "./botanica-policy";
+import { scanCompetitorPricesForOrg } from "./competitor-price-monitor";
+import { JWT_SECRET } from "./config";
+import { buildForecast } from "./forecast";
 import { runFulfillmentCycle } from "./fulfillment";
+import { STORAGE_MODE } from "./kv";
+import { getPnl } from "./ledger";
+import { assessAutonomySafety } from "./readiness";
 import {
   autoPublishReady,
   autonomousSource,
@@ -17,7 +23,19 @@ import {
   getShopifyCreds,
   listAllOrgs,
   listProducts,
+  remember,
 } from "./store";
+
+/** The default baked into config.ts — public in the source, so unusable in production. */
+const DEFAULT_JWT_SECRET = "change-me-in-production-commerce-os";
+
+/** Whether this deployment is fit for unattended money-moving work, right now. */
+export function autonomySafety() {
+  return assessAutonomySafety({ storageMode: STORAGE_MODE, jwtSecretIsDefault: JWT_SECRET === DEFAULT_JWT_SECRET });
+}
+
+/** How many competitor listings one org may re-price per tick. */
+const COMPETITOR_SCAN_LIMIT = Number(process.env.AUTONOMY_COMPETITOR_SCAN_LIMIT ?? 10);
 
 /** Max organizations advanced per tick — bounds cost on a busy platform. */
 export const MAX_ORGS_PER_TICK = Number(process.env.AUTONOMY_MAX_ORGS ?? 25);
@@ -126,7 +144,35 @@ export interface OrgTickResult {
   council?: Awaited<ReturnType<typeof runBotanicaCatalogCouncil>>;
   auto_approved?: number;
   auto_published?: number;
+  competitor_scan?: Awaited<ReturnType<typeof scanCompetitorPricesForOrg>>;
+  forecast_recorded?: boolean;
+  /** Set when the deployment is unfit and money-moving steps were skipped. */
+  held_for_readiness?: string[];
   error?: string;
+}
+
+/**
+ * Deterministic intelligence that used to wait for a button press.
+ *
+ * None of it spends, publishes, or contacts anyone: it re-prices against public
+ * competitor listings and files the current projection into business memory so
+ * the next agent shift reasons from live numbers instead of rediscovering them.
+ * Because it is harmless it runs even when the deployment is unfit to trade.
+ */
+async function runOrgIntelligence(orgId: string, result: OrgTickResult): Promise<void> {
+  try {
+    result.competitor_scan = await scanCompetitorPricesForOrg(orgId, COMPETITOR_SCAN_LIMIT);
+  } catch (e) {
+    result.competitor_scan = { scanned: 0, updated: 0, failed: 0, error: (e as Error).message } as never;
+  }
+  try {
+    const [products, pnl] = await Promise.all([listProducts(orgId), getPnl(orgId, "90d")]);
+    const forecast = buildForecast(products, pnl);
+    await remember(orgId, "forecast", JSON.stringify(forecast), "autonomy");
+    result.forecast_recorded = true;
+  } catch {
+    result.forecast_recorded = false;
+  }
 }
 
 /**
@@ -141,9 +187,12 @@ export async function runOrgShift(
   shifts: Shift[],
 ): Promise<OrgTickResult> {
   const result: OrgTickResult = { org: orgId, name: orgName };
+  const safety = autonomySafety();
+  if (!safety.safe) result.held_for_readiness = safety.blockers;
   try {
-    // 1. Ship what is already sold. Paid orders outrank everything else.
-    result.fulfillment = (await getShopifyCreds(orgId))
+    // 1. Ship what is already sold. Paid orders outrank everything else —
+    // unless the deployment cannot be trusted to remember that it shipped them.
+    result.fulfillment = safety.safe && (await getShopifyCreds(orgId))
       ? await runFulfillmentCycle(orgId)
       : null;
 
@@ -154,7 +203,10 @@ export async function runOrgShift(
       if (sourced.error) result.source_error = sourced.error;
     }
 
-    // 3. The agent(s) on duty, with explicit Botanica task context.
+    // 3. Deterministic intelligence, so the shift reasons from live numbers.
+    await runOrgIntelligence(orgId, result);
+
+    // 4. The agent(s) on duty, with explicit Botanica task context.
     const agents: string[] = [];
     for (const shift of shifts) {
       const run = await runAgent({
@@ -168,14 +220,17 @@ export async function runOrgShift(
     }
     result.agent = agents.join(", ");
 
-    // 4. Deterministic Council gate. Any launch candidate that lacks explicit
+    // 5. Deterministic Council gate. Any launch candidate that lacks explicit
     // Botanica relevance, supplier evidence, positive economics, margin floor,
     // or safe claims is moved back to analyzed before autonomous publishing.
     result.council = await runBotanicaCatalogCouncil(orgId);
 
-    // 5. Clear safe approvals, then publish only what remains launch-ready.
-    result.auto_approved = await autoApprovePending(orgId);
-    result.auto_published = await autoPublishReady(orgId);
+    // 6. Clear safe approvals, then publish only what remains launch-ready.
+    // Both execute real actions, so both wait for a deployment fit to trade.
+    if (safety.safe) {
+      result.auto_approved = await autoApprovePending(orgId);
+      result.auto_published = await autoPublishReady(orgId);
+    }
   } catch (e) {
     result.error = (e as Error).message;
   }
@@ -230,9 +285,13 @@ export async function runAutonomousTick(opts: TickOptions = {}) {
     results.push(await runOrgShift(org.id, org.name, roster));
   }
 
+  const safety = autonomySafety();
   return {
     ran: results.length,
     skipped_idle: skipped,
+    /** False when money-moving steps were held back this tick, and why. */
+    money_moving_enabled: safety.safe,
+    held_for_readiness: safety.safe ? undefined : safety.blockers,
     shift: roster.map((s) => s.agent),
     at: new Date().toISOString(),
     duration_ms: Date.now() - startedAt,

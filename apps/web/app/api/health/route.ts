@@ -8,7 +8,7 @@ import {
   PRODUCT_NAME,
 } from "@/lib/config";
 import { STORAGE_MODE } from "@/lib/kv";
-import { SHIFTS, shiftFor } from "@/lib/autonomy";
+import { SHIFTS, autonomySafety, shiftFor } from "@/lib/autonomy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,6 +21,10 @@ export async function GET() {
   // The fleet only actually works when all three are true: the engine has a
   // key, the cron is authorized, and the release gate is open.
   const live = !!OPENAI_API_KEY && !!CRON_SECRET && AUTONOMY_ENABLED;
+
+  // Even with all three, the loop holds back money-moving work on a deployment
+  // that would lose the books or that anyone could sign into as the owner.
+  const safety = autonomySafety();
 
   return json({
     status: "ok",
@@ -40,6 +44,8 @@ export async function GET() {
       cron_secured: !!CRON_SECRET,
       release_gate: AUTONOMY_ENABLED,
       publishing_gate: COMMERCE_RELEASE_ENABLED,
+      money_moving_enabled: safety.safe,
+      held_for_readiness: safety.blockers,
     },
   });
 }

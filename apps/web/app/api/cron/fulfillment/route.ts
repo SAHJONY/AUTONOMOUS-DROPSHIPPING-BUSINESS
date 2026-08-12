@@ -3,6 +3,7 @@ import { AUTONOMY_ENABLED, CRON_SECRET } from "@/lib/config";
 import { cronGovernanceStatus } from "@/lib/governance";
 import { runFulfillmentCycle } from "@/lib/fulfillment";
 import { getShopifyCreds, listAllOrgs } from "@/lib/store";
+import { autonomySafety } from "@/lib/autonomy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,13 @@ async function handle(req: Request) {
   if (governanceStatus === 401) return error("Unauthorized", 401);
   if (governanceStatus === 423) {
     return error("Autonomous fulfillment is disabled by the release governance gate.", 423);
+  }
+
+  // Buying goods unattended on a deployment that cannot remember it bought them
+  // is worse than not running at all. Same gate the autonomous tick applies.
+  const safety = autonomySafety();
+  if (!safety.safe) {
+    return json({ ran: 0, held_for_readiness: safety.blockers, at: new Date().toISOString(), results: [] }, 423);
   }
 
   const results = [];

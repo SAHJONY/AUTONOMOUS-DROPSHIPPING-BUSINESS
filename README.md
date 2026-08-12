@@ -222,9 +222,22 @@ product_hunter → supplier → store_builder → marketing → advertising → 
 spend stays bounded to one agent per tick rather than eight.
 
 Deterministic work that needs no model runs on **every** tick, before any agent: fulfillment of paid
-orders, supplier sourcing when stock is thin, autopilot approvals within safe thresholds, and
+orders, supplier sourcing when stock is thin, competitor re-pricing against public listings, the
+current projection filed into business memory, autopilot approvals within safe thresholds, and
 publishing everything launch-ready. So customers get their packages and the storefront keeps
 stocking itself even if the engine is unreachable or an agent shift fails.
+
+### The loop refuses to trade on an unfit deployment
+
+Autonomy multiplies whatever the deployment already is. On the in-memory fallback that means buying
+goods against books that silently reset; on the default `JWT_SECRET` it means doing so on a
+deployment anyone can sign into as the owner. A human pressing **✦ Fulfill now** sees those warnings
+on the deck — a cron at 3am does not.
+
+So the loop checks for itself. While either blocker stands, the money-moving steps — fulfillment,
+autopilot approvals and publishing — are held back and reported as `held_for_readiness`, on the tick,
+on both crons (`423`), and on `GET /api/health`. Read-only intelligence still runs, because it costs
+nothing. Clear the blockers and the same code starts trading with no further change.
 
 | Control | Effect |
 |---|---|
@@ -232,10 +245,11 @@ stocking itself even if the engine is unreachable or an agent shift fails.
 | `?all=1` | Run the entire roster in one tick |
 | `?agent=marketing,finance` | Run specific agents |
 | `?include_idle=1` | Also advance orgs with no integrations and no catalog |
-| `GET /api/health` | Live status: engine, storage durability, roster, who is on duty |
+| `GET /api/health` | Live status: engine, storage durability, roster, who is on duty, whether money-moving work is enabled |
 
 Tuning: `AUTONOMY_MAX_ORGS` (default 25) bounds orgs advanced per tick; `AUTONOMY_DEADLINE_MS`
-(default 240000) stops new work before the function time limit.
+(default 240000) stops new work before the function time limit; `AUTONOMY_COMPETITOR_SCAN_LIMIT`
+(default 10) bounds competitor listings re-priced per org per tick.
 
 ### Getting a true 24/7 cadence on the Hobby plan
 

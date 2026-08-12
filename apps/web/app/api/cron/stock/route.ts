@@ -3,6 +3,7 @@ import { AUTONOMY_ENABLED, CRON_SECRET } from "@/lib/config";
 import { cronGovernanceStatus } from "@/lib/governance";
 import { autoApprovePending } from "@/lib/brain";
 import { autoPublishReady, autonomousSource, getCJCreds, listAllOrgs } from "@/lib/store";
+import { autonomySafety } from "@/lib/autonomy";
 
 export const runtime = "nodejs";
 // Higgsfield's API only accepts requests from European IPs — run in Frankfurt.
@@ -21,6 +22,12 @@ async function handle(req: Request) {
   if (governanceStatus === 503) return error("Stock cron is disabled: CRON_SECRET is not configured.", 503);
   if (governanceStatus === 401) return error("Unauthorized", 401);
   if (governanceStatus === 423) return error("Autonomous stocking is disabled by the release governance gate.", 423);
+
+  // Approving and publishing unattended requires a deployment fit to trade.
+  const safety = autonomySafety();
+  if (!safety.safe) {
+    return json({ ran: 0, held_for_readiness: safety.blockers, at: new Date().toISOString(), results: [] }, 423);
+  }
 
   const orgs = await listAllOrgs();
   const results = [];

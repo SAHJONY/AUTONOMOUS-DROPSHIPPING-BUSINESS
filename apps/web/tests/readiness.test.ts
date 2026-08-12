@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessReadiness, type ReadinessFacts } from "@/lib/readiness";
+import { assessAutonomySafety, assessReadiness, type ReadinessFacts } from "@/lib/readiness";
 
 /** A fully configured, connected, locked-down deployment. */
 const healthy: ReadinessFacts = {
@@ -102,5 +102,44 @@ describe("assessReadiness", () => {
       expect(c.level).toBe("ok");
       expect(c.fix).toBeUndefined();
     }
+  });
+});
+
+describe("autonomy safety gate", () => {
+  const fit = { storageMode: "upstash" as const, jwtSecretIsDefault: false };
+
+  it("lets unattended money-moving work run on a fit deployment", () => {
+    const safety = assessAutonomySafety(fit);
+    expect(safety.safe).toBe(true);
+    expect(safety.blockers).toEqual([]);
+  });
+
+  it("holds money-moving work when the books would reset on a cold start", () => {
+    const safety = assessAutonomySafety({ ...fit, storageMode: "memory" });
+    expect(safety.safe).toBe(false);
+    expect(safety.blockers).toHaveLength(1);
+  });
+
+  it("holds money-moving work when anyone could sign in as the owner", () => {
+    const safety = assessAutonomySafety({ ...fit, jwtSecretIsDefault: true });
+    expect(safety.safe).toBe(false);
+  });
+
+  it("names every reason at once rather than only the first", () => {
+    const safety = assessAutonomySafety({ storageMode: "memory", jwtSecretIsDefault: true });
+    expect(safety.safe).toBe(false);
+    expect(safety.blockers).toHaveLength(2);
+  });
+
+  it("gates on exactly the checks assessReadiness calls blockers", () => {
+    // The two gates must not drift apart: anything that makes a deployment
+    // unfit for a human to trade on must also stop the cron from trading.
+    const unfit = {
+      storageMode: "memory" as const, jwtSecretIsDefault: true, cronSecretSet: true, engineKeySet: true,
+      webhookSecretSet: true, publicBaseUrlSet: true, shopifyConnected: true, cjConnected: true,
+      autonomyEnabled: true, commerceReleaseEnabled: true, autoFulfillEnabled: true,
+    };
+    const readiness = assessReadiness(unfit);
+    expect(readiness.blockers).toBe(assessAutonomySafety(unfit).blockers.length);
   });
 });
