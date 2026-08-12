@@ -19,6 +19,8 @@ export type BotanicaEmailMessage = {
 const apiKey = process.env.RESEND_API_KEY ?? "";
 export const BOTANICA_EMAIL_FROM = process.env.BOTANICA_EMAIL_FROM ?? "BOTANICA OCHOSI <suppliers@botanicaochosi.com>";
 export const BOTANICA_EMAIL_REPLY_TO = process.env.BOTANICA_EMAIL_REPLY_TO ?? "suppliers@botanicaochosi.com";
+/** Gmail is the human-readable mirror; the domain address remains canonical. */
+export const BOTANICA_GMAIL_MIRROR = process.env.BOTANICA_GMAIL_MIRROR ?? "botanicaochosi@gmail.com";
 export const BOTANICA_EMAIL_ORG_ID = process.env.BOTANICA_EMAIL_ORG_ID ?? "";
 export const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET ?? "";
 // The placeholder keeps build/test imports side-effect free; every network path
@@ -31,6 +33,7 @@ export function getBotanicaEmailStatus() {
   return {
     configured: Boolean(apiKey && BOTANICA_EMAIL_FROM && BOTANICA_EMAIL_REPLY_TO),
     receiving_configured: Boolean(apiKey && RESEND_WEBHOOK_SECRET && BOTANICA_EMAIL_ORG_ID),
+    gmail_mirror: BOTANICA_GMAIL_MIRROR,
     from: BOTANICA_EMAIL_FROM,
     reply_to: BOTANICA_EMAIL_REPLY_TO,
   };
@@ -55,6 +58,9 @@ export async function sendBotanicaEmail(input: { orgId: string; to: string; subj
   const { data, error } = await resend.emails.send({
     from: BOTANICA_EMAIL_FROM,
     to: [input.to],
+    // Keep every application-originated supplier message visible in the
+    // connected Gmail account without changing the professional From address.
+    bcc: BOTANICA_GMAIL_MIRROR ? [BOTANICA_GMAIL_MIRROR] : undefined,
     replyTo: BOTANICA_EMAIL_REPLY_TO,
     subject: input.subject,
     text: input.text,
@@ -72,6 +78,18 @@ export async function storeInboundBotanicaEmail(emailId: string) {
   if (duplicate) return null;
   const { data, error } = await resend.emails.receiving.get(emailId);
   if (error || !data) throw new Error(error?.message ?? "Unable to retrieve inbound email.");
+  if (BOTANICA_GMAIL_MIRROR) {
+    const { error: forwardError } = await resend.emails.receiving.forward(
+      {
+        emailId,
+        to: BOTANICA_GMAIL_MIRROR,
+        from: BOTANICA_EMAIL_FROM,
+        passthrough: true,
+      },
+      { idempotencyKey: `botanica-gmail-mirror-${emailId}` },
+    );
+    if (forwardError) throw new Error(forwardError.message ?? "Unable to mirror inbound email to Gmail.");
+  }
   const message: BotanicaEmailMessage = { id:newId(), org_id:BOTANICA_EMAIL_ORG_ID, direction:"inbound", from:data.from, to:data.to, subject:data.subject, text:data.text ?? "", provider_id:data.id, status:"received", created_at:data.created_at };
   await listPush(key(BOTANICA_EMAIL_ORG_ID), message, 1000);
   await kv.set(`botanica_email:provider:${emailId}`, true);
