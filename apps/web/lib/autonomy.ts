@@ -10,7 +10,7 @@ import { autoApprovePending, runAgent } from "./brain";
 import { runBotanicaCatalogCouncil } from "./botanica-council";
 import { BOTANICA_AGENT_DIRECTIVE } from "./botanica-policy";
 import { scanCompetitorPricesForOrg } from "./competitor-price-monitor";
-import { JWT_SECRET } from "./config";
+import { JWT_SECRET, OWNER_PASSWORD } from "./config";
 import { buildForecast } from "./forecast";
 import { runFulfillmentCycle } from "./fulfillment";
 import { STORAGE_MODE } from "./kv";
@@ -32,7 +32,11 @@ const DEFAULT_JWT_SECRET = "change-me-in-production-commerce-os";
 
 /** Whether this deployment is fit for unattended money-moving work, right now. */
 export function autonomySafety() {
-  return assessAutonomySafety({ storageMode: STORAGE_MODE, jwtSecretIsDefault: JWT_SECRET === DEFAULT_JWT_SECRET });
+  return assessAutonomySafety({
+    storageMode: STORAGE_MODE,
+    jwtSecretIsDefault: JWT_SECRET === DEFAULT_JWT_SECRET,
+    ownerPasswordSet: !!OWNER_PASSWORD,
+  });
 }
 
 /** How many competitor listings one org may re-price per tick. */

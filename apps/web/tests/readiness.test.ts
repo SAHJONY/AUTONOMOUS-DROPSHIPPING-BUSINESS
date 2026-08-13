@@ -5,6 +5,7 @@ import { assessAutonomySafety, assessReadiness, type ReadinessFacts } from "@/li
 const healthy: ReadinessFacts = {
   storageMode: "upstash",
   jwtSecretIsDefault: false,
+  ownerPasswordSet: true,
   cronSecretSet: true,
   engineKeySet: true,
   webhookSecretSet: true,
@@ -45,13 +46,28 @@ describe("assessReadiness", () => {
     expect(assessReadiness({ ...healthy, jwtSecretIsDefault: true }).ready).toBe(false);
   });
 
+  /**
+   * Found by walking a fresh deployment: registration refuses the owner email
+   * ("provisioned through the secured owner bootstrap"), and the bootstrap only
+   * runs when OWNER_PASSWORD is set. Without it there is no way into the
+   * console at all — and readiness used to report that deployment as fine.
+   */
+  it("blocks when OWNER_PASSWORD is unset, because nobody can sign in at all", () => {
+    const owner = check({ ownerPasswordSet: false }, "owner");
+    expect(owner.level).toBe("blocker");
+    expect(owner.detail).toMatch(/registration deliberately refuses the owner email/i);
+    expect(owner.fix).toMatch(/OWNER_PASSWORD/);
+    expect(assessReadiness({ ...healthy, ownerPasswordSet: false }).ready).toBe(false);
+  });
+
   it("counts several blockers at once rather than stopping at the first", () => {
     const result = assessReadiness({
       ...healthy,
       storageMode: "memory",
       jwtSecretIsDefault: true,
+      ownerPasswordSet: false,
     });
-    expect(result.blockers).toBe(2);
+    expect(result.blockers).toBe(3);
     expect(result.ready).toBe(false);
   });
 
@@ -106,7 +122,7 @@ describe("assessReadiness", () => {
 });
 
 describe("autonomy safety gate", () => {
-  const fit = { storageMode: "upstash" as const, jwtSecretIsDefault: false };
+  const fit = { storageMode: "upstash" as const, jwtSecretIsDefault: false, ownerPasswordSet: true };
 
   it("lets unattended money-moving work run on a fit deployment", () => {
     const safety = assessAutonomySafety(fit);
@@ -125,17 +141,23 @@ describe("autonomy safety gate", () => {
     expect(safety.safe).toBe(false);
   });
 
-  it("names every reason at once rather than only the first", () => {
-    const safety = assessAutonomySafety({ storageMode: "memory", jwtSecretIsDefault: true });
+  it("holds money-moving work when no owner can sign in to stop it", () => {
+    const safety = assessAutonomySafety({ ...fit, ownerPasswordSet: false });
     expect(safety.safe).toBe(false);
-    expect(safety.blockers).toHaveLength(2);
+    expect(safety.blockers[0]).toMatch(/OWNER_PASSWORD/);
+  });
+
+  it("names every reason at once rather than only the first", () => {
+    const safety = assessAutonomySafety({ storageMode: "memory", jwtSecretIsDefault: true, ownerPasswordSet: false });
+    expect(safety.safe).toBe(false);
+    expect(safety.blockers).toHaveLength(3);
   });
 
   it("gates on exactly the checks assessReadiness calls blockers", () => {
     // The two gates must not drift apart: anything that makes a deployment
     // unfit for a human to trade on must also stop the cron from trading.
     const unfit = {
-      storageMode: "memory" as const, jwtSecretIsDefault: true, cronSecretSet: true, engineKeySet: true,
+      storageMode: "memory" as const, jwtSecretIsDefault: true, ownerPasswordSet: false, cronSecretSet: true, engineKeySet: true,
       webhookSecretSet: true, publicBaseUrlSet: true, shopifyConnected: true, cjConnected: true,
       autonomyEnabled: true, commerceReleaseEnabled: true, autoFulfillEnabled: true,
     };

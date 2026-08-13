@@ -33,11 +33,11 @@ Three honest notes:
   deterministic standby. The order and fulfillment loops do not use the model, so orders still get
   taken, bought and shipped. You can go live without paying for tokens.
 
-## 1. Clear the two blockers
+## 1. Clear the three blockers
 
-Nothing else matters until these are done. Both are free.
+Nothing else matters until these are done. All three are free.
 
-> **The loop enforces this itself.** While either blocker stands, the autonomous tick and both crons
+> **The loop enforces this itself.** While any blocker stands, the autonomous tick and both crons
 > hold back fulfillment, autopilot approvals and publishing, and report `held_for_readiness` instead
 > (the crons answer `423`). Read-only intelligence still runs. You cannot accidentally trade on a
 > deployment that would lose the books — but you also will not sell anything until this step is done.
@@ -64,6 +64,20 @@ could mint a valid token for any account, including the owner. Generate real val
 ```
 
 Set `JWT_SECRET` in Vercel. Keep `CRON_SECRET` from the same run for the next step.
+
+**Owner sign-in.** `OWNER_PASSWORD` is the only way the owner account ever comes to exist. The
+account is created — or its password re-synced — on the first request after the variable is set.
+`/api/auth/register` refuses the owner email deliberately (*"This account is provisioned through the
+secured owner bootstrap"*), so with `OWNER_PASSWORD` unset there is no way into the console at all:
+no approvals, no store connection, no business. The owner email is fixed in `lib/config.ts`; only the
+password is configurable.
+
+```
+OWNER_PASSWORD=…                # another long random value from the script above
+```
+
+Then sign in at `/owner/login`. `GET /api/health` reports `owner_sign_in_ready` publicly, because the
+readiness endpoint that would otherwise tell you requires the very sign-in you cannot do.
 
 ## 2. Turn on the schedule
 
@@ -132,6 +146,7 @@ Everything below is free, and takes the deployment to zero blockers:
 UPSTASH_REDIS_REST_URL=…
 UPSTASH_REDIS_REST_TOKEN=…
 JWT_SECRET=…                    # ./ops/generate-secrets.sh
+OWNER_PASSWORD=…                # without this nobody can sign in at all
 CRON_SECRET=…                   # same value in GitHub Actions secrets
 PUBLIC_BASE_URL=https://…
 ENABLE_AUTONOMY=false           # leave off until readiness is clean

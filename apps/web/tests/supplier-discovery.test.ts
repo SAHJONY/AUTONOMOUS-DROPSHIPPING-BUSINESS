@@ -189,3 +189,29 @@ describe("small-batch makers", () => {
     expect(classifySupplierTier("we sell handmade candles from local artists").tier).not.toBe("MANUFACTURER");
   });
 });
+
+describe("Spanish manufacturing words in full", () => {
+  /**
+   * "fabricación" used to match only because "fabrica" sits inside it. Relying
+   * on a substring coincidence for a real word is not a rule.
+   */
+  it("recognizes the noun forms, not just the agent noun", () => {
+    for (const phrase of ["fabricacion personalizada", "fabricación propia", "manufactura de velas", "produccion propia"]) {
+      expect(classifySupplierTier(`${phrase} para botanica`).tier).toBe("MANUFACTURER");
+    }
+  });
+});
+
+describe("what the classifier cannot see", () => {
+  /**
+   * Documented rather than fixed: this reads keywords, not meaning. A negated
+   * claim still classifies as the thing it negates — found when a registry note
+   * saying a manufacturing relationship was unconfirmed classified the supplier
+   * as a manufacturer. Pinned so the limit is visible to whoever next trusts a
+   * tier.
+   */
+  it("cannot read negation, and the tier is therefore a claim not a fact", () => {
+    expect(classifySupplierTier("no somos fabricantes de santeria, solo distribuimos").tier).toBe("MANUFACTURER");
+    expect(classifySupplierTier("we are not a manufacturer of botanica goods").tier).toBe("MANUFACTURER");
+  });
+});

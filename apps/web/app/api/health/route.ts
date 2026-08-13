@@ -5,6 +5,7 @@ import {
   COMMERCE_RELEASE_ENABLED,
   CRON_SECRET,
   ENGINE_NAME,
+  OWNER_PASSWORD,
   PRODUCT_NAME,
 } from "@/lib/config";
 import { STORAGE_MODE } from "@/lib/kv";
@@ -35,6 +36,9 @@ export async function GET() {
     // cold starts, so 24/7 operation wants Upstash configured.
     storage: STORAGE_MODE,
     durable: STORAGE_MODE === "upstash",
+    // Public on purpose: without this the owner cannot sign in at all, and the
+    // readiness endpoint that would say so requires the sign-in you cannot do.
+    owner_sign_in_ready: !!OWNER_PASSWORD,
     autonomy: {
       live,
       mode: "24/7 shift rotation",

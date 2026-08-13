@@ -5,6 +5,7 @@ import {
   COMMERCE_RELEASE_ENABLED,
   CRON_SECRET,
   JWT_SECRET,
+  OWNER_PASSWORD,
   PUBLIC_BASE_URL,
   SHOPIFY_WEBHOOK_SECRET,
 } from "@/lib/config";
@@ -40,6 +41,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     assessReadiness({
       storageMode: STORAGE_MODE,
       jwtSecretIsDefault: JWT_SECRET === DEFAULT_JWT_SECRET,
+      ownerPasswordSet: !!OWNER_PASSWORD,
       cronSecretSet: !!CRON_SECRET,
       engineKeySet: !!OPENAI_API_KEY,
       webhookSecretSet: !!SHOPIFY_WEBHOOK_SECRET,
