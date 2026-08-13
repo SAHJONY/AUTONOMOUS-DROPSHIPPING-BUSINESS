@@ -1,9 +1,10 @@
 import { json, requireOrgRole } from "@/lib/api";
-import { CANDIDATE_MEMORY_PREFIX, DISCOVERY_DAILY_BUDGET, discoveryBudgetRemaining, discoveryProvider, tierForTick, type SupplierTier } from "@/lib/supplier-discovery";
+import { CANDIDATE_MEMORY_PREFIX, DISCOVERY_DAILY_BUDGET, discoveryBudgetRemaining, discoveryProvider, tierForTick } from "@/lib/supplier-discovery";
 import { recall, listProducts } from "@/lib/store";
 import { runIntelligenceSweep } from "@/lib/intelligence";
 import { MCP_TOOLS, mcpConfigured } from "@/lib/mcp";
 import { draftOutreachForBench } from "@/lib/supplier-outreach";
+import { benchCountsByTier, buildSupplierBench } from "@/lib/supplier-bench";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,19 +35,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     })
     .sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
 
+  // The bench is the researched registry plus whatever discovery has filed.
+  // Reading only the second reported zero suppliers to a business holding
+  // dozens of them.
+  const bench = buildSupplierBench(candidates as Array<{ host: string }>);
+
   // Let the owner ask for one rung of the supply chain at a time.
   const wanted = new URL(req.url).searchParams.get("tier")?.toUpperCase();
-  const filtered = wanted ? candidates.filter((c) => String(c.tier) === wanted) : candidates;
+  const filtered = wanted ? bench.filter((entry) => entry.tier === wanted) : bench;
 
-  const byTier: Record<string, number> = { MANUFACTURER: 0, DISTRIBUTOR: 0, WHOLESALER: 0, RESELLER: 0, UNKNOWN: 0 };
-  for (const candidate of candidates) byTier[String(candidate.tier ?? "UNKNOWN") as SupplierTier] += 1;
+  const byTier = benchCountsByTier(bench);
 
   return json({
     provider: discoveryProvider(),
     hunting_now: tierForTick(),
     daily_budget: DISCOVERY_DAILY_BUDGET,
     budget_remaining_today: await discoveryBudgetRemaining(),
-    total: candidates.length,
+    total: bench.length,
+    registered: bench.filter((entry) => entry.source === "registry").length,
+    discovered: bench.filter((entry) => entry.source === "web").length,
     by_tier: byTier,
     candidates: filtered,
     // How to get discovery working without paying per query: let Accio Work
@@ -54,7 +61,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     mcp: { ...mcpConfigured(), path: "/api/mcp", tools: MCP_TOOLS.map((tool) => tool.name) },
     // Opening emails for the bench, best counterparty first. Drafts only —
     // cold outreach is sent by the owner, never by an agent.
-    outreach: draftOutreachForBench(filtered as Array<{ host: string; title?: string; tier?: string; score?: number }>),
+    outreach: draftOutreachForBench(filtered),
     notice: "Candidatos web sin verificar. Confirma identidad, autorización de reventa y precios antes de cualquier compromiso.",
   });
 }

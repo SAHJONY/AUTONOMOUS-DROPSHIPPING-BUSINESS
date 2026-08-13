@@ -73,6 +73,9 @@ const TIER_SIGNALS: Record<Exclude<SupplierTier, "UNKNOWN">, string[]> = {
     "private label", "marca propia", "we manufacture", "nuestra fábrica",
     "handmade in-house", "made in-house", "artisan-made", "artesanal", "hecho a mano",
     "our workshop", "nuestro taller", "we produce", "producimos", "poured in", "we pour",
+    // Spelled out rather than left to chance: "fabricación" only matched before
+    // because "fabrica" happens to sit inside it.
+    "fabricacion", "fabricación", "manufactura", "produccion propia", "producción propia",
   ],
   DISTRIBUTOR: ["distributor", "distribuidor", "distribuidora", "importer", "importador", "importadora", "authorized dealer", "distribución"],
   WHOLESALER: ["wholesale", "mayorista", "mayoreo", "al por mayor", "bulk", "moq", "minimum order", "pedido mínimo"],

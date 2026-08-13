@@ -189,3 +189,15 @@ describe("small-batch makers", () => {
     expect(classifySupplierTier("we sell handmade candles from local artists").tier).not.toBe("MANUFACTURER");
   });
 });
+
+describe("Spanish manufacturing words in full", () => {
+  /**
+   * "fabricación" used to match only because "fabrica" sits inside it. Relying
+   * on a substring coincidence for a real word is not a rule.
+   */
+  it("recognizes the noun forms, not just the agent noun", () => {
+    for (const phrase of ["fabricacion personalizada", "fabricación propia", "manufactura de velas", "produccion propia"]) {
+      expect(classifySupplierTier(`${phrase} para botanica`).tier).toBe("MANUFACTURER");
+    }
+  });
+});

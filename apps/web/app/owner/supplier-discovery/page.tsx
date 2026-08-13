@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import styles from "../owner.module.css";
 
-type Candidate = { host: string; title?: string; url?: string; description?: string; tier?: string; score?: number; signals?: string[]; found_at?: string };
+type Candidate = { host: string; title?: string; url?: string; description?: string; tier?: string; score?: number; signals?: string[]; found_at?: string; source?: "registry" | "web"; researchPriority?: number; status?: string };
 type Mcp = { configured: boolean; missing: string[]; path: string; tools: string[]; orgBinding?: "explicit" | "auto" };
 type Draft = { host: string; supplierName: string; tier: string; kind: string; reason: string; subject: string; body: string };
-type Snapshot = { provider: string; outreach?: Draft[]; hunting_now?: string; daily_budget: number; budget_remaining_today: number; total: number; by_tier: Record<string, number>; candidates: Candidate[]; notice: string; mcp?: Mcp };
+type Snapshot = { provider: string; outreach?: Draft[]; registered?: number; discovered?: number; hunting_now?: string; daily_budget: number; budget_remaining_today: number; total: number; by_tier: Record<string, number>; candidates: Candidate[]; notice: string; mcp?: Mcp };
 type RunResult = { provider: string; tier_hunted: string; queries_spent: number; budget_remaining_today: number; found: number; known_hosts_skipped: number; stopped?: string; assortment: { coverage_percent: number; p1_missing: number; total: number }; notice: string };
 
 const TIERS = ["MANUFACTURER", "DISTRIBUTOR", "WHOLESALER", "RESELLER"] as const;
@@ -84,7 +84,7 @@ export default function SupplierDiscoveryPage() {
       <section className={styles.hero}>
         <div className={styles.kicker}>BÚSQUEDA DE PROVEEDORES · OWNER</div>
         <h1>Encontrar <em>proveedores.</em></h1>
-        <p>Ejecuta ahora el mismo barrido que corre solo cada media hora: calcula qué le falta al catálogo, busca fabricantes, distribuidores, mayoristas y revendedores para esos SKU, y archiva lo que encuentra. No compra nada ni contacta a nadie.</p>
+        <p>Aquí está tu banco de proveedores completo: los investigados a mano y los que encuentra el barrido automático. El botón ejecuta ahora el mismo barrido que corre solo cada media hora — calcula qué le falta al catálogo y busca fabricantes, distribuidores, mayoristas y revendedores para esos SKU. No compra nada ni contacta a nadie.</p>
       </section>
 
       <section className={styles.section}><div className={styles.card}>
@@ -120,7 +120,7 @@ export default function SupplierDiscoveryPage() {
       {message && <div className={styles.result}>{message}</div>}
 
       <section className={styles.metricGrid}>
-        <article className={styles.card}><div className={styles.metricLabel}>Proveedores en registro</div><div className={styles.metricValue}>{snapshot?.total ?? 0}</div><div className={styles.metricNote}>sin verificar</div></article>
+        <article className={styles.card}><div className={styles.metricLabel}>Proveedores en total</div><div className={styles.metricValue}>{snapshot?.total ?? 0}</div><div className={styles.metricNote}>{snapshot?.registered ?? 0} investigados · {snapshot?.discovered ?? 0} de la web</div></article>
         {TIERS.map(t => <article key={t} className={styles.card}><div className={styles.metricLabel}>{TIER_LABEL[t]}</div><div className={styles.metricValue}>{snapshot?.by_tier?.[t] ?? 0}</div><div className={styles.metricNote}>candidatos</div></article>)}
       </section>
 
@@ -134,9 +134,12 @@ export default function SupplierDiscoveryPage() {
       <section className={styles.section}><div className={styles.card}>
         <h2>Candidatos</h2>
         {(snapshot?.candidates?.length ?? 0) === 0
-          ? <p>Todavía no hay proveedores archivados para este filtro. Pulsa «Buscar proveedores ahora».</p>
+          ? <p>No hay proveedores para este filtro. Prueba «Todos», o busca más con el botón de arriba.</p>
           : <ul>{snapshot!.candidates.map(c => <li key={c.host}>
               <strong>{c.title || c.host}</strong> — {TIER_LABEL[String(c.tier ?? "UNKNOWN")]} · {c.score ?? 0}/100
+              {c.source === "registry"
+                ? <> · <em>investigado{c.researchPriority ? ` · prioridad ${c.researchPriority}` : ""}{c.status ? ` · ${c.status === "REQUIRES_ACCOUNT" ? "requiere cuenta mayorista" : c.status === "REQUIRES_CONTACT" ? "requiere contacto" : "público verificado"}` : ""}</em></>
+                : <> · <em>hallazgo web sin verificar</em></>}
               <br /><a href={c.url ?? `https://${c.host}`} target="_blank" rel="noreferrer noopener">{c.host}</a>
               {c.description && <><br /><small>{c.description}</small></>}
               {c.signals?.length ? <><br /><small>Señales: {c.signals.join(", ")}</small></> : null}
@@ -155,7 +158,7 @@ export default function SupplierDiscoveryPage() {
         </details>)}
       </div></section>}
 
-      <div className={styles.error}>{snapshot?.notice}</div>
+      <div className={styles.error}>Los hallazgos web no están verificados. Los proveedores investigados traen procedencia, pero tampoco autorizan una compra: confirma identidad, autorización de reventa y precios antes de cualquier compromiso.</div>
     </div>
   </main>;
 }
