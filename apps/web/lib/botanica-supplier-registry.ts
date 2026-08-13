@@ -800,6 +800,48 @@ export const BOTANICA_SUPPLIERS: BotanicaSupplier[] = [
     sourcingPolicy: "CONSUMABLES",
     researchPriority: 3
   },
+  {
+    id: "lanman-kemp-barclay",
+    name: "Lanman & Kemp-Barclay & Co.",
+    region: "USA",
+    location: "New Jersey, United States",
+    website: "https://floridawater.com/",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["Agua Florida", "Florida Water", "colonias espirituales"],
+    strengths: ["brand owner and manufacturer of Murray & Lanman Florida Water since 1808", "still privately held", "licenses production regionally, including Peru"],
+    sourceEvidence: ["https://floridawater.com/", "https://en.wikipedia.org/wiki/Florida_Water"],
+    sourcingPolicy: "CONSUMABLES",
+    researchPriority: 1
+  },
+  {
+    id: "crusellas-company-miami",
+    name: "Crusellas & Company",
+    region: "USA",
+    location: "Miami, Florida",
+    website: "https://www.crusellas.com/",
+    wholesale: true,
+    status: "REQUIRES_CONTACT",
+    categories: ["colonias 1800", "Agua de Ruda", "Amansa Guapo", "perfumes espirituales"],
+    strengths: ["fabricante y dueño de marca de las colonias Crusellas 1800 que venden las botanicas", "casa cubana nacionalizada en 1960 y refundada en Miami en 1967", "hoy llega al canal vía Original Botanica y Lazaro Brand, no directo"],
+    sourceEvidence: ["https://www.crusellas.com/", "https://www.fragrantica.com/designers/Crusellas-Company.html", "https://originalbotanica.com/crusellas-1800-colognes"],
+    sourcingPolicy: "CONSUMABLES",
+    researchPriority: 1
+  },
+  {
+    id: "comercial-urania-siete-machos",
+    name: "Comercial Urania, S.A. de C.V.",
+    region: "INTERNATIONAL",
+    location: "Mexico",
+    website: "https://trademark.justia.com/owners/comercial-urania-s-a-de-c-v-2739539",
+    wholesale: false,
+    status: "REQUIRES_CONTACT",
+    categories: ["Siete Machos", "7 Machos", "eau de cologne"],
+    strengths: ["dueño registrado de la marca SIETE MACHOS desde 1982", "la marca aparece en casi todo surtido de colonias de botanica", "titular de marca; no confirmado si produce o licencia — verificar antes de tratarlo como fabricante"],
+    sourceEvidence: ["https://trademarks.justia.com/734/06/siete-73406829.html", "https://trademark.justia.com/owners/comercial-urania-s-a-de-c-v-2739539"],
+    sourcingPolicy: "CONSUMABLES",
+    researchPriority: 2
+  },
 ];
 
 export function getBotanicaSuppliersByPriority(priority: 1 | 2 | 3) {

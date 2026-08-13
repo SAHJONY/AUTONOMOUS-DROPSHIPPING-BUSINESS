@@ -201,3 +201,17 @@ describe("Spanish manufacturing words in full", () => {
     }
   });
 });
+
+describe("what the classifier cannot see", () => {
+  /**
+   * Documented rather than fixed: this reads keywords, not meaning. A negated
+   * claim still classifies as the thing it negates — found when a registry note
+   * saying a manufacturing relationship was unconfirmed classified the supplier
+   * as a manufacturer. Pinned so the limit is visible to whoever next trusts a
+   * tier.
+   */
+  it("cannot read negation, and the tier is therefore a claim not a fact", () => {
+    expect(classifySupplierTier("no somos fabricantes de santeria, solo distribuimos").tier).toBe("MANUFACTURER");
+    expect(classifySupplierTier("we are not a manufacturer of botanica goods").tier).toBe("MANUFACTURER");
+  });
+});

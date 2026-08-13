@@ -88,7 +88,16 @@ const TRADE_SIGNALS = ["supplier", "proveedor", "catalog", "catálogo", "price l
 /** How much each tier is worth as a counterparty. */
 const TIER_SCORE: Record<SupplierTier, number> = { MANUFACTURER: 45, DISTRIBUTOR: 35, WHOLESALER: 28, RESELLER: 12, UNKNOWN: 0 };
 
-/** The tier a page advertises itself as, with the words that said so. */
+/**
+ * The tier a page advertises itself as, with the words that said so.
+ *
+ * This reads keywords, not meaning. It cannot see negation: "no somos
+ * fabricantes" and "we are not a manufacturer" both classify as MANUFACTURER,
+ * and so does a note saying a manufacturing relationship is unconfirmed. That
+ * is survivable because the tier is a ranking heuristic and never a control —
+ * nothing is bought, published or emailed on the strength of it — but it does
+ * mean a tier is a claim to check rather than a fact to rely on.
+ */
 export function classifySupplierTier(text: string): { tier: SupplierTier; signals: string[] } {
   const haystack = text.toLowerCase();
   for (const tier of SUPPLIER_TIERS) {
