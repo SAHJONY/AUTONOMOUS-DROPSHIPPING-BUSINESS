@@ -6,6 +6,8 @@ import {
   ownerArchiveShopifyProduct,
   ownerCreateShopifyProduct,
   ownerDeleteShopifyProduct,
+  listAllOwnerShopifyProducts,
+  mergeShopifyCatalogIntoProducts,
 } from "@/lib/owner-catalog-shopify";
 
 export const runtime = "nodejs";
@@ -21,7 +23,19 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
   const { orgId } = await params;
   const auth = await requireOwner(req, orgId);
   if ("response" in auth) return auth.response;
-  return json(await listGet<Product>(productsKey(orgId)));
+  const internal = await listGet<Product>(productsKey(orgId));
+  try {
+    const shopify = await listAllOwnerShopifyProducts(orgId);
+    const merged = mergeShopifyCatalogIntoProducts(orgId, shopify.shop, internal, shopify.products);
+    await listReplace(productsKey(orgId), merged);
+    return json(merged, 200, {
+      "X-Shopify-Sync": "complete",
+      "X-Shopify-Products": String(shopify.products.length),
+    });
+  } catch (syncError) {
+    console.error("Owner Shopify catalog sync failed", syncError);
+    return json(internal, 200, { "X-Shopify-Sync": "failed" });
+  }
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
@@ -67,6 +81,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     price,
     status: publish ? "launched" : "discovered",
     sku: String(body.sku ?? "").trim() || undefined,
+    inventory_quantity: Math.max(0, Math.floor(Number(body.inventory_quantity) || 0)),
+    inventory_policy: body.inventory_policy === "continue" ? "continue" : "deny",
     images: Array.isArray(body.images) ? body.images.map(String).filter(Boolean) : [],
     image_url: Array.isArray(body.images) && body.images.length ? String(body.images[0]) : undefined,
     shopify_id: shopify?.id,
@@ -79,6 +95,33 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   products.unshift(product);
   await listReplace(productsKey(orgId), products.slice(0, 1000));
   return json({ ok: true, product, shopify_status: shopify?.status ?? null }, 201);
+}
+
+export async function PATCH(req: Request, { params }: { params: Promise<{ orgId: string }> }) {
+  const { orgId } = await params;
+  const auth = await requireOwner(req, orgId);
+  if ("response" in auth) return auth.response;
+  const body = await req.json().catch(() => ({}));
+  const productId = String(body.product_id ?? "").trim();
+  if (!productId) return error("product_id is required.", 422);
+  const products = await listGet<Product>(productsKey(orgId));
+  const idx = products.findIndex((product) => product.id === productId);
+  if (idx < 0) return error("Product not found.", 404);
+  const current = products[idx];
+  const patch: Partial<Product> = {};
+  if (typeof body.title === "string" && body.title.trim()) patch.title = body.title.trim().slice(0, 180);
+  if (typeof body.description === "string") patch.description = body.description.slice(0, 5000);
+  if (typeof body.sku === "string") patch.sku = body.sku.trim() || undefined;
+  if (body.price !== undefined) patch.price = Math.max(0, Number(body.price) || 0);
+  if (body.cost !== undefined) patch.cost = Math.max(0, Number(body.cost) || 0);
+  if (body.inventory_quantity !== undefined) patch.inventory_quantity = Math.max(0, Math.floor(Number(body.inventory_quantity) || 0));
+  if (body.inventory_policy === "deny" || body.inventory_policy === "continue") patch.inventory_policy = body.inventory_policy;
+  if (body.status === "launched" || body.status === "discovered" || body.status === "killed") patch.status = body.status;
+  const next = { ...current, ...patch };
+  if (next.status === "launched" && next.price <= 0) return error("A positive price is required before publishing.", 422);
+  products[idx] = next;
+  await listReplace(productsKey(orgId), products);
+  return json({ ok: true, product: next, shopify_sync: "not_requested" });
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ orgId: string }> }) {

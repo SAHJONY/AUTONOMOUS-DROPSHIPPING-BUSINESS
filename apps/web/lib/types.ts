@@ -96,6 +96,9 @@ export interface Product {
   shopify_handle?: string;
   shopify_variant_id?: number; // the variant customers actually buy — links orders back to this product
   sku?: string;
+  /** Native inventory. Undefined means inventory is not tracked for this item. */
+  inventory_quantity?: number;
+  inventory_policy?: "deny" | "continue";
   supplier_pid?: string; // supplier's product id (CJ pid) — needed to place orders
   supplier_vid?: string; // supplier's variant id (CJ vid) — what actually gets ordered
   created_at: string;
@@ -138,7 +141,7 @@ export interface OrderEvent {
 export interface Order {
   id: string;
   org_id: string;
-  channel: "shopify" | "manual";
+  channel: "shopify" | "native" | "manual";
   /** Shopify's numeric order id as a string. Unique per org — the dedupe key. */
   external_id: string;
   order_number: string;

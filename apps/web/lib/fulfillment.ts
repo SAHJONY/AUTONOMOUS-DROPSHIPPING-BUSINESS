@@ -327,11 +327,19 @@ export async function syncTracking(orgId: string, orderId: string): Promise<Step
   return pushFulfillment(orgId, order.id);
 }
 
-/** Mark the order shipped on Shopify. Safe to retry; Shopify rejects duplicates. */
+/** Mark an order shipped; Shopify is notified only for Shopify-channel orders. */
 export async function pushFulfillment(orgId: string, orderId: string): Promise<StepResult> {
   const order = await getOrder(orgId, orderId);
   if (!order) return { ok: false, detail: "Order not found." };
   if (!order.tracking_number) return { ok: false, detail: "No tracking number yet." };
+
+  if (order.channel !== "shopify") {
+    await updateOrder(orgId, order.id, { stage: "shipped", fulfillment_status: "fulfilled" }, {
+      kind: "shipped",
+      detail: `Native order shipped with tracking ${order.tracking_number}.`,
+    });
+    return { ok: true, detail: `${order.order_number} marked shipped with tracking.` };
+  }
 
   const resolved = await resolveShopifyToken(orgId);
   if (!resolved.ok || !resolved.token || !resolved.shop) {
@@ -426,7 +434,7 @@ export async function runFulfillmentCycle(
 
   const sync = await syncShopifyOrders(orgId);
   if (sync.ok) cycle.synced = { imported: sync.imported, updated: sync.updated };
-  else if (sync.error) cycle.failures.push(`sync: ${sync.error}`);
+  else if (sync.error && !/shopify (?:is )?not connected/i.test(sync.error)) cycle.failures.push(`sync: ${sync.error}`);
 
   const settings = await getOrgSettings(orgId);
   const orders = await listOrders(orgId, 200);
