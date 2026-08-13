@@ -5,7 +5,8 @@ import styles from "../owner.module.css";
 
 type Candidate = { host: string; title?: string; url?: string; description?: string; tier?: string; score?: number; signals?: string[]; found_at?: string };
 type Mcp = { configured: boolean; missing: string[]; path: string; tools: string[]; orgBinding?: "explicit" | "auto" };
-type Snapshot = { provider: string; hunting_now?: string; daily_budget: number; budget_remaining_today: number; total: number; by_tier: Record<string, number>; candidates: Candidate[]; notice: string; mcp?: Mcp };
+type Draft = { host: string; supplierName: string; tier: string; kind: string; reason: string; subject: string; body: string };
+type Snapshot = { provider: string; outreach?: Draft[]; hunting_now?: string; daily_budget: number; budget_remaining_today: number; total: number; by_tier: Record<string, number>; candidates: Candidate[]; notice: string; mcp?: Mcp };
 type RunResult = { provider: string; tier_hunted: string; queries_spent: number; budget_remaining_today: number; found: number; known_hosts_skipped: number; stopped?: string; assortment: { coverage_percent: number; p1_missing: number; total: number }; notice: string };
 
 const TIERS = ["MANUFACTURER", "DISTRIBUTOR", "WHOLESALER", "RESELLER"] as const;
@@ -141,6 +142,18 @@ export default function SupplierDiscoveryPage() {
               {c.signals?.length ? <><br /><small>Señales: {c.signals.join(", ")}</small></> : null}
             </li>)}</ul>}
       </div></section>
+
+      {(snapshot?.outreach?.length ?? 0) > 0 && <section className={styles.section}><div className={styles.card}>
+        <h2>Primer correo para cada proveedor</h2>
+        <p>Redactado según el nivel de cada uno: a un fabricante se le pregunta por marca propia, a un distribuidor o mayorista por cuenta mayorista, a un revendedor por catálogo y precios. Revísalo y envíalo tú desde Owner OS — ningún agente abre conversaciones.</p>
+        {snapshot!.outreach!.map(draft => <details key={draft.host}>
+          <summary><strong>{draft.supplierName}</strong> — {TIER_LABEL[draft.tier] ?? draft.tier}</summary>
+          <p className={styles.metricNote}>{draft.reason}</p>
+          <p className={styles.metricNote}><strong>Asunto:</strong> {draft.subject}</p>
+          <pre>{draft.body}</pre>
+          <button className={styles.ghost} onClick={() => navigator.clipboard?.writeText(`${draft.subject}\n\n${draft.body}`)}>Copiar correo</button>
+        </details>)}
+      </div></section>}
 
       <div className={styles.error}>{snapshot?.notice}</div>
     </div>
