@@ -31,6 +31,7 @@ export interface Readiness {
 export interface ReadinessFacts {
   storageMode: "upstash" | "memory";
   jwtSecretIsDefault: boolean;
+  ownerPasswordSet: boolean;
   cronSecretSet: boolean;
   engineKeySet: boolean;
   webhookSecretSet: boolean;
@@ -54,13 +55,18 @@ export interface ReadinessFacts {
  * money-moving steps rather than trusting the operator to have read the
  * checklist first.
  *
+ * Without OWNER_PASSWORD nobody can sign in as the owner at all, so an
+ * unattended loop would spend with no one able to reach the controls and stop
+ * it. That is the case the gate exists for, not an exception to it.
+ *
  * Read-only and advisory work is unaffected — it costs nothing and is not
  * destructive.
  */
-export function assessAutonomySafety(f: Pick<ReadinessFacts, "storageMode" | "jwtSecretIsDefault">) {
+export function assessAutonomySafety(f: Pick<ReadinessFacts, "storageMode" | "jwtSecretIsDefault" | "ownerPasswordSet">) {
   const blockers: string[] = [];
   if (f.storageMode !== "upstash") blockers.push("Almacenamiento en memoria: los pedidos y el libro contable se pierden en el próximo arranque en frío.");
   if (f.jwtSecretIsDefault) blockers.push("JWT_SECRET sigue siendo el valor por defecto, que es público en el código fuente.");
+  if (!f.ownerPasswordSet) blockers.push("OWNER_PASSWORD no está definido: nadie puede iniciar sesión como propietario para supervisar ni detener el ciclo.");
   return { safe: blockers.length === 0, blockers };
 }
 
@@ -105,6 +111,26 @@ export function assessReadiness(f: ReadinessFacts): Readiness {
           label: "Session signing key",
           level: "ok",
           detail: "A custom JWT_SECRET is configured.",
+        },
+  );
+
+  checks.push(
+    f.ownerPasswordSet
+      ? {
+          id: "owner",
+          label: "Owner sign-in",
+          level: "ok",
+          detail: "OWNER_PASSWORD is set, so the owner account exists and can sign in.",
+        }
+      : {
+          id: "owner",
+          label: "Owner sign-in",
+          level: "blocker",
+          detail:
+            "OWNER_PASSWORD is not set, so the owner account is never created. The owner cannot " +
+            "sign in, which means no approvals, no store connection, and no way to run the " +
+            "business — registration deliberately refuses the owner email, so there is no way in.",
+          fix: "Set OWNER_PASSWORD to a long random value, then sign in at /owner/login.",
         },
   );
 
