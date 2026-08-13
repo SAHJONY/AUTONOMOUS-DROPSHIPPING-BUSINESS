@@ -3,6 +3,7 @@ import { CANDIDATE_MEMORY_PREFIX, DISCOVERY_DAILY_BUDGET, discoveryBudgetRemaini
 import { recall, listProducts } from "@/lib/store";
 import { runIntelligenceSweep } from "@/lib/intelligence";
 import { MCP_TOOLS, mcpConfigured } from "@/lib/mcp";
+import { draftOutreachForBench } from "@/lib/supplier-outreach";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,6 +52,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ orgId: s
     // How to get discovery working without paying per query: let Accio Work
     // search from the desktop and file results through /api/mcp.
     mcp: { ...mcpConfigured(), path: "/api/mcp", tools: MCP_TOOLS.map((tool) => tool.name) },
+    // Opening emails for the bench, best counterparty first. Drafts only —
+    // cold outreach is sent by the owner, never by an agent.
+    outreach: draftOutreachForBench(filtered as Array<{ host: string; title?: string; tier?: string; score?: number }>),
     notice: "Candidatos web sin verificar. Confirma identidad, autorización de reventa y precios antes de cualquier compromiso.",
   });
 }
