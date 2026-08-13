@@ -19,7 +19,7 @@ type Product = {
 };
 
 type CartLine = Product & { quantity: number };
-type CatalogResponse = { ok: boolean; shop: string | null; products: Product[]; count?: number; detail?: string };
+type CatalogResponse = { ok: boolean; provider?: "native"; checkoutProvider?: "stripe"; shop: string | null; products: Product[]; count?: number; detail?: string };
 
 const SITE_URL = "https://www.botanicaochosi.com";
 const CART_KEY = "botanica_ochosi_cart_v1";
@@ -31,6 +31,8 @@ export default function ShopPage() {
   const [category, setCategory] = useState("Todos");
   const [cartOpen, setCartOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState("");
+  const [checkoutError, setCheckoutError] = useState("");
+  const [checkingOut, setCheckingOut] = useState(false);
 
   useEffect(() => {
     fetch("/api/public/catalog", { cache: "no-store" })
@@ -48,7 +50,13 @@ export default function ShopPage() {
       localStorage.removeItem(CART_KEY);
     }
 
-    if (new URLSearchParams(window.location.search).get("cart") === "1") setCartOpen(true);
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("cart") === "1") setCartOpen(true);
+    if (params.get("checkout") === "success") {
+      localStorage.removeItem(CART_KEY);
+      setCart([]);
+      setShareNotice("Pago recibido. Gracias por tu compra.");
+    }
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
   }, []);
 
@@ -90,10 +98,19 @@ export default function ShopPage() {
     }));
   }
 
-  function checkout() {
-    if (!catalog.shop || cart.length === 0 || cart.some((line) => !/^\d+$/.test(line.variantId))) return;
-    const items = cart.map((line) => `${line.variantId}:${line.quantity}`).join(",");
-    window.location.href = `https://${catalog.shop}/cart/${items}?ref=botanica-ochosi-web`;
+  async function checkout() {
+    if (cart.length === 0 || checkingOut) return;
+    setCheckingOut(true);
+    setCheckoutError("");
+    try {
+      const response = await fetch("/api/public/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lines: cart.map((line) => ({ productId: line.id, quantity: line.quantity })) }) });
+      const body = (await response.json()) as { ok?: boolean; url?: string; detail?: string };
+      if (!response.ok || !body.url) throw new Error(body.detail ?? "No se pudo iniciar el checkout.");
+      window.location.href = body.url;
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : "No se pudo iniciar el checkout.");
+      setCheckingOut(false);
+    }
   }
 
   async function share(title: string, text: string, url: string) {
@@ -143,7 +160,7 @@ export default function ShopPage() {
         <div className={styles.heroCopy}>
           <span className={styles.eyebrow}>FE · PROPÓSITO · PROSPERIDAD</span>
           <h1>Tu botánica cubana, <em>ahora online.</em></h1>
-          <p>Una experiencia de comercio electrónico BOTANICA OCHOSI con productos aprobados, compra segura, envíos gestionados por Shopify y atención completamente en línea.</p>
+          <p>Una experiencia de comercio electrónico BOTANICA OCHOSI con catálogo propio, compra segura y atención completamente en línea.</p>
           <div className={styles.heroActions}>
             <a className={styles.primary} href="#catalogo">Comprar ahora</a>
             <button className={styles.secondary} onClick={shareStore}>Compartir tienda</button>
@@ -159,7 +176,7 @@ export default function ShopPage() {
       </section>
 
       <section className={styles.trust} id="confianza">
-        <div><strong>Compra segura</strong><span>Checkout administrado por Shopify</span></div>
+        <div><strong>Compra segura</strong><span>Pagos protegidos por Stripe</span></div>
         <div><strong>Catálogo real</strong><span>Solo productos activos, publicados y BOTANICA</span></div>
         <div><strong>Envíos discretos</strong><span>Información mostrada en checkout</span></div>
         <div><strong>Atención online</strong><span>Sin llamadas telefónicas</span></div>
@@ -176,7 +193,7 @@ export default function ShopPage() {
           </div>
         </div>
 
-        {!catalog.ok && <div className={styles.stateCard}><strong>La tienda se está preparando.</strong><p>{catalog.detail ?? "Shopify todavía no ha confirmado un catálogo público."}</p></div>}
+        {!catalog.ok && <div className={styles.stateCard}><strong>La tienda se está preparando.</strong><p>{catalog.detail ?? "El catálogo todavía no está disponible."}</p></div>}
         {catalog.ok && products.length === 0 && <div className={styles.stateCard}><strong>No hay productos activos BOTANICA todavía.</strong><p>Legacy, HOLD y draft permanecen ocultos hasta completar aprobación, inventario y publicación.</p></div>}
 
         <div className={styles.grid}>
@@ -228,8 +245,9 @@ export default function ShopPage() {
           ))}
         </div>
         <div className={styles.cartSummary}><span>Subtotal</span><strong>${subtotal.toFixed(2)}</strong></div>
-        <p className={styles.cartNote}>Impuestos, disponibilidad final y envío se confirman en Shopify.</p>
-        <button className={styles.checkout} onClick={checkout} disabled={!catalog.shop || cart.length === 0 || cart.some((line) => !/^\d+$/.test(line.variantId))}>Continuar a checkout seguro</button>
+        <p className={styles.cartNote}>Impuestos, disponibilidad final y envío se confirman durante el pago seguro.</p>
+        {checkoutError && <p className={styles.cartNote}>{checkoutError}</p>}
+        <button className={styles.checkout} onClick={checkout} disabled={cart.length === 0 || checkingOut}>{checkingOut ? "Preparando checkout…" : "Continuar a checkout seguro"}</button>
       </aside>
       {cartOpen && <button className={styles.backdrop} onClick={() => setCartOpen(false)} aria-label="Cerrar carrito" />}
     </main>

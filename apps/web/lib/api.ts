@@ -4,8 +4,8 @@ import { verifyToken } from "./auth";
 import { getUser, getUserOrgRole, userCanAccessOrg } from "./store";
 import type { Role, User } from "./types";
 
-export function json(data: unknown, status = 200): NextResponse {
-  return NextResponse.json(data, { status });
+export function json(data: unknown, status = 200, headers?: HeadersInit): NextResponse {
+  return NextResponse.json(data, { status, headers });
 }
 export function error(detail: string, status = 400): NextResponse {
   return NextResponse.json({ detail }, { status });

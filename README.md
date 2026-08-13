@@ -171,6 +171,9 @@ Key design decisions:
    - `JWT_SECRET` — a long random string.
    - `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` — durable 24/7 storage
      (Vercel's Upstash marketplace integration also provides `KV_REST_API_URL/TOKEN`).
+   - `PUBLIC_STORE_ORG_ID`, `STRIPE_SECRET_KEY`, and `STRIPE_WEBHOOK_SECRET` — native catalog,
+     secure checkout, and paid-order ingestion without requiring Shopify. Register the webhook at
+     `/api/webhooks/stripe` for `checkout.session.completed`.
    - `CRON_SECRET` — authorizes both crons.
    - `SHOPIFY_WEBHOOK_SECRET` + `PUBLIC_BASE_URL` — real-time orders. Without them the app falls
      back to polling Shopify on each cron pass, which still works but is not instant.
