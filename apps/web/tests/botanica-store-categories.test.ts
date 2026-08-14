@@ -5,9 +5,10 @@ import type { Product } from "../lib/types";
 
 describe("BOTANICA store categories", () => {
   it("contains the requested taxonomy without duplicates", () => {
-    expect(BOTANICA_STORE_CATEGORIES).toHaveLength(36);
+    expect(BOTANICA_STORE_CATEGORIES).toHaveLength(46);
     expect(new Set(BOTANICA_STORE_CATEGORIES).size).toBe(BOTANICA_STORE_CATEGORIES.length);
     expect(isBotanicaStoreCategory("VELAS / CANDLES")).toBe(true);
+    expect(isBotanicaStoreCategory("SOPERAS")).toBe(true);
     expect(isBotanicaStoreCategory("Unknown category")).toBe(false);
   });
 
