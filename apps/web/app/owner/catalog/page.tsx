@@ -1,9 +1,10 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { BOTANICA_STORE_CATEGORIES } from "@/lib/botanica-store-categories";
 import styles from "../owner.module.css";
 
-type Product = { id:string; title:string; description:string; cost:number; price:number; status:string; source?:string; supplier?:string; shopify_id?:number; storefront_url?:string; sku?:string; inventory_quantity?:number; inventory_policy?:"deny"|"continue" };
+type Product = { id:string; title:string; description:string; category?:string; cost:number; price:number; status:string; source?:string; supplier?:string; shopify_id?:number; storefront_url?:string; sku?:string; inventory_quantity?:number; inventory_policy?:"deny"|"continue"; image_url?:string; images?:string[] };
 type MigrationResult = { ok?:boolean; legacy_found?:number; archived_count?:number; botanica_drafts_created?:number; final_active_legacy?:number; final_botanica_products?:number; errors?:string[] };
 type DiagnosticRow = { id:string; title:string; handle:string; productType:string; vendor:string; published:boolean; botanica:boolean; positivePrice:boolean; inventoryAvailable:boolean; publishable:boolean; reasons:string[] };
 type CatalogDiagnostics = {
@@ -32,6 +33,9 @@ export default function OwnerCatalogPage() {
   const [busy, setBusy] = useState(false);
   const [migration, setMigration] = useState<MigrationResult | null>(null);
   const [shopifySync, setShopifySync] = useState("");
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [uploadStatus, setUploadStatus] = useState("");
 
   useEffect(() => { setToken(localStorage.getItem("commerce_os_token") ?? ""); setOrgId(localStorage.getItem("commerce_os_org") ?? ""); }, []);
   const headers = useMemo(() => ({ "Content-Type":"application/json", ...(token ? { Authorization:`Bearer ${token}` } : {}) }), [token]);
@@ -61,6 +65,11 @@ export default function OwnerCatalogPage() {
     setDiagnostics(body as CatalogDiagnostics);
   }
   useEffect(() => { if (token) { void refresh(); void refreshDiagnostics(); } }, [token]);
+  useEffect(() => {
+    const urls = selectedImages.map((file) => URL.createObjectURL(file));
+    setImagePreviews(urls);
+    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+  }, [selectedImages]);
 
   async function runMigration() {
     const confirmation = window.prompt("Esto añade de forma segura los productos BOTANICA faltantes como borradores no publicados en Shopify. Los productos existentes se conservan. Escribe:\nSEED BOTANICA DRAFTS") ?? "";
@@ -75,17 +84,26 @@ export default function OwnerCatalogPage() {
   }
 
   async function addProduct(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault(); setBusy(true); setError(""); const form = new FormData(e.currentTarget);
+    e.preventDefault(); setBusy(true); setError(""); setUploadStatus(""); const formElement=e.currentTarget; const form = new FormData(formElement);
     try {
       const oid = await resolveOrg(); if (!oid) throw new Error("Owner organization could not be resolved.");
-      const images = String(form.get("images") ?? "").split(/\n|,/).map((v) => v.trim()).filter(Boolean);
+      let images = String(form.get("images") ?? "").split(/\n|,/).map((v) => v.trim()).filter(Boolean);
+      if (selectedImages.length) {
+        setUploadStatus(`Subiendo ${selectedImages.length} imagen${selectedImages.length===1?"":"es"}…`);
+        const uploadForm = new FormData(); selectedImages.forEach((file) => uploadForm.append("images", file));
+        const uploadResponse = await fetch(`/api/orgs/${oid}/owner-catalog/images`, { method:"POST", headers:token?{Authorization:`Bearer ${token}`}:{}, body:uploadForm });
+        const uploadBody = await uploadResponse.json().catch(() => ({}));
+        if (!uploadResponse.ok) throw new Error(uploadBody.detail ?? `Image upload failed (${uploadResponse.status})`);
+        images = [...(uploadBody.images ?? []).map((image:{url:string}) => image.url), ...images].slice(0, 8);
+        setUploadStatus("Imágenes cargadas. Guardando producto…");
+      }
       const res = await fetch(`/api/orgs/${oid}/owner-catalog`, { method:"POST", headers, body:JSON.stringify({
         title:form.get("title"), description:form.get("description"), supplier:form.get("supplier"), supplier_url:form.get("supplier_url"),
         sku:form.get("sku"), product_type:form.get("product_type"), cost:Number(form.get("cost") ?? 0), price:Number(form.get("price") ?? 0),
         images, inventory_quantity:Number(form.get("inventory_quantity") ?? 0), inventory_policy:form.get("inventory_policy"), sync_shopify:form.get("sync_shopify") === "on", publish:form.get("publish") === "on",
       }) });
       const body = await res.json().catch(() => ({})); if (!res.ok) throw new Error(body.detail ?? `Request failed (${res.status})`);
-      e.currentTarget.reset(); await refresh(); await refreshDiagnostics();
+      formElement.reset(); setSelectedImages([]); setUploadStatus("Producto guardado en el catálogo nativo."); await refresh(); await refreshDiagnostics();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); }
   }
 
@@ -112,11 +130,11 @@ export default function OwnerCatalogPage() {
 
   return <main className={styles.shell}>
     <nav className={styles.nav}>
-      <a className={styles.brand} href="/store"><span className={styles.mark}>O</span><span className={styles.brandText}><strong>BOTANICA</strong><small>OCHOSI</small></span></a>
-      <div className={styles.navLinks}><a className={`${styles.ghost} ${styles.hideMobile}`} href="/owner">Owner OS</a><a className={styles.primary} href="/store">Storefront</a></div>
+      <a className={styles.brand} href="/shop"><span className={styles.mark}>O</span><span className={styles.brandText}><strong>BOTANICA</strong><small>OCHOSI</small></span></a>
+      <div className={styles.navLinks}><a className={`${styles.ghost} ${styles.hideMobile}`} href="/owner">Owner OS</a><a className={styles.primary} href="/shop">Tienda nativa</a></div>
     </nav>
     <div className={styles.content}>
-      <section className={styles.hero}><div className={styles.kicker}>CATÁLOGO NATIVO · SHOPIFY OPCIONAL</div><h1>Control del <em>catálogo.</em></h1><p>La aplicación es la fuente principal del catálogo, precio, publicación e inventario. Shopify puede importar o recibir productos cuando tú lo decidas.</p><div className={styles.heroActions}><button className={styles.primary} onClick={() => void refresh()} disabled={busy || !token}>Actualizar catálogo + importar Shopify</button><a className={styles.ghost} href="/owner/native-store">Configurar tienda nativa</a></div></section>
+      <section className={styles.hero}><div className={styles.kicker}>CATÁLOGO NATIVO · SHOPIFY OPCIONAL</div><h1>Añade y administra <em>productos.</em></h1><p>Sube imágenes desde tu teléfono o computadora, escribe la información, fija precio e inventario y publica directamente en tu tienda.</p><div className={styles.heroActions}><a className={styles.primary} href="#add-product">+ Añadir producto</a><a className={styles.ghost} href="/shop" target="_blank" rel="noreferrer">Ver tienda ↗</a><button className={styles.ghost} onClick={() => void refresh()} disabled={busy || !token}>Importar Shopify</button><a className={styles.ghost} href="/owner/native-store">Configurar tienda</a></div></section>
       {error && <div className={styles.error}>{error}</div>}
       {shopifySync && <div className={styles.result}>{shopifySync}</div>}
 
@@ -140,14 +158,19 @@ export default function OwnerCatalogPage() {
         {migration && <div className={styles.result}><strong>{migration.ok ? "Migration completed" : "Migration completed with issues"}</strong><div className={styles.productMeta}>Legacy found {migration.legacy_found ?? 0} · Archived {migration.archived_count ?? 0} · Drafts created {migration.botanica_drafts_created ?? 0} · Remaining legacy {migration.final_active_legacy ?? 0} · BOTANICA products {migration.final_botanica_products ?? 0}</div>{!!migration.errors?.length && <div className={styles.blocker}>{migration.errors.join(" | ")}</div>}</div>}
       </section>
 
-      <section className={styles.section}>
-        <div className={styles.sectionHead}><div><span>DIRECT OWNER ENTRY</span><h2>Add a catalog product.</h2></div></div>
+      <section className={styles.section} id="add-product">
+        <div className={styles.sectionHead}><div><span>NUEVO PRODUCTO</span><h2>Sube imágenes, información y precio.</h2><p>Marca “Publicar” para mostrarlo inmediatamente en la tienda.</p></div></div>
         <form onSubmit={addProduct} className={`${styles.card} ${styles.form}`}>
-          <input className={styles.input} name="title" required placeholder="Product title"/><input className={styles.input} name="sku" placeholder="SKU"/><input className={styles.input} name="product_type" placeholder="Category / product type"/>
-          <input className={styles.input} name="supplier" placeholder="Supplier"/><input className={styles.input} name="supplier_url" placeholder="Supplier URL"/><input className={styles.input} name="cost" type="number" min="0" step="0.01" placeholder="Cost"/>
-          <input className={styles.input} name="price" type="number" min="0" step="0.01" placeholder="Retail price"/><input className={styles.input} name="inventory_quantity" type="number" min="0" step="1" placeholder="Inventory quantity"/><select className={styles.input} name="inventory_policy" defaultValue="deny"><option value="deny">Stop when sold out</option><option value="continue">Allow backorders</option></select><textarea className={styles.textarea} name="description" placeholder="Description"/><textarea className={styles.textarea} name="images" placeholder="Image URLs, comma or line separated"/>
-          <label className={styles.full}><input type="checkbox" name="publish"/> Publish immediately in the native store (positive price required).</label><label className={styles.full}><input type="checkbox" name="sync_shopify"/> Also create this product in Shopify.</label>
-          <div className={styles.full}><button disabled={busy} className={styles.primary}>{busy ? "Working…" : "Add to native catalog"}</button></div>
+          <label>Nombre del producto *<input className={styles.input} name="title" required placeholder="Ej. Vela espiritual blanca 7 días"/></label><label>SKU<input className={styles.input} name="sku" placeholder="Ej. VELA-7D-BLANCA"/></label><label>Categoría *<select className={styles.input} name="product_type" required defaultValue=""><option value="" disabled>Seleccionar categoría</option>{BOTANICA_STORE_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
+          <label>Proveedor<input className={styles.input} name="supplier" placeholder="Nombre del proveedor"/></label><label>URL del proveedor<input className={styles.input} name="supplier_url" type="url" placeholder="https://…"/></label><label>Costo para ti<input className={styles.input} name="cost" type="number" min="0" step="0.01" placeholder="0.00"/></label>
+          <label>Precio de venta *<input className={styles.input} name="price" type="number" min="0.01" step="0.01" required placeholder="0.00"/></label><label>Inventario *<input className={styles.input} name="inventory_quantity" type="number" min="0" step="1" required defaultValue="1"/></label><label>Cuando se agote<select className={styles.input} name="inventory_policy" defaultValue="deny"><option value="deny">Detener ventas</option><option value="continue">Permitir pedidos pendientes</option></select></label>
+          <label className={styles.full}>Descripción<textarea className={styles.textarea} name="description" placeholder="Describe el producto, tamaño, contenido y presentación."/></label>
+          <label className={styles.full}>Imágenes del producto *<input className={styles.input} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple required={selectedImages.length===0} onChange={(event) => setSelectedImages(Array.from(event.target.files ?? []).slice(0,8))}/><small>Hasta 8 imágenes · JPG, PNG, WebP o GIF · máximo 5 MB cada una.</small></label>
+          {!!imagePreviews.length && <div className={styles.full} style={{display:"flex",gap:12,flexWrap:"wrap"}}>{imagePreviews.map((url,index) => <img key={url} src={url} alt={`Vista previa ${index+1}`} style={{width:96,height:96,objectFit:"cover",borderRadius:12}}/>)}</div>}
+          <details className={styles.full}><summary>Opcional: usar URLs de imágenes</summary><textarea className={styles.textarea} name="images" placeholder="Una URL por línea"/></details>
+          <label className={styles.full}><input type="checkbox" name="publish" defaultChecked/> Publicar inmediatamente en la tienda nativa.</label><label className={styles.full}><input type="checkbox" name="sync_shopify"/> También crear este producto en Shopify (opcional).</label>
+          {uploadStatus && <div className={`${styles.result} ${styles.full}`}>{uploadStatus}</div>}
+          <div className={styles.full}><button disabled={busy} className={styles.primary}>{busy ? "Subiendo y guardando…" : "Guardar producto"}</button></div>
         </form>
       </section>
 

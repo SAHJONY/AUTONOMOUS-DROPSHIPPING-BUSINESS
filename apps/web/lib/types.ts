@@ -79,6 +79,7 @@ export interface Product {
   org_id: string;
   title: string;
   description: string;
+  category?: string;
   source: string;
   supplier_url: string;
   cost: number;
