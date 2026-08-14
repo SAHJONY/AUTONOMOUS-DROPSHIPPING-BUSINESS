@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { ClipboardEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { BOTANICA_STORE_CATEGORIES } from "@/lib/botanica-store-categories";
 import styles from "../owner.module.css";
 
@@ -70,6 +70,17 @@ export default function OwnerCatalogPage() {
     setImagePreviews(urls);
     return () => urls.forEach((url) => URL.revokeObjectURL(url));
   }, [selectedImages]);
+
+  function pasteProductMedia(event: ClipboardEvent<HTMLElement>) {
+    const pastedImages = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => Boolean(file));
+    if (!pastedImages.length) return;
+    event.preventDefault();
+    setSelectedImages((current) => [...current, ...pastedImages].slice(0, 8));
+    setUploadStatus(`${pastedImages.length} imagen${pastedImages.length === 1 ? " pegada" : "es pegadas"} desde el portapapeles.`);
+  }
 
   async function runMigration() {
     const confirmation = window.prompt("Esto añade de forma segura los productos BOTANICA faltantes como borradores no publicados en Shopify. Los productos existentes se conservan. Escribe:\nSEED BOTANICA DRAFTS") ?? "";
@@ -160,12 +171,15 @@ export default function OwnerCatalogPage() {
 
       <section className={styles.section} id="add-product">
         <div className={styles.sectionHead}><div><span>NUEVO PRODUCTO</span><h2>Sube imágenes, información y precio.</h2><p>Marca “Publicar” para mostrarlo inmediatamente en la tienda.</p></div></div>
-        <form onSubmit={addProduct} className={`${styles.card} ${styles.form}`}>
+        <form onSubmit={addProduct} onPaste={pasteProductMedia} className={`${styles.card} ${styles.form}`}>
+          <div className={`${styles.result} ${styles.full}`} tabIndex={0} role="region" aria-label="Zona para pegar información e imágenes">
+            <strong>Copiar y pegar activado</strong><div className={styles.productMeta}>Pega texto normalmente en cualquier campo. Para añadir fotos copiadas, haz clic aquí o dentro del formulario y presiona Ctrl+V en Windows o ⌘V en Mac.</div>
+          </div>
           <label>Nombre del producto *<input className={styles.input} name="title" required placeholder="Ej. Vela espiritual blanca 7 días"/></label><label>SKU<input className={styles.input} name="sku" placeholder="Ej. VELA-7D-BLANCA"/></label><label>Categoría *<select className={styles.input} name="product_type" required defaultValue=""><option value="" disabled>Seleccionar categoría</option>{BOTANICA_STORE_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}</select></label>
           <label>Proveedor<input className={styles.input} name="supplier" placeholder="Nombre del proveedor"/></label><label>URL del proveedor<input className={styles.input} name="supplier_url" type="url" placeholder="https://…"/></label><label>Costo para ti<input className={styles.input} name="cost" type="number" min="0" step="0.01" placeholder="0.00"/></label>
           <label>Precio de venta *<input className={styles.input} name="price" type="number" min="0.01" step="0.01" required placeholder="0.00"/></label><label>Inventario *<input className={styles.input} name="inventory_quantity" type="number" min="0" step="1" required defaultValue="1"/></label><label>Cuando se agote<select className={styles.input} name="inventory_policy" defaultValue="deny"><option value="deny">Detener ventas</option><option value="continue">Permitir pedidos pendientes</option></select></label>
-          <label className={styles.full}>Descripción<textarea className={styles.textarea} name="description" placeholder="Describe el producto, tamaño, contenido y presentación."/></label>
-          <label className={styles.full}>Imágenes del producto *<input className={styles.input} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple required={selectedImages.length===0} onChange={(event) => setSelectedImages(Array.from(event.target.files ?? []).slice(0,8))}/><small>Hasta 8 imágenes · JPG, PNG, WebP o GIF · máximo 5 MB cada una.</small></label>
+          <label className={styles.full}>Descripción<textarea className={styles.textarea} name="description" placeholder="Escribe o pega aquí la descripción, tamaño, contenido, presentación e instrucciones del producto."/></label>
+          <label className={styles.full}>Imágenes del producto *<input className={styles.input} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple required={selectedImages.length===0} onChange={(event) => setSelectedImages(Array.from(event.target.files ?? []).slice(0,8))}/><small>Sube archivos o copia y pega imágenes dentro de este formulario · hasta 8 imágenes · JPG, PNG, WebP o GIF · máximo 5 MB cada una.</small></label>
           {!!imagePreviews.length && <div className={styles.full} style={{display:"flex",gap:12,flexWrap:"wrap"}}>{imagePreviews.map((url,index) => <img key={url} src={url} alt={`Vista previa ${index+1}`} style={{width:96,height:96,objectFit:"cover",borderRadius:12}}/>)}</div>}
           <details className={styles.full}><summary>Opcional: usar URLs de imágenes</summary><textarea className={styles.textarea} name="images" placeholder="Una URL por línea"/></details>
           <label className={styles.full}><input type="checkbox" name="publish" defaultChecked/> Publicar inmediatamente en la tienda nativa.</label><label className={styles.full}><input type="checkbox" name="sync_shopify"/> También crear este producto en Shopify (opcional).</label>
