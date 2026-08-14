@@ -91,6 +91,7 @@ export interface Product {
   image_url?: string;
   image_source?: string; // "manual" | "source" | "higgsfield"
   video_url?: string;
+  audio_url?: string;
   images?: string[];
   supplier?: string;
   shopify_id?: number; // numeric id of the live Shopify product (for image updates)
