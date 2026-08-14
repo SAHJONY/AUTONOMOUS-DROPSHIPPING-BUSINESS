@@ -262,7 +262,7 @@ export default function ShopPage() {
         <span>Tradición · cultura · comunidad · comercio responsable</span>
         <button className={enhanced.footerShare} onClick={shareStore}>Compartir tienda</button>
       </footer>
-      <div className={enhanced.legalFooter}><span>© {new Date().getFullYear()} BOTANICA OCHOSI</span><span>La información comercial no sustituye orientación religiosa, médica o legal.</span><a href="mailto:suppliers@botanicaochosi.com">Contacto</a></div>
+      <div className={enhanced.legalFooter}><span>© {new Date().getFullYear()} BOTANICA OCHOSI</span><span>La información comercial no sustituye orientación religiosa, médica o legal.</span><a href="/policies">Envíos · devoluciones · privacidad</a><a href="mailto:suppliers@botanicaochosi.com">Contacto</a></div>
 
       <aside className={`${styles.cartDrawer} ${cartOpen ? styles.cartOpen : ""}`} aria-hidden={!cartOpen}>
         <div className={styles.cartHead}><div><span className={styles.eyebrow}>TU COMPRA</span><h2>Carrito</h2></div><button onClick={() => setCartOpen(false)} aria-label="Cerrar carrito">×</button></div>

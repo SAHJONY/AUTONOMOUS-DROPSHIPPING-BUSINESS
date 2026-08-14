@@ -103,6 +103,12 @@ export interface Product {
   reorder_case_pack?: number;
   reorder_lead_time_days?: number;
   provenance_verified_at?: string;
+  shipping_weight_oz?: number;
+  package_length_in?: number;
+  package_width_in?: number;
+  package_height_in?: number;
+  fragile?: boolean;
+  liquid?: boolean;
   shopify_id?: number; // numeric id of the live Shopify product (for image updates)
   shopify_handle?: string;
   shopify_variant_id?: number; // the variant customers actually buy — links orders back to this product
