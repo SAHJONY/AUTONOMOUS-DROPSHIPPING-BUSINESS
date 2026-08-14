@@ -1,0 +1,13 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import styles from "../owner.module.css";
+
+type Approval={id:string;action:string;risk_level:string;status:string;agent_name?:string;reason?:string;created_at?:string};
+
+export default function OwnerApprovalsPage(){
+  const [approvals,setApprovals]=useState<Approval[]>([]);const [message,setMessage]=useState("Loading approvals…");
+  useEffect(()=>{const token=localStorage.getItem("commerce_os_token")??"";const orgId=localStorage.getItem("commerce_os_org")??"";if(!token||!orgId){setMessage("Owner sign-in is required.");return;}void fetch(`/api/orgs/${orgId}/approvals`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"}).then(async response=>{const body=await response.json();if(!response.ok)throw new Error(body.detail??"Could not load approvals.");setApprovals(body);setMessage("");}).catch(error=>setMessage(error instanceof Error?error.message:String(error)));},[]);
+  const pending=approvals.filter(approval=>approval.status==="pending");
+  return <main className={styles.shell}><nav className={styles.nav}><a className={styles.brand} href="/owner"><span className={styles.mark}>O</span><span className={styles.brandText}><strong>OWNER OS</strong><small>APPROVALS</small></span></a><a className={styles.primary} href="/owner">Dashboard</a></nav><div className={styles.content}><section className={styles.hero}><div className={styles.kicker}>OWNER AUTHORITY</div><h1>Decision <em>queue.</em></h1><p>Review evidence before allowing high-risk catalog, supplier or commerce actions. An approval never substitutes for verified price, inventory, provenance or authorization.</p></section><div className={styles.statusStrip}><span className={styles.statusPill}>{pending.length} pending</span><span className={styles.statusPill}>{approvals.filter(item=>item.status==="approved").length} approved history</span><span className={styles.statusPill}>{approvals.filter(item=>item.status==="rejected").length} rejected history</span></div>{message&&<div className={styles.empty}>{message}</div>}<div className={styles.productList}>{approvals.map(approval=><article className={`${styles.card} ${styles.productRow}`} key={approval.id}><div><div className={styles.kicker}>{approval.status} · {approval.risk_level} RISK · {approval.agent_name??"SYSTEM"}</div><h2>{approval.action}</h2><p>{approval.reason??"No supporting reason was recorded."}</p><div className={styles.productMeta}>{approval.created_at?new Date(approval.created_at).toLocaleString():"Date unavailable"}</div></div><div className={approval.status==="pending"?styles.warning:styles.ok}>{approval.status.toUpperCase()}</div></article>)}</div></div></main>;
+}
