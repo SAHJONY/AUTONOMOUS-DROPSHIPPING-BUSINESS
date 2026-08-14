@@ -11,6 +11,8 @@ export type AccioSourcingBrief = {
   prompt: string;
   required_evidence: string[];
   prohibited_actions: string[];
+  deliverable_schema: string[];
+  completion_rule: string;
 };
 
 /**
@@ -49,6 +51,15 @@ export function buildAccioSourcingBrief(input: {
     "making medical, guaranteed spiritual-outcome, or universal religious claims",
     "treating ritual preparation, consecration, provenance, or Lucumi equivalence as verified without evidence",
   ];
+  const deliverableSchema = [
+    "candidate rank and HOLD status",
+    "supplier name, legal/business identity, country, and direct source URL",
+    "exact SKU, product name, materials, dimensions, pack quantity, and image URLs",
+    "unit price, currency, MOQ, sample cost, stock status, and quote date",
+    "shipping method, shipping cost, duty/tax evidence, landed unit cost, and delivery window",
+    "resale authorization, compliance/labeling documents, image-use permission, and cultural provenance",
+    "unknowns, conflicting claims, evidence URLs, and recommended next verification step",
+  ];
 
   const prompt = [
     "Act as a read-only sourcing researcher for BOTANICA OCHOSI, a Cuban Botanica / Lucumi / Orisha ecommerce business.",
@@ -56,6 +67,7 @@ export function buildAccioSourcingBrief(input: {
     economics,
     `Required evidence: ${requiredEvidence.join("; ")}.`,
     `Do not: ${prohibitedActions.join("; ")}.`,
+    `Return fields in this order: ${deliverableSchema.join("; ")}.`,
     "Return a comparison table of up to 10 candidates, cite every source URL, mark every unknown, rank by evidence quality and landed economics, and end with HOLD unless all required evidence is present. Do not contact suppliers or execute transactions.",
   ].join("\n");
 
@@ -68,5 +80,7 @@ export function buildAccioSourcingBrief(input: {
     prompt,
     required_evidence: requiredEvidence,
     prohibited_actions: prohibitedActions,
+    deliverable_schema: deliverableSchema,
+    completion_rule: "The job is complete only when sourced evidence is returned to the Owner OS for review; every candidate remains HOLD.",
   };
 }

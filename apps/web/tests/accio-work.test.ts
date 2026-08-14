@@ -12,6 +12,10 @@ describe("Accio Work sourcing bridge", () => {
     expect(brief.prompt).toContain("landed unit cost at or below USD 12.00");
     expect(brief.prompt).toMatch(/Do not contact suppliers or execute transactions/i);
     expect(brief.prohibited_actions).toContain("placing or confirming an order");
+    expect(brief.deliverable_schema).toContain(
+      "unit price, currency, MOQ, sample cost, stock status, and quote date",
+    );
+    expect(brief.completion_rule).toMatch(/returned to the Owner OS/i);
   });
 
   it("blocks unrelated generic sourcing", () => {
