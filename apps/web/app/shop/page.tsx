@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { BOTANICA_STORE_CATEGORIES } from "@/lib/botanica-store-categories";
 import styles from "./shop.module.css";
+import enhanced from "./shop-enhanced.module.css";
 
 type Product = {
   id: string;
@@ -23,6 +25,12 @@ type CatalogResponse = { ok: boolean; provider?: "native"; checkoutProvider?: "s
 
 const SITE_URL = "https://www.botanicaochosi.com";
 const CART_KEY = "botanica_ochosi_cart_v1";
+const FEATURED_CATEGORIES = [
+  ["VELAS / CANDLES", "✦"], ["ACEITES", "◈"], ["BAÑOS / RIEGOS", "≈"],
+  ["COLLARES", "∞"], ["HIERBAS", "❧"], ["INCIENSOS", "⌁"],
+  ["ELEGUÁ / ESHU", "◆"], ["IFÁ", "◎"], ["IMÁGENES / SANTOS", "△"],
+  ["PERFUMES & COLONIAS / PERFUMES & COLOGNES", "◇"], ["AMULETOS", "☼"], ["CARACOLES", "◌"],
+] as const;
 
 export default function ShopPage() {
   const [catalog, setCatalog] = useState<CatalogResponse>({ ok: false, shop: null, products: [] });
@@ -64,10 +72,7 @@ export default function ShopPage() {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
   }, [cart]);
 
-  const categories = useMemo(
-    () => ["Todos", ...Array.from(new Set(catalog.products.map((product) => product.category).filter(Boolean)))],
-    [catalog.products],
-  );
+  const categories = useMemo(() => ["Todos", ...BOTANICA_STORE_CATEGORIES], []);
 
   const products = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -158,12 +163,12 @@ export default function ShopPage() {
 
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
-          <span className={styles.eyebrow}>FE · PROPÓSITO · PROSPERIDAD</span>
-          <h1>Tu botánica cubana, <em>ahora online.</em></h1>
-          <p>Una experiencia de comercio electrónico BOTANICA OCHOSI con catálogo propio, compra segura y atención completamente en línea.</p>
+          <span className={styles.eyebrow}>BOTÁNICA CUBANA · TRADICIÓN Y COMERCIO DIGITAL</span>
+          <h1>Raíces que acompañan. <em>Una tienda hecha para ti.</em></h1>
+          <p>Explora una selección organizada de artículos de botánica, cuidado espiritual y tradición. Precios claros, pago protegido y una experiencia respetuosa de principio a fin.</p>
           <div className={styles.heroActions}>
-            <a className={styles.primary} href="#catalogo">Comprar ahora</a>
-            <button className={styles.secondary} onClick={shareStore}>Compartir tienda</button>
+            <a className={styles.primary} href="#categorias">Explorar categorías</a>
+            <a className={styles.secondary} href="#catalogo">Ver catálogo</a>
           </div>
           {shareNotice && <span className={styles.notice}>{shareNotice}</span>}
         </div>
@@ -176,15 +181,20 @@ export default function ShopPage() {
       </section>
 
       <section className={styles.trust} id="confianza">
-        <div><strong>Compra segura</strong><span>Pagos protegidos por Stripe</span></div>
-        <div><strong>Catálogo real</strong><span>Solo productos activos, publicados y BOTANICA</span></div>
-        <div><strong>Envíos discretos</strong><span>Información mostrada en checkout</span></div>
-        <div><strong>Atención online</strong><span>Sin llamadas telefónicas</span></div>
+        <div><strong>Pago protegido</strong><span>Checkout seguro procesado por Stripe</span></div>
+        <div><strong>Disponibilidad real</strong><span>Solo mostramos artículos publicados y disponibles</span></div>
+        <div><strong>Envío claro</strong><span>Costos y destino confirmados antes de pagar</span></div>
+        <div><strong>Compra con respeto</strong><span>Información comercial sin promesas espirituales</span></div>
+      </section>
+
+      <section className={enhanced.categoryShowcase} id="categorias">
+        <div className={enhanced.categoryIntro}><span className={styles.eyebrow}>ENCUENTRA LO QUE BUSCAS</span><h2>Explora nuestra botánica por categoría.</h2><p>Desde velas y aceites hasta collares, hierbas, herramientas e imágenes. Elige una categoría para ir directamente al catálogo.</p></div>
+        <div className={enhanced.categoryGrid}>{FEATURED_CATEGORIES.map(([name, icon]) => <button key={name} onClick={() => { setCategory(name); document.getElementById("catalogo")?.scrollIntoView({ behavior:"smooth" }); }}><span>{icon}</span><strong>{name}</strong><small>{catalog.products.filter((product) => product.category === name).length} disponibles</small></button>)}</div>
       </section>
 
       <section className={styles.catalogSection} id="catalogo">
         <div className={styles.sectionHead}>
-          <div><span className={styles.eyebrow}>TIENDA ONLINE</span><h2>Catálogo BOTANICA OCHOSI</h2></div>
+          <div><span className={styles.eyebrow}>TIENDA ONLINE</span><h2>Encuentra tu próximo artículo.</h2><p className={enhanced.sectionCopy}>Busca por nombre o explora las {BOTANICA_STORE_CATEGORIES.length} categorías de BOTANICA OCHOSI.</p></div>
           <div className={styles.filters}>
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar productos..." aria-label="Buscar productos" />
             <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Categoría">
@@ -194,7 +204,7 @@ export default function ShopPage() {
         </div>
 
         {!catalog.ok && <div className={styles.stateCard}><strong>La tienda se está preparando.</strong><p>{catalog.detail ?? "El catálogo todavía no está disponible."}</p></div>}
-        {catalog.ok && products.length === 0 && <div className={styles.stateCard}><strong>No hay productos activos BOTANICA todavía.</strong><p>Legacy, HOLD y draft permanecen ocultos hasta completar aprobación, inventario y publicación.</p></div>}
+        {catalog.ok && products.length === 0 && <div className={enhanced.emptyExperience}><div className={enhanced.emptyMonogram}>O</div><div><span className={styles.eyebrow}>{category === "Todos" ? "NUEVA COLECCIÓN EN PREPARACIÓN" : category}</span><h3>{category === "Todos" ? "Estamos preparando el primer surtido." : "Todavía no hay artículos publicados aquí."}</h3><p>{category === "Todos" ? "Muy pronto encontrarás productos seleccionados con información, precio e inventario verificados. Guarda esta tienda y vuelve a visitarnos." : "Explora otra categoría o vuelve pronto. Solo publicamos productos cuando su información y disponibilidad están listas."}</p><div className={styles.heroActions}><button className={styles.primary} onClick={() => setCategory("Todos")}>Ver todas las categorías</button><button className={styles.secondary} onClick={shareStore}>Compartir tienda</button></div></div></div>}
 
         <div className={styles.grid}>
           {products.map((product) => (
@@ -222,6 +232,11 @@ export default function ShopPage() {
         </div>
       </section>
 
+      <section className={enhanced.promiseSection}>
+        <div><span className={styles.eyebrow}>NUESTRA PROMESA</span><h2>Comercio claro. Tradición tratada con respeto.</h2></div>
+        <div className={enhanced.promiseGrid}><article><b>01</b><h3>Información honesta</h3><p>Mostramos lo que sabemos del producto y señalamos lo que requiere orientación especializada.</p></article><article><b>02</b><h3>Precios visibles</h3><p>El precio del artículo aparece antes de añadirlo al carrito; envío e impuestos se confirman en checkout.</p></article><article><b>03</b><h3>Privacidad primero</h3><p>La compra se procesa en línea mediante proveedores seguros y con comunicaciones discretas.</p></article></div>
+      </section>
+
       <section className={styles.shareBand}>
         <div><span className={styles.eyebrow}>COMPÁRTELO</span><h2>BOTANICA OCHOSI viaja contigo.</h2><p>Comparte la tienda o cualquier producto por mensaje, redes sociales, email o copiando el enlace. Toda comunicación permanece online.</p></div>
         <button className={styles.primary} onClick={shareStore}>Compartir www.botanicaochosi.com</button>
@@ -229,8 +244,8 @@ export default function ShopPage() {
 
       <footer className={styles.footer}>
         <div className={styles.brand}><span className={styles.mark}>O</span><span><strong>BOTANICA</strong><small>OCHOSI</small></span></div>
-        <span>Tradición · espiritualidad · energía · protección · prosperidad</span>
-        <a href="/owner">Owner OS</a>
+        <span>Tradición · cultura · comunidad · comercio responsable</span>
+        <button className={enhanced.footerShare} onClick={shareStore}>Compartir tienda</button>
       </footer>
 
       <aside className={`${styles.cartDrawer} ${cartOpen ? styles.cartOpen : ""}`} aria-hidden={!cartOpen}>
