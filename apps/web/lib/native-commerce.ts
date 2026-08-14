@@ -73,7 +73,7 @@ export function toNativeCatalog(products: Product[]): NativeCatalogProduct[] {
       title: product.title,
       variantTitle: null,
       description: product.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 260),
-      category: product.supplier || "Botanica",
+      category: product.category || "MISCELLANEOUS",
       vendor: "BOTANICA OCHOSI",
       price: product.price,
       compareAtPrice: null,

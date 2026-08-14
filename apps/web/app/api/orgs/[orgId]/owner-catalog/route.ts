@@ -2,6 +2,7 @@ import { error, json, requireOrgRole } from "@/lib/api";
 import { listGet, listReplace } from "@/lib/kv";
 import { newId, nowISO } from "@/lib/store";
 import type { Product } from "@/lib/types";
+import { isBotanicaStoreCategory } from "@/lib/botanica-store-categories";
 import {
   ownerArchiveShopifyProduct,
   ownerCreateShopifyProduct,
@@ -50,6 +51,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
   const publish = body.publish === true;
   const price = Math.max(0, Number(body.price ?? 0));
   const cost = Math.max(0, Number(body.cost ?? 0));
+  const category = String(body.product_type ?? "").trim();
+  if (!isBotanicaStoreCategory(category)) return error("Choose a valid store category.", 422);
   if (publish && price <= 0) return error("A positive price is required before publishing.", 422);
 
   let shopify: Awaited<ReturnType<typeof ownerCreateShopifyProduct>> | undefined;
@@ -60,7 +63,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
         description: String(body.description ?? ""),
         price,
         sku: String(body.sku ?? "").trim() || undefined,
-        productType: String(body.product_type ?? "Botanica"),
+        productType: category,
         imageUrls: Array.isArray(body.images) ? body.images.map(String) : [],
         publish,
       });
@@ -74,6 +77,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     org_id: orgId,
     title,
     description: String(body.description ?? ""),
+    category,
     source: "owner_manual",
     supplier_url: String(body.supplier_url ?? ""),
     supplier: String(body.supplier ?? ""),
@@ -111,6 +115,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orgId:
   const patch: Partial<Product> = {};
   if (typeof body.title === "string" && body.title.trim()) patch.title = body.title.trim().slice(0, 180);
   if (typeof body.description === "string") patch.description = body.description.slice(0, 5000);
+  if (body.category !== undefined) {
+    if (!isBotanicaStoreCategory(body.category)) return error("Choose a valid store category.", 422);
+    patch.category = body.category;
+  }
   if (typeof body.sku === "string") patch.sku = body.sku.trim() || undefined;
   if (body.price !== undefined) patch.price = Math.max(0, Number(body.price) || 0);
   if (body.cost !== undefined) patch.cost = Math.max(0, Number(body.cost) || 0);

@@ -101,6 +101,7 @@ export function mergeShopifyCatalogIntoProducts(
       org_id: orgId,
       title: shopify.title,
       description: stripHtml(shopify.body_html),
+      category: shopify.product_type || existing?.category || "MISCELLANEOUS",
       source: existing?.source ?? "shopify_import",
       supplier_url: existing?.supplier_url ?? "",
       supplier: existing?.supplier || shopify.vendor || "",
