@@ -40,6 +40,12 @@ export interface FactoryRecipe {
   packagingCost: number;
   labelCost: number;
   overheadCost: number;
+  batchYield: number;
+  tools: string[];
+  manufacturingSteps: string[];
+  safetyInstructions: string[];
+  cleaningInstructions: string[];
+  storageInstructions: string;
   qcChecklist: string[];
   labelStatement: string;
   lines: FactoryBomLine[];
@@ -76,7 +82,17 @@ const safeNumber = (value: unknown, fallback = 0) => {
 };
 
 export async function getFactory(orgId: string): Promise<FactorySnapshot> {
-  return (await kv.get<FactorySnapshot>(key(orgId))) ?? { materials: [], recipes: [], orders: [] };
+  const snapshot = (await kv.get<FactorySnapshot>(key(orgId))) ?? { materials: [], recipes: [], orders: [] };
+  snapshot.recipes = snapshot.recipes.map((recipe) => ({
+    ...recipe,
+    batchYield: recipe.batchYield ?? 1,
+    tools: recipe.tools ?? [],
+    manufacturingSteps: recipe.manufacturingSteps ?? [],
+    safetyInstructions: recipe.safetyInstructions ?? [],
+    cleaningInstructions: recipe.cleaningInstructions ?? [],
+    storageInstructions: recipe.storageInstructions ?? "Almacenar limpio, seco, cerrado y separado de materiales rechazados.",
+  }));
+  return snapshot;
 }
 
 async function saveFactory(orgId: string, snapshot: FactorySnapshot) {
@@ -120,12 +136,23 @@ export async function addFactoryRecipe(orgId: string, input: Record<string, unkn
     id: crypto.randomUUID(), orgId, name, sku, category: String(input.category ?? "KITS").trim(), version: 1, risk,
     retailPrice: safeNumber(input.retailPrice), laborMinutes: safeNumber(input.laborMinutes), laborRateHourly: safeNumber(input.laborRateHourly, 15),
     packagingCost: safeNumber(input.packagingCost), labelCost: safeNumber(input.labelCost), overheadCost: safeNumber(input.overheadCost),
+    batchYield: Math.max(1, Math.floor(safeNumber(input.batchYield, 1))),
+    tools: textLines(input.tools),
+    manufacturingSteps: textLines(input.manufacturingSteps),
+    safetyInstructions: textLines(input.safetyInstructions),
+    cleaningInstructions: textLines(input.cleaningInstructions),
+    storageInstructions: String(input.storageInstructions ?? "Almacenar limpio, seco, cerrado y separado de materiales rechazados.").trim(),
     qcChecklist: Array.isArray(input.qcChecklist) ? input.qcChecklist.map(String).map((v) => v.trim()).filter(Boolean) : [],
     labelStatement: String(input.labelStatement ?? "No consagrado / no preparado ceremonialmente.").trim(), lines, active: true, createdAt: new Date().toISOString(),
   };
   snapshot.recipes.unshift(recipe);
   await saveFactory(orgId, snapshot);
   return recipe;
+}
+
+function textLines(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map(String).map((line) => line.trim()).filter(Boolean);
+  return String(value ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
 }
 
 export async function createProductionOrder(orgId: string, input: Record<string, unknown>) {
