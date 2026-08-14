@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "Información de compra, envío, devoluciones, privacidad y contacto de BOTANICA OCHOSI.",
 };
 
-const SUPPORT_EMAIL = "suppliers@botanicaochosi.com";
+const SUPPORT_EMAIL = "botanicaochosi@gmail.com";
 
 export default function PoliciesPage() {
   return <main className={styles.shell}>

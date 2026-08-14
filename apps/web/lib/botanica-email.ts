@@ -18,9 +18,10 @@ export type BotanicaEmailMessage = {
 
 const apiKey = process.env.RESEND_API_KEY ?? "";
 export const BOTANICA_EMAIL_FROM = process.env.BOTANICA_EMAIL_FROM ?? "BOTANICA OCHOSI <suppliers@botanicaochosi.com>";
-export const BOTANICA_EMAIL_REPLY_TO = process.env.BOTANICA_EMAIL_REPLY_TO ?? "suppliers@botanicaochosi.com";
-/** Gmail is the human-readable mirror; the domain address remains canonical. */
-export const BOTANICA_GMAIL_MIRROR = process.env.BOTANICA_GMAIL_MIRROR ?? "botanicaochosi@gmail.com";
+/** Every customer and supplier reply is centralized in the owner Gmail inbox. */
+export const BOTANICA_EMAIL_REPLY_TO = "botanicaochosi@gmail.com";
+/** Every application-originated and inbound message is also copied to Gmail. */
+export const BOTANICA_GMAIL_MIRROR = "botanicaochosi@gmail.com";
 export const BOTANICA_EMAIL_ORG_ID = process.env.BOTANICA_EMAIL_ORG_ID ?? "";
 export const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET ?? "";
 // The placeholder keeps build/test imports side-effect free; every network path
