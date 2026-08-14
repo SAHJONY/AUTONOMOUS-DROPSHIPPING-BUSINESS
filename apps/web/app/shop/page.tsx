@@ -40,6 +40,7 @@ export default function ShopPage() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todos");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [shareNotice, setShareNotice] = useState("");
   const [checkoutError, setCheckoutError] = useState("");
@@ -74,6 +75,15 @@ export default function ShopPage() {
   useEffect(() => {
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
   }, [cart]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [menuOpen]);
 
   const categories = useMemo(() => ["Todos", ...BOTANICA_STORE_CATEGORIES], []);
 
@@ -144,6 +154,12 @@ export default function ShopPage() {
     );
   }
 
+  function chooseCategory(nextCategory: string) {
+    setCategory(nextCategory);
+    setMenuOpen(false);
+    document.getElementById("catalogo")?.scrollIntoView({ behavior: "smooth" });
+  }
+
   function shareProduct(product: Product) {
     const url = `${SITE_URL}/shop?product=${encodeURIComponent(product.handle)}`;
     return share(`${product.title} · BOTANICA OCHOSI`, `Mira ${product.title} en BOTANICA OCHOSI.`, url);
@@ -157,15 +173,33 @@ export default function ShopPage() {
           <span className={styles.mark}>O</span>
           <span><strong>BOTANICA</strong><small>OCHOSI</small></span>
         </a>
-        <nav className={styles.nav}>
-          <label className={enhanced.headerSearch}><span aria-hidden="true">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar en la tienda" aria-label="Buscar en la tienda"/></label>
-          <a href="#catalogo">Catálogo</a>
-          <a href="#confianza">Nuestra promesa</a>
-          <button className={styles.ghost} onClick={shareStore}>Compartir</button>
+        <nav className={styles.nav} aria-label="Acciones de la tienda">
           <button className={styles.cartButton} onClick={() => setCartOpen(true)}>Carrito <b>{cartCount}</b></button>
+          <button className={`${styles.menuButton} ${menuOpen ? styles.menuButtonOpen : ""}`} type="button" aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"} aria-expanded={menuOpen} aria-controls="store-navigation" onClick={() => setMenuOpen((current) => !current)}>
+            <span aria-hidden="true"/><span aria-hidden="true"/><span aria-hidden="true"/>
+            <strong>Menú</strong>
+          </button>
         </nav>
       </header>
-      <nav className={enhanced.categoryRail} aria-label="Categorías principales"><button onClick={() => setCategory("Todos")}>Ver todo</button>{FEATURED_CATEGORIES.map(([name]) => <button key={name} onClick={() => { setCategory(name); document.getElementById("catalogo")?.scrollIntoView({behavior:"smooth"}); }}>{name}</button>)}</nav>
+      <div id="store-navigation" className={`${styles.menuPanel} ${menuOpen ? styles.menuPanelOpen : ""}`} aria-hidden={!menuOpen}>
+        <div className={styles.menuTopline}><span>EXPLORA BOTANICA OCHOSI</span><button type="button" onClick={() => setMenuOpen(false)} aria-label="Cerrar menú">×</button></div>
+        <label className={styles.menuSearch}><span aria-hidden="true">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar productos" aria-label="Buscar productos"/></label>
+        <div className={styles.menuLayout}>
+          <nav className={styles.menuPrimary} aria-label="Navegación principal">
+            <a href="#catalogo" onClick={() => setMenuOpen(false)}><span>01</span>Catálogo</a>
+            <a href="#categorias" onClick={() => setMenuOpen(false)}><span>02</span>Categorías</a>
+            <a href="#confianza" onClick={() => setMenuOpen(false)}><span>03</span>Nuestra promesa</a>
+            <a href="/policies" onClick={() => setMenuOpen(false)}><span>04</span>Envíos, devoluciones y privacidad</a>
+            <button type="button" onClick={() => { setMenuOpen(false); void shareStore(); }}><span>05</span>Compartir tienda</button>
+          </nav>
+          <div className={styles.menuCategories} aria-label="Categorías de productos">
+            <span className={styles.menuLabel}>COMPRAR POR CATEGORÍA</span>
+            <button type="button" onClick={() => chooseCategory("Todos")}>Ver todo</button>
+            {FEATURED_CATEGORIES.map(([name, icon]) => <button type="button" key={name} onClick={() => chooseCategory(name)}><span aria-hidden="true">{icon}</span>{name}</button>)}
+          </div>
+        </div>
+      </div>
+      {menuOpen && <button className={styles.menuBackdrop} type="button" onClick={() => setMenuOpen(false)} aria-label="Cerrar menú" />}
 
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
