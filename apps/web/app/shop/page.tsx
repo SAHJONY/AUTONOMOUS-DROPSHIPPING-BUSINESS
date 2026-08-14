@@ -30,6 +30,7 @@ const FEATURED_CATEGORIES = [
   ["COLLARES", "∞"], ["HIERBAS", "❧"], ["INCIENSOS", "⌁"],
   ["ELEGUÁ / ESHU", "◆"], ["IFÁ", "◎"], ["IMÁGENES / SANTOS", "△"],
   ["PERFUMES & COLONIAS / PERFUMES & COLOGNES", "◇"], ["AMULETOS", "☼"], ["CARACOLES", "◌"],
+  ["SOPERAS", "♢"], ["CALDEROS Y CAZUELAS", "◒"], ["CAMPANAS", "♧"], ["CASCARILLA", "○"],
 ] as const;
 
 export default function ShopPage() {
