@@ -148,18 +148,21 @@ export default function ShopPage() {
 
   return (
     <main className={styles.shell}>
+      <div className={enhanced.announcement}><span>ENVÍO CLARO EN CHECKOUT</span><span>·</span><span>PAGO PROTEGIDO</span><span>·</span><span>CATÁLOGO PROPIO</span></div>
       <header className={styles.header}>
         <a className={styles.brand} href="/shop" aria-label="BOTANICA OCHOSI inicio">
           <span className={styles.mark}>O</span>
           <span><strong>BOTANICA</strong><small>OCHOSI</small></span>
         </a>
         <nav className={styles.nav}>
+          <label className={enhanced.headerSearch}><span aria-hidden="true">⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar en la tienda" aria-label="Buscar en la tienda"/></label>
           <a href="#catalogo">Catálogo</a>
           <a href="#confianza">Nuestra promesa</a>
           <button className={styles.ghost} onClick={shareStore}>Compartir</button>
           <button className={styles.cartButton} onClick={() => setCartOpen(true)}>Carrito <b>{cartCount}</b></button>
         </nav>
       </header>
+      <nav className={enhanced.categoryRail} aria-label="Categorías principales"><button onClick={() => setCategory("Todos")}>Ver todo</button>{FEATURED_CATEGORIES.map(([name]) => <button key={name} onClick={() => { setCategory(name); document.getElementById("catalogo")?.scrollIntoView({behavior:"smooth"}); }}>{name}</button>)}</nav>
 
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
@@ -232,6 +235,11 @@ export default function ShopPage() {
         </div>
       </section>
 
+      {!!catalog.products.length && <section className={enhanced.merchandising}>
+        <div className={enhanced.merchHead}><div><span className={styles.eyebrow}>SELECCIÓN DESTACADA</span><h2>Favoritos de la tienda</h2></div><button onClick={() => { setCategory("Todos"); document.getElementById("catalogo")?.scrollIntoView({behavior:"smooth"}); }}>Ver todo el catálogo →</button></div>
+        <div className={enhanced.miniGrid}>{catalog.products.slice(0,4).map((product) => <article key={`featured-${product.id}`}><div>{product.image ? <img src={product.image} alt={product.title} loading="lazy"/> : <span>O</span>}</div><small>{product.category}</small><h3>{product.title}</h3><strong>${product.price.toFixed(2)}</strong><button onClick={() => add(product)}>Añadir al carrito</button></article>)}</div>
+      </section>}
+
       <section className={enhanced.promiseSection}>
         <div><span className={styles.eyebrow}>NUESTRA PROMESA</span><h2>Comercio claro. Tradición tratada con respeto.</h2></div>
         <div className={enhanced.promiseGrid}><article><b>01</b><h3>Información honesta</h3><p>Mostramos lo que sabemos del producto y señalamos lo que requiere orientación especializada.</p></article><article><b>02</b><h3>Precios visibles</h3><p>El precio del artículo aparece antes de añadirlo al carrito; envío e impuestos se confirman en checkout.</p></article><article><b>03</b><h3>Privacidad primero</h3><p>La compra se procesa en línea mediante proveedores seguros y con comunicaciones discretas.</p></article></div>
@@ -242,11 +250,14 @@ export default function ShopPage() {
         <button className={styles.primary} onClick={shareStore}>Compartir www.botanicaochosi.com</button>
       </section>
 
+      <section className={enhanced.wholesaleBand}><div><span className={styles.eyebrow}>BOTÁNICAS · PRACTICANTES · COMUNIDAD</span><h2>¿Buscas cantidades mayores?</h2><p>Preparamos opciones por volumen únicamente cuando precio, disponibilidad y condiciones están confirmados. Consulta desde nuestros canales digitales.</p></div><a href="mailto:suppliers@botanicaochosi.com?subject=Consulta%20de%20compra%20por%20volumen">Consultar por volumen</a></section>
+
       <footer className={styles.footer}>
         <div className={styles.brand}><span className={styles.mark}>O</span><span><strong>BOTANICA</strong><small>OCHOSI</small></span></div>
         <span>Tradición · cultura · comunidad · comercio responsable</span>
         <button className={enhanced.footerShare} onClick={shareStore}>Compartir tienda</button>
       </footer>
+      <div className={enhanced.legalFooter}><span>© {new Date().getFullYear()} BOTANICA OCHOSI</span><span>La información comercial no sustituye orientación religiosa, médica o legal.</span><a href="mailto:suppliers@botanicaochosi.com">Contacto</a></div>
 
       <aside className={`${styles.cartDrawer} ${cartOpen ? styles.cartOpen : ""}`} aria-hidden={!cartOpen}>
         <div className={styles.cartHead}><div><span className={styles.eyebrow}>TU COMPRA</span><h2>Carrito</h2></div><button onClick={() => setCartOpen(false)} aria-label="Cerrar carrito">×</button></div>
