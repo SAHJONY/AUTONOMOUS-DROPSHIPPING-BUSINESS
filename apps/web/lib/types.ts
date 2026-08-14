@@ -94,6 +94,15 @@ export interface Product {
   audio_url?: string;
   images?: string[];
   supplier?: string;
+  supplier_sku?: string;
+  supplier_contact?: string;
+  country_of_origin?: string;
+  provenance_notes?: string;
+  reorder_url?: string;
+  reorder_moq?: number;
+  reorder_case_pack?: number;
+  reorder_lead_time_days?: number;
+  provenance_verified_at?: string;
   shopify_id?: number; // numeric id of the live Shopify product (for image updates)
   shopify_handle?: string;
   shopify_variant_id?: number; // the variant customers actually buy — links orders back to this product
