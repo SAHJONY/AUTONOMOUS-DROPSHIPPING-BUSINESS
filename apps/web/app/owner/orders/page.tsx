@@ -1,0 +1,14 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import styles from "../owner.module.css";
+
+type Order = { id:string; external_id?:string; stage?:string; financial_status?:string; fulfillment_status?:string; total_price?:number; currency?:string; customer_email?:string; created_at?:string; lines?:Array<{title:string;quantity:number}> };
+
+export default function OwnerOrdersPage(){
+  const [orders,setOrders]=useState<Order[]>([]);const [message,setMessage]=useState("Loading orders…");
+  useEffect(()=>{const token=localStorage.getItem("commerce_os_token")??"";const orgId=localStorage.getItem("commerce_os_org")??"";if(!token||!orgId){setMessage("Owner sign-in is required.");return;}void fetch(`/api/orgs/${orgId}/orders`,{headers:{Authorization:`Bearer ${token}`},cache:"no-store"}).then(async response=>{const body=await response.json();if(!response.ok)throw new Error(body.detail??"Could not load orders.");setOrders(body);setMessage("");}).catch(error=>setMessage(error instanceof Error?error.message:String(error)));},[]);
+  const held=orders.filter(order=>order.stage?.includes("hold")||order.financial_status==="pending").length;
+  return <main className={styles.shell}><nav className={styles.nav}><a className={styles.brand} href="/owner"><span className={styles.mark}>O</span><span className={styles.brandText}><strong>OWNER OS</strong><small>ORDERS</small></span></a><div className={styles.navLinks}><a className={styles.ghost} href="/shop">Storefront</a><a className={styles.primary} href="/owner">Dashboard</a></div></nav><div className={styles.content}><section className={styles.hero}><div className={styles.kicker}>CUSTOMER COMMITMENTS</div><h1>Order <em>desk.</em></h1><p>Paid orders, fulfillment state and exceptions belong ahead of sourcing research. Review holds first.</p></section><section className={styles.metricGrid}><Metric label="Orders" value={String(orders.length)}/><Metric label="Need attention" value={String(held)}/><Metric label="Open fulfillment" value={String(orders.filter(order=>order.fulfillment_status!=="fulfilled").length)}/></section>{message&&<div className={styles.empty}>{message}</div>}<div className={styles.productList}>{orders.map(order=><article className={`${styles.card} ${styles.productRow}`} key={order.id}><div><div className={styles.kicker}>{order.stage??"NEW"} · {order.financial_status??"UNKNOWN PAYMENT"}</div><h2>Order {order.external_id??order.id}</h2><div className={styles.productMeta}>{order.customer_email??"Customer email unavailable"} · {order.lines?.reduce((sum,line)=>sum+line.quantity,0)??0} item(s) · {order.currency??"USD"} ${Number(order.total_price??0).toFixed(2)} · {order.fulfillment_status??"unfulfilled"}</div></div></article>)}</div></div></main>;
+}
+function Metric({label,value}:{label:string;value:string}){return <div className={styles.card}><div className={styles.metricLabel}>{label}</div><div className={styles.metricValue}>{value}</div></div>}
