@@ -90,6 +90,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     reorder_case_pack: Math.max(1, Math.floor(Number(body.reorder_case_pack) || 1)),
     reorder_lead_time_days: Math.max(0, Math.floor(Number(body.reorder_lead_time_days) || 0)),
     provenance_verified_at: String(body.provenance_verified_at ?? "").trim().slice(0, 10) || undefined,
+    shipping_weight_oz: Math.max(0, Number(body.shipping_weight_oz) || 0),
+    package_length_in: Math.max(0, Number(body.package_length_in) || 0),
+    package_width_in: Math.max(0, Number(body.package_width_in) || 0),
+    package_height_in: Math.max(0, Number(body.package_height_in) || 0),
+    fragile: body.fragile === true,
+    liquid: body.liquid === true,
     cost,
     price,
     status: publish ? "launched" : "discovered",
@@ -142,6 +148,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orgId:
   if (body.reorder_case_pack !== undefined) patch.reorder_case_pack = Math.max(1, Math.floor(Number(body.reorder_case_pack) || 1));
   if (body.reorder_lead_time_days !== undefined) patch.reorder_lead_time_days = Math.max(0, Math.floor(Number(body.reorder_lead_time_days) || 0));
   if (typeof body.provenance_verified_at === "string") patch.provenance_verified_at = body.provenance_verified_at.trim().slice(0, 10) || undefined;
+  if (body.shipping_weight_oz !== undefined) patch.shipping_weight_oz = Math.max(0, Number(body.shipping_weight_oz) || 0);
+  if (body.package_length_in !== undefined) patch.package_length_in = Math.max(0, Number(body.package_length_in) || 0);
+  if (body.package_width_in !== undefined) patch.package_width_in = Math.max(0, Number(body.package_width_in) || 0);
+  if (body.package_height_in !== undefined) patch.package_height_in = Math.max(0, Number(body.package_height_in) || 0);
+  if (typeof body.fragile === "boolean") patch.fragile = body.fragile;
+  if (typeof body.liquid === "boolean") patch.liquid = body.liquid;
   if (typeof body.video_url === "string") patch.video_url = body.video_url.trim().slice(0, 1000) || undefined;
   if (typeof body.audio_url === "string") patch.audio_url = body.audio_url.trim().slice(0, 1000) || undefined;
   if (Array.isArray(body.images)) {

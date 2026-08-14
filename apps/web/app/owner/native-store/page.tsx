@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import styles from "../owner.module.css";
 
 type Settings = { storeName:string; currency:"usd"; supportEmail:string; flatShippingUsd:number; freeShippingThresholdUsd:number; allowedCountries:string[] };
+type Readiness = { checks:Array<{id:string;ready:boolean;label:string}>; activeProducts:number };
 
 export default function NativeStoreSettingsPage() {
   const [token, setToken] = useState("");
@@ -11,10 +12,11 @@ export default function NativeStoreSettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [readiness, setReadiness] = useState<Readiness | null>(null);
   const headers = useMemo(() => ({ "Content-Type":"application/json", Authorization:`Bearer ${token}` }), [token]);
 
   useEffect(() => { setToken(localStorage.getItem("commerce_os_token") ?? ""); setOrgId(localStorage.getItem("commerce_os_org") ?? ""); }, []);
-  useEffect(() => { if (!token || !orgId) return; void fetch(`/api/orgs/${orgId}/native-store`, { headers, cache:"no-store" }).then(async (res) => { const body = await res.json(); if (!res.ok) throw new Error(body.detail ?? "Could not load native store settings."); setSettings(body); }).catch((error) => setMessage(error instanceof Error ? error.message : String(error))); }, [token, orgId, headers]);
+  useEffect(() => { if (!token || !orgId) return; void Promise.all([fetch(`/api/orgs/${orgId}/native-store`, { headers, cache:"no-store" }), fetch(`/api/orgs/${orgId}/native-store/readiness`, { headers, cache:"no-store" })]).then(async ([settingsResponse, readinessResponse]) => { const settingsBody = await settingsResponse.json(); const readinessBody = await readinessResponse.json(); if (!settingsResponse.ok) throw new Error(settingsBody.detail ?? "Could not load native store settings."); setSettings(settingsBody); if (readinessResponse.ok) setReadiness(readinessBody); }).catch((error) => setMessage(error instanceof Error ? error.message : String(error))); }, [token, orgId, headers]);
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setMessage("");
@@ -38,6 +40,7 @@ export default function NativeStoreSettingsPage() {
     </form></section>}
     {!settings && !message && <div className={styles.empty}>Loading store settings…</div>}
     <section className={`${styles.card} ${styles.migration}`}><div className={styles.kicker}>PAYMENTS</div><h2>Stripe powers card processing.</h2><p>Your application owns the catalog, checkout rules, inventory, order record and fulfillment workflow. Stripe handles regulated payment data. Shopify is optional.</p></section>
+    {readiness && <section className={styles.section}><div className={styles.sectionHead}><div><span>LAUNCH READINESS</span><h2>{readiness.checks.filter((check) => check.ready).length}/{readiness.checks.length} sales checks ready.</h2><p>This report reads configuration status without exposing secret values.</p></div></div><div className={styles.productList}>{readiness.checks.map((check) => <article className={styles.card} key={check.id}><div className={styles.kicker}>{check.ready ? "READY" : "ACTION REQUIRED"}</div><h2>{check.ready ? "✓" : "○"} {check.label}</h2></article>)}</div><div className={styles.heroActions}><a className={styles.ghost} href="/owner/catalog">Complete products</a><a className={styles.ghost} href="/policies" target="_blank">Review customer policies ↗</a><a className={styles.primary} href="/shop" target="_blank">Test storefront ↗</a></div></section>}
     <footer className={styles.footer}><span>BOTANICA OCHOSI Native Store</span><a href="/owner">← Back to Owner OS</a></footer>
   </div></main>;
 }
