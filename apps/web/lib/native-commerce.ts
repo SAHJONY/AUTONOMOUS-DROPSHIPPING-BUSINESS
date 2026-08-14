@@ -55,6 +55,8 @@ export type NativeCatalogProduct = {
   price: number;
   compareAtPrice: null;
   image: string | null;
+  videoUrl: string | null;
+  audioUrl: string | null;
   handle: string;
   productUrl: string;
   inventoryQuantity: number | null;
@@ -78,6 +80,8 @@ export function toNativeCatalog(products: Product[]): NativeCatalogProduct[] {
       price: product.price,
       compareAtPrice: null,
       image: product.image_url ?? product.images?.[0] ?? null,
+      videoUrl: product.video_url ?? null,
+      audioUrl: product.audio_url ?? null,
       handle: product.shopify_handle || slug(product.title) || product.id,
       productUrl: `/shop?product=${encodeURIComponent(product.shopify_handle || slug(product.title) || product.id)}`,
       inventoryQuantity: product.inventory_quantity ?? null,

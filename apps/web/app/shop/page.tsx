@@ -16,6 +16,8 @@ type Product = {
   price: number;
   compareAtPrice?: number | null;
   image?: string | null;
+  videoUrl?: string | null;
+  audioUrl?: string | null;
   handle: string;
   productUrl: string;
 };
@@ -221,6 +223,8 @@ export default function ShopPage() {
                 <h3>{product.title}</h3>
                 {product.variantTitle && <small>{product.variantTitle}</small>}
                 <p>{product.description || "Producto BOTANICA OCHOSI aprobado para venta online."}</p>
+                {product.videoUrl && <video className={enhanced.productMedia} controls playsInline preload="metadata" src={product.videoUrl}>Tu navegador no puede reproducir este video.</video>}
+                {product.audioUrl && <audio className={enhanced.productAudio} controls preload="none" src={product.audioUrl}>Tu navegador no puede reproducir este audio.</audio>}
                 <div className={styles.priceRow}>
                   <strong>${product.price.toFixed(2)}</strong>
                   {product.compareAtPrice && product.compareAtPrice > product.price ? <del>${product.compareAtPrice.toFixed(2)}</del> : null}

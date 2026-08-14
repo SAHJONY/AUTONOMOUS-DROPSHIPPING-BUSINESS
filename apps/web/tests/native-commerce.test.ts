@@ -10,10 +10,12 @@ const product = (patch: Partial<Product> = {}): Product => ({
 
 describe("native commerce catalog", () => {
   it("uses internal product IDs and local product URLs", () => {
-    const [item] = toNativeCatalog([product()]);
+    const [item] = toNativeCatalog([product({ video_url:"https://example.com/demo.mp4", audio_url:"https://example.com/demo.mp3" })]);
     expect(item).toMatchObject({ id: "p1", variantId: "p1", price: 9.99, handle: "aceite-espiritual" });
     expect(item.productUrl).toBe("/shop?product=aceite-espiritual");
     expect(item.description).toBe("Protección y prosperidad");
+    expect(item.videoUrl).toBe("https://example.com/demo.mp4");
+    expect(item.audioUrl).toBe("https://example.com/demo.mp3");
   });
 
   it("publishes only launched, priced, available products", () => {

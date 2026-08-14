@@ -89,6 +89,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     inventory_policy: body.inventory_policy === "continue" ? "continue" : "deny",
     images: Array.isArray(body.images) ? body.images.map(String).filter(Boolean) : [],
     image_url: Array.isArray(body.images) && body.images.length ? String(body.images[0]) : undefined,
+    video_url: String(body.video_url ?? "").trim().slice(0, 1000) || undefined,
+    audio_url: String(body.audio_url ?? "").trim().slice(0, 1000) || undefined,
     shopify_id: shopify?.id,
     shopify_handle: shopify?.handle,
     shopify_variant_id: shopify?.variantId,
@@ -120,6 +122,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orgId:
     patch.category = body.category;
   }
   if (typeof body.sku === "string") patch.sku = body.sku.trim() || undefined;
+  if (typeof body.supplier === "string") patch.supplier = body.supplier.trim().slice(0, 180) || undefined;
+  if (typeof body.supplier_url === "string") patch.supplier_url = body.supplier_url.trim().slice(0, 1000);
+  if (typeof body.video_url === "string") patch.video_url = body.video_url.trim().slice(0, 1000) || undefined;
+  if (typeof body.audio_url === "string") patch.audio_url = body.audio_url.trim().slice(0, 1000) || undefined;
+  if (Array.isArray(body.images)) {
+    const images = body.images.map(String).map((value: string) => value.trim()).filter(Boolean).slice(0, 8);
+    patch.images = images;
+    patch.image_url = images[0];
+  }
   if (body.price !== undefined) patch.price = Math.max(0, Number(body.price) || 0);
   if (body.cost !== undefined) patch.cost = Math.max(0, Number(body.cost) || 0);
   if (body.inventory_quantity !== undefined) patch.inventory_quantity = Math.max(0, Math.floor(Number(body.inventory_quantity) || 0));

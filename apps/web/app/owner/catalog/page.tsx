@@ -4,7 +4,7 @@ import { ClipboardEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { BOTANICA_STORE_CATEGORIES } from "@/lib/botanica-store-categories";
 import styles from "../owner.module.css";
 
-type Product = { id:string; title:string; description:string; category?:string; cost:number; price:number; status:string; source?:string; supplier?:string; shopify_id?:number; storefront_url?:string; sku?:string; inventory_quantity?:number; inventory_policy?:"deny"|"continue"; image_url?:string; images?:string[] };
+type Product = { id:string; title:string; description:string; category?:string; cost:number; price:number; status:string; source?:string; supplier?:string; supplier_url?:string; shopify_id?:number; storefront_url?:string; sku?:string; inventory_quantity?:number; inventory_policy?:"deny"|"continue"; image_url?:string; images?:string[]; video_url?:string; audio_url?:string };
 type MigrationResult = { ok?:boolean; legacy_found?:number; archived_count?:number; botanica_drafts_created?:number; final_active_legacy?:number; final_botanica_products?:number; errors?:string[] };
 type DiagnosticRow = { id:string; title:string; handle:string; productType:string; vendor:string; published:boolean; botanica:boolean; positivePrice:boolean; inventoryAvailable:boolean; publishable:boolean; reasons:string[] };
 type CatalogDiagnostics = {
@@ -36,6 +36,7 @@ export default function OwnerCatalogPage() {
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [uploadStatus, setUploadStatus] = useState("");
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   useEffect(() => { setToken(localStorage.getItem("commerce_os_token") ?? ""); setOrgId(localStorage.getItem("commerce_os_org") ?? ""); }, []);
   const headers = useMemo(() => ({ "Content-Type":"application/json", ...(token ? { Authorization:`Bearer ${token}` } : {}) }), [token]);
@@ -109,12 +110,28 @@ export default function OwnerCatalogPage() {
         setUploadStatus("Imágenes cargadas. Guardando producto…");
       }
       const res = await fetch(`/api/orgs/${oid}/owner-catalog`, { method:"POST", headers, body:JSON.stringify({
-        title:form.get("title"), description:form.get("description"), supplier:form.get("supplier"), supplier_url:form.get("supplier_url"),
+        title:form.get("title"), description:form.get("description"), supplier:form.get("supplier"), supplier_url:form.get("supplier_url"), video_url:form.get("video_url"), audio_url:form.get("audio_url"),
         sku:form.get("sku"), product_type:form.get("product_type"), cost:Number(form.get("cost") ?? 0), price:Number(form.get("price") ?? 0),
         images, inventory_quantity:Number(form.get("inventory_quantity") ?? 0), inventory_policy:form.get("inventory_policy"), sync_shopify:form.get("sync_shopify") === "on", publish:form.get("publish") === "on",
       }) });
       const body = await res.json().catch(() => ({})); if (!res.ok) throw new Error(body.detail ?? `Request failed (${res.status})`);
       formElement.reset(); setSelectedImages([]); setUploadStatus("Producto guardado en el catálogo nativo."); await refresh(); await refreshDiagnostics();
+    } catch (err) { setError(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); }
+  }
+
+  async function saveProductEdits(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault(); if (!editingProduct) return;
+    setBusy(true); setError(""); const form = new FormData(e.currentTarget);
+    try {
+      const oid = await resolveOrg(); if (!oid) throw new Error("Owner organization could not be resolved.");
+      const res = await fetch(`/api/orgs/${oid}/owner-catalog`, { method:"PATCH", headers, body:JSON.stringify({
+        product_id:editingProduct.id, title:form.get("title"), sku:form.get("sku"), category:form.get("category"), description:form.get("description"),
+        supplier:form.get("supplier"), supplier_url:form.get("supplier_url"), cost:Number(form.get("cost") ?? 0), price:Number(form.get("price") ?? 0),
+        inventory_quantity:Number(form.get("inventory_quantity") ?? 0), inventory_policy:form.get("inventory_policy"), video_url:form.get("video_url"), audio_url:form.get("audio_url"),
+        images:String(form.get("images") ?? "").split(/\n|,/).map((value) => value.trim()).filter(Boolean),
+      }) });
+      const body = await res.json().catch(() => ({})); if (!res.ok) throw new Error(body.detail ?? `Request failed (${res.status})`);
+      setProducts((current) => current.map((item) => item.id === editingProduct.id ? body.product : item)); setEditingProduct(null);
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); }
   }
 
@@ -179,6 +196,8 @@ export default function OwnerCatalogPage() {
           <label>Proveedor<input className={styles.input} name="supplier" placeholder="Nombre del proveedor"/></label><label>URL del proveedor<input className={styles.input} name="supplier_url" type="url" placeholder="https://…"/></label><label>Costo para ti<input className={styles.input} name="cost" type="number" min="0" step="0.01" placeholder="0.00"/></label>
           <label>Precio de venta *<input className={styles.input} name="price" type="number" min="0.01" step="0.01" required placeholder="0.00"/></label><label>Inventario *<input className={styles.input} name="inventory_quantity" type="number" min="0" step="1" required defaultValue="1"/></label><label>Cuando se agote<select className={styles.input} name="inventory_policy" defaultValue="deny"><option value="deny">Detener ventas</option><option value="continue">Permitir pedidos pendientes</option></select></label>
           <label className={styles.full}>Descripción<textarea className={styles.textarea} name="description" placeholder="Escribe o pega aquí la descripción, tamaño, contenido, presentación e instrucciones del producto."/></label>
+          <label className={styles.full}>Video del producto (opcional)<input className={styles.input} name="video_url" type="url" placeholder="https://… enlace directo a video MP4 o WebM"/></label>
+          <label className={styles.full}>Audio del producto (opcional)<input className={styles.input} name="audio_url" type="url" placeholder="https://… archivo MP3, WAV u OGG"/></label>
           <label className={styles.full}>Imágenes del producto *<input className={styles.input} type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple required={selectedImages.length===0} onChange={(event) => setSelectedImages(Array.from(event.target.files ?? []).slice(0,8))}/><small>Sube archivos o copia y pega imágenes dentro de este formulario · hasta 8 imágenes · JPG, PNG, WebP o GIF · máximo 5 MB cada una.</small></label>
           {!!imagePreviews.length && <div className={styles.full} style={{display:"flex",gap:12,flexWrap:"wrap"}}>{imagePreviews.map((url,index) => <img key={url} src={url} alt={`Vista previa ${index+1}`} style={{width:96,height:96,objectFit:"cover",borderRadius:12}}/>)}</div>}
           <details className={styles.full}><summary>Opcional: usar URLs de imágenes</summary><textarea className={styles.textarea} name="images" placeholder="Una URL por línea"/></details>
@@ -188,9 +207,21 @@ export default function OwnerCatalogPage() {
         </form>
       </section>
 
+      {editingProduct && <section className={styles.section} id="edit-product">
+        <div className={styles.sectionHead}><div><span>EDITOR COMPLETO</span><h2>Editar {editingProduct.title}</h2><p>Actualiza toda la información nativa del producto en un solo lugar.</p></div><button className={styles.ghost} onClick={() => setEditingProduct(null)}>Cancelar</button></div>
+        <form onSubmit={saveProductEdits} className={`${styles.card} ${styles.form}`}>
+          <label>Nombre *<input className={styles.input} name="title" required defaultValue={editingProduct.title}/></label><label>SKU<input className={styles.input} name="sku" defaultValue={editingProduct.sku}/></label><label>Categoría *<select className={styles.input} name="category" required defaultValue={editingProduct.category}>{BOTANICA_STORE_CATEGORIES.map((category) => <option key={category}>{category}</option>)}</select></label>
+          <label>Proveedor<input className={styles.input} name="supplier" defaultValue={editingProduct.supplier}/></label><label>URL del proveedor<input className={styles.input} name="supplier_url" type="url" defaultValue={editingProduct.supplier_url}/></label><label>Costo<input className={styles.input} name="cost" type="number" min="0" step="0.01" defaultValue={editingProduct.cost}/></label>
+          <label>Precio *<input className={styles.input} name="price" type="number" min="0.01" step="0.01" required defaultValue={editingProduct.price}/></label><label>Inventario<input className={styles.input} name="inventory_quantity" type="number" min="0" step="1" defaultValue={editingProduct.inventory_quantity ?? 0}/></label><label>Cuando se agote<select className={styles.input} name="inventory_policy" defaultValue={editingProduct.inventory_policy ?? "deny"}><option value="deny">Detener ventas</option><option value="continue">Permitir pedidos pendientes</option></select></label>
+          <label className={styles.full}>Descripción<textarea className={styles.textarea} name="description" defaultValue={editingProduct.description}/></label><label className={styles.full}>URLs de imágenes<textarea className={styles.textarea} name="images" defaultValue={(editingProduct.images ?? []).join("\n")} placeholder="Una URL por línea"/></label>
+          <label className={styles.full}>Video<input className={styles.input} name="video_url" type="url" defaultValue={editingProduct.video_url} placeholder="https://…"/></label><label className={styles.full}>Audio<input className={styles.input} name="audio_url" type="url" defaultValue={editingProduct.audio_url} placeholder="https://…"/></label>
+          <div className={styles.full}><button disabled={busy} className={styles.primary}>{busy ? "Guardando…" : "Guardar todos los cambios"}</button></div>
+        </form>
+      </section>}
+
       <section className={styles.section}>
         <div className={styles.sectionHead}><div><span>MANAGED INVENTORY</span><h2>Catalog records.</h2></div><button className={styles.ghost} onClick={() => void refresh()} disabled={busy}>Refresh</button></div>
-        <div className={styles.productList}>{products.map((p) => <article key={p.id} className={`${styles.card} ${styles.productRow}`}><div><div className={styles.kicker}>{p.source === "shopify_import" ? "IMPORTED · NOW OWNED LOCALLY" : "NATIVE PRODUCT"}</div><h2>{p.title}</h2><div className={styles.productMeta}>{p.status} · ${Number(p.price || 0).toFixed(2)} retail · ${Number(p.cost || 0).toFixed(2)} cost · inventory {p.inventory_quantity ?? "untracked"} {p.shopify_id ? `· Shopify #${p.shopify_id}` : "· Shopify independent"}</div>{p.storefront_url && <a className={styles.footer} href={p.storefront_url} target="_blank" rel="noreferrer">Open Shopify copy ↗</a>}</div><div className={styles.rowActions}><button disabled={busy} onClick={() => void updateNativeProduct(p,"price")} className={styles.ghost}>Price</button><button disabled={busy} onClick={() => void updateNativeProduct(p,"inventory")} className={styles.ghost}>Inventory</button><button disabled={busy || p.status === "killed"} onClick={() => void updateNativeProduct(p,"publish")} className={styles.primary}>{p.status === "launched" ? "Unpublish" : "Publish"}</button><button disabled={busy || p.status === "killed"} onClick={() => void removeProduct(p,"archive")} className={styles.ghost}>Archive</button><button disabled={busy} onClick={() => void removeProduct(p,"delete")} className={styles.danger}>Delete permanently</button></div></article>)}{!products.length && <div className={styles.empty}>No products found for this organization.</div>}</div>
+        <div className={styles.productList}>{products.map((p) => <article key={p.id} className={`${styles.card} ${styles.productRow}`}><div><div className={styles.kicker}>{p.source === "shopify_import" ? "IMPORTED · NOW OWNED LOCALLY" : "NATIVE PRODUCT"}</div><h2>{p.title}</h2><div className={styles.productMeta}>{p.status} · ${Number(p.price || 0).toFixed(2)} retail · ${Number(p.cost || 0).toFixed(2)} cost · inventory {p.inventory_quantity ?? "untracked"} {p.shopify_id ? `· Shopify #${p.shopify_id}` : "· Shopify independent"}{p.video_url ? " · video" : ""}{p.audio_url ? " · audio" : ""}</div>{p.storefront_url && <a className={styles.footer} href={p.storefront_url} target="_blank" rel="noreferrer">Open Shopify copy ↗</a>}</div><div className={styles.rowActions}><button disabled={busy} onClick={() => { setEditingProduct(p); requestAnimationFrame(() => document.getElementById("edit-product")?.scrollIntoView({behavior:"smooth"})); }} className={styles.primary}>Edit all details</button><button disabled={busy} onClick={() => void updateNativeProduct(p,"price")} className={styles.ghost}>Price</button><button disabled={busy} onClick={() => void updateNativeProduct(p,"inventory")} className={styles.ghost}>Inventory</button><button disabled={busy || p.status === "killed"} onClick={() => void updateNativeProduct(p,"publish")} className={styles.primary}>{p.status === "launched" ? "Unpublish" : "Publish"}</button><button disabled={busy || p.status === "killed"} onClick={() => void removeProduct(p,"archive")} className={styles.ghost}>Archive</button><button disabled={busy} onClick={() => void removeProduct(p,"delete")} className={styles.danger}>Delete permanently</button></div></article>)}{!products.length && <div className={styles.empty}>No products found for this organization.</div>}</div>
       </section>
       <footer className={styles.footer}><span>BOTANICA OCHOSI Owner Catalog</span><a href="/owner">← Back to Owner OS</a></footer>
     </div>
