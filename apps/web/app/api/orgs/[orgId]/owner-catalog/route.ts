@@ -81,6 +81,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ orgId: 
     source: "owner_manual",
     supplier_url: String(body.supplier_url ?? ""),
     supplier: String(body.supplier ?? ""),
+    supplier_sku: String(body.supplier_sku ?? "").trim().slice(0, 180) || undefined,
+    supplier_contact: String(body.supplier_contact ?? "").trim().slice(0, 500) || undefined,
+    country_of_origin: String(body.country_of_origin ?? "").trim().slice(0, 120) || undefined,
+    provenance_notes: String(body.provenance_notes ?? "").trim().slice(0, 3000) || undefined,
+    reorder_url: String(body.reorder_url ?? body.supplier_url ?? "").trim().slice(0, 1000) || undefined,
+    reorder_moq: Math.max(1, Math.floor(Number(body.reorder_moq) || 1)),
+    reorder_case_pack: Math.max(1, Math.floor(Number(body.reorder_case_pack) || 1)),
+    reorder_lead_time_days: Math.max(0, Math.floor(Number(body.reorder_lead_time_days) || 0)),
+    provenance_verified_at: String(body.provenance_verified_at ?? "").trim().slice(0, 10) || undefined,
     cost,
     price,
     status: publish ? "launched" : "discovered",
@@ -124,6 +133,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ orgId:
   if (typeof body.sku === "string") patch.sku = body.sku.trim() || undefined;
   if (typeof body.supplier === "string") patch.supplier = body.supplier.trim().slice(0, 180) || undefined;
   if (typeof body.supplier_url === "string") patch.supplier_url = body.supplier_url.trim().slice(0, 1000);
+  if (typeof body.supplier_sku === "string") patch.supplier_sku = body.supplier_sku.trim().slice(0, 180) || undefined;
+  if (typeof body.supplier_contact === "string") patch.supplier_contact = body.supplier_contact.trim().slice(0, 500) || undefined;
+  if (typeof body.country_of_origin === "string") patch.country_of_origin = body.country_of_origin.trim().slice(0, 120) || undefined;
+  if (typeof body.provenance_notes === "string") patch.provenance_notes = body.provenance_notes.trim().slice(0, 3000) || undefined;
+  if (typeof body.reorder_url === "string") patch.reorder_url = body.reorder_url.trim().slice(0, 1000) || undefined;
+  if (body.reorder_moq !== undefined) patch.reorder_moq = Math.max(1, Math.floor(Number(body.reorder_moq) || 1));
+  if (body.reorder_case_pack !== undefined) patch.reorder_case_pack = Math.max(1, Math.floor(Number(body.reorder_case_pack) || 1));
+  if (body.reorder_lead_time_days !== undefined) patch.reorder_lead_time_days = Math.max(0, Math.floor(Number(body.reorder_lead_time_days) || 0));
+  if (typeof body.provenance_verified_at === "string") patch.provenance_verified_at = body.provenance_verified_at.trim().slice(0, 10) || undefined;
   if (typeof body.video_url === "string") patch.video_url = body.video_url.trim().slice(0, 1000) || undefined;
   if (typeof body.audio_url === "string") patch.audio_url = body.audio_url.trim().slice(0, 1000) || undefined;
   if (Array.isArray(body.images)) {
