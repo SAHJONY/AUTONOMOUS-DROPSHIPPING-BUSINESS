@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { BOTANICA_CONTACT_EMAILS } from "./botanica-contact";
 import { kv } from "./kv";
 import { postEntries } from "./ledger";
 import { findOrderByExternalId, saveOrder } from "./orders";
@@ -20,7 +21,7 @@ export type NativeStoreSettings = {
 export const DEFAULT_NATIVE_STORE_SETTINGS: NativeStoreSettings = {
   storeName: "BOTANICA OCHOSI",
   currency: "usd",
-  supportEmail: "",
+  supportEmail: BOTANICA_CONTACT_EMAILS.support,
   flatShippingUsd: 6.99,
   freeShippingThresholdUsd: 75,
   allowedCountries: ["US"],

@@ -1,6 +1,7 @@
 "use client";
 
 import { ClipboardEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { productionCatalogReadiness } from "@/lib/botanica-first-25-native";
 import { BOTANICA_STORE_CATEGORIES } from "@/lib/botanica-store-categories";
 import styles from "../owner.module.css";
 
@@ -14,6 +15,7 @@ type CatalogDiagnostics = {
   exclusions:{ notPublished:number; notBotanicaMatch:number; noPositivePrice:number; noInventory:number };
   products:DiagnosticRow[];
 };
+type First25Result = { ok:boolean; created:number; already_present:number; total_candidates:number };
 
 const REASON_LABELS: Record<string, string> = {
   not_active: "not active",
@@ -37,9 +39,11 @@ export default function OwnerCatalogPage() {
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [uploadStatus, setUploadStatus] = useState("");
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [first25Result, setFirst25Result] = useState<First25Result | null>(null);
 
   useEffect(() => { setToken(localStorage.getItem("commerce_os_token") ?? ""); setOrgId(localStorage.getItem("commerce_os_org") ?? ""); }, []);
   const headers = useMemo(() => ({ "Content-Type":"application/json", ...(token ? { Authorization:`Bearer ${token}` } : {}) }), [token]);
+  const productionGate = useMemo(() => productionCatalogReadiness(products), [products]);
 
   async function resolveOrg() {
     if (!token) return ""; if (orgId) return orgId;
@@ -92,6 +96,18 @@ export default function OwnerCatalogPage() {
       const res = await fetch(`/api/orgs/${oid}/owner-catalog/migrate`, { method:"POST", headers, body:JSON.stringify({ confirmation }) });
       const body = await res.json().catch(() => ({})); if (!res.ok && res.status !== 207) throw new Error(body.detail ?? `Request failed (${res.status})`);
       setMigration(body); await refresh(); await refreshDiagnostics();
+    } catch (err) { setError(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); }
+  }
+
+  async function createFirst25Drafts() {
+    const confirmation = window.prompt("Esto crea los 25 candidatos reales como borradores HOLD. No publica ni inventa precio, costo, inventario o imágenes. Escribe:\nCREATE FIRST 25 HOLD DRAFTS") ?? "";
+    if (confirmation !== "CREATE FIRST 25 HOLD DRAFTS") return;
+    setBusy(true); setError(""); setFirst25Result(null);
+    try {
+      const oid = await resolveOrg(); if (!oid) throw new Error("Owner organization could not be resolved.");
+      const res = await fetch(`/api/orgs/${oid}/owner-catalog/first-25`, { method:"POST", headers, body:JSON.stringify({ confirmation }) });
+      const body = await res.json().catch(() => ({})); if (!res.ok) throw new Error(body.detail ?? `Request failed (${res.status})`);
+      setFirst25Result(body as First25Result); await refresh();
     } catch (err) { setError(err instanceof Error ? err.message : String(err)); } finally { setBusy(false); }
   }
 
@@ -165,6 +181,14 @@ export default function OwnerCatalogPage() {
       <section className={styles.hero}><div className={styles.kicker}>CATÁLOGO NATIVO · SHOPIFY OPCIONAL</div><h1>Añade y administra <em>productos.</em></h1><p>Sube imágenes desde tu teléfono o computadora, escribe la información, fija precio e inventario y publica directamente en tu tienda.</p><div className={styles.heroActions}><a className={styles.primary} href="#add-product">+ Añadir producto</a><a className={styles.ghost} href="/shop" target="_blank" rel="noreferrer">Ver tienda ↗</a><button className={styles.ghost} onClick={() => void refresh()} disabled={busy || !token}>Importar Shopify</button><a className={styles.ghost} href="/owner/native-store">Configurar tienda</a></div></section>
       {error && <div className={styles.error}>{error}</div>}
       {shopifySync && <div className={styles.result}>{shopifySync}</div>}
+
+      <section className={`${styles.card} ${styles.migration}`}>
+        <div className={styles.sectionHead}><div><span>CRITERIO DE PRODUCCIÓN · FIRST 25</span><h2>{productionGate.ready}/25 productos completamente listos.</h2><p>La tienda permanece PRE-LIVE hasta que 25 productos publicados tengan SKU, categoría, descripción, proveedor, recompra, procedencia verificada, costo, margen, inventario, imagen y datos de envío.</p></div><div className={productionGate.productionReady ? styles.ok : styles.warning}>{productionGate.productionReady ? "LIVE GATE PASSED" : "PRE-LIVE"}</div></div>
+        <div className={styles.productMeta}>Publicados {productionGate.live} · completos {productionGate.ready} · objetivo {productionGate.target}</div>
+        <div className={styles.heroActions}><button className={styles.primary} disabled={busy || !token} onClick={() => void createFirst25Drafts()}>{busy ? "Procesando…" : "Cargar First 25 como HOLD"}</button><a className={styles.ghost} href="/owner/communications">Solicitar cotizaciones y evidencia</a></div>
+        <p>La carga es idempotente y segura: conserva el catálogo existente y nunca activa ventas.</p>
+        {first25Result && <div className={styles.result}>Candidatos creados {first25Result.created} · ya presentes {first25Result.already_present} · total {first25Result.total_candidates}</div>}
+      </section>
 
       <section className={`${styles.card} ${styles.migration}`}>
         <div className={styles.sectionHead}><div><span>PUBLIC CATALOG AUDIT</span><h2>Shopify publishability.</h2></div><button className={styles.ghost} onClick={() => void refreshDiagnostics()} disabled={!token || busy}>Refresh audit</button></div>
