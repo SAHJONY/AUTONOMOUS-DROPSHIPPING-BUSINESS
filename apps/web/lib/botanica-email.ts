@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { BOTANICA_CONTACT_EMAILS } from "./botanica-contact";
 import { kv, listGet, listPush, listReplace } from "./kv";
 import { newId, nowISO } from "./store";
 import { notifyOwnerTelegram } from "./telegram";
@@ -19,9 +20,9 @@ export type BotanicaEmailMessage = {
 const apiKey = process.env.RESEND_API_KEY ?? "";
 export const BOTANICA_EMAIL_FROM = process.env.BOTANICA_EMAIL_FROM ?? "BOTANICA OCHOSI <suppliers@botanicaochosi.com>";
 /** Every customer and supplier reply is centralized in the owner Gmail inbox. */
-export const BOTANICA_EMAIL_REPLY_TO = "botanicaochosi@gmail.com";
-/** Every application-originated and inbound message is also copied to Gmail. */
-export const BOTANICA_GMAIL_MIRROR = "botanicaochosi@gmail.com";
+export const BOTANICA_EMAIL_REPLY_TO = BOTANICA_CONTACT_EMAILS.suppliers;
+/** Supplier correspondence is copied to its Gmail department route. */
+export const BOTANICA_GMAIL_MIRROR = BOTANICA_CONTACT_EMAILS.suppliers;
 export const BOTANICA_EMAIL_ORG_ID = process.env.BOTANICA_EMAIL_ORG_ID ?? "";
 export const RESEND_WEBHOOK_SECRET = process.env.RESEND_WEBHOOK_SECRET ?? "";
 // The placeholder keeps build/test imports side-effect free; every network path

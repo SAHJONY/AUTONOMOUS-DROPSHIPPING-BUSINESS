@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { BOTANICA_STORE_CATEGORIES } from "@/lib/botanica-store-categories";
+import { BOTANICA_CONTACT_EMAILS } from "@/lib/botanica-contact";
 import styles from "./shop.module.css";
 import enhanced from "./shop-enhanced.module.css";
 
@@ -289,14 +290,14 @@ export default function ShopPage() {
         <button className={styles.primary} onClick={shareStore}>Compartir www.botanicaochosi.com</button>
       </section>
 
-      <section className={enhanced.wholesaleBand}><div><span className={styles.eyebrow}>BOTÁNICAS · PRACTICANTES · COMUNIDAD</span><h2>¿Buscas cantidades mayores?</h2><p>Preparamos opciones por volumen únicamente cuando precio, disponibilidad y condiciones están confirmados. Consulta desde nuestros canales digitales.</p></div><a href="mailto:botanicaochosi@gmail.com?subject=Consulta%20de%20compra%20por%20volumen">Consultar por volumen</a></section>
+      <section className={enhanced.wholesaleBand}><div><span className={styles.eyebrow}>BOTÁNICAS · PRACTICANTES · COMUNIDAD</span><h2>¿Buscas cantidades mayores?</h2><p>Preparamos opciones por volumen únicamente cuando precio, disponibilidad y condiciones están confirmados. Consulta directamente con nuestro departamento mayorista.</p></div><a href={`mailto:${BOTANICA_CONTACT_EMAILS.wholesale}?subject=Consulta%20de%20compra%20por%20volumen`}>Consultar por volumen</a></section>
 
       <footer className={styles.footer}>
         <div className={styles.brand}><span className={styles.mark}>O</span><span><strong>BOTANICA</strong><small>OCHOSI</small></span></div>
         <span>Tradición · cultura · comunidad · comercio responsable</span>
         <button className={enhanced.footerShare} onClick={shareStore}>Compartir tienda</button>
       </footer>
-      <div className={enhanced.legalFooter}><span>© {new Date().getFullYear()} BOTANICA OCHOSI</span><span>La información comercial no sustituye orientación religiosa, médica o legal.</span><a href="/policies">Envíos · devoluciones · privacidad</a><a href="mailto:botanicaochosi@gmail.com">Contacto</a></div>
+      <div className={enhanced.legalFooter}><span>© {new Date().getFullYear()} BOTANICA OCHOSI</span><span>La información comercial no sustituye orientación religiosa, médica o legal.</span><a href="/policies">Envíos · devoluciones · privacidad</a><a href={`mailto:${BOTANICA_CONTACT_EMAILS.general}?subject=Contacto%20BOTANICA%20OCHOSI`}>Contacto</a></div>
 
       <aside className={`${styles.cartDrawer} ${cartOpen ? styles.cartOpen : ""}`} aria-hidden={!cartOpen}>
         <div className={styles.cartHead}><div><span className={styles.eyebrow}>TU COMPRA</span><h2>Carrito</h2></div><button onClick={() => setCartOpen(false)} aria-label="Cerrar carrito">×</button></div>
