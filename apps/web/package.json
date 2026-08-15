@@ -3,6 +3,9 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
+    "generate:brand": "node scripts/generate-ochosi-brand-assets.mjs",
+    "pretypecheck": "npm run generate:brand",
+    "prebuild": "npm run generate:brand",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
