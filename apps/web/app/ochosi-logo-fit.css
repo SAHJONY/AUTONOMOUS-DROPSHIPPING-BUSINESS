@@ -1,0 +1,30 @@
+/* Precision fit for the OCHOSI application mark.
+   Keep the source artwork untouched; crop/zoom it optically in CSS.
+   Final artifact marker: circle-fit-v1. */
+[class*="_mark__"]{
+  width:54px!important;
+  height:54px!important;
+  flex:0 0 54px!important;
+  aspect-ratio:1/1!important;
+  border-radius:50%!important;
+  border:1px solid rgba(223,198,108,.72)!important;
+  overflow:hidden!important;
+  color:transparent!important;
+  font-size:0!important;
+  background-color:#07110b!important;
+  background-repeat:no-repeat!important;
+  background-position:center 42%!important;
+  background-size:142% auto!important;
+  box-shadow:0 0 0 2px rgba(7,17,11,.85),0 8px 24px rgba(0,0,0,.28),0 0 24px rgba(211,173,79,.16)!important;
+}
+
+[class*="_heroSeal__"]{
+  border-radius:50%!important;
+  overflow:hidden!important;
+  background-repeat:no-repeat!important;
+  background-position:center 43%!important;
+  background-size:128% auto!important;
+  box-shadow:inset 0 0 0 2px rgba(223,198,108,.52),0 30px 80px rgba(0,0,0,.45)!important;
+}
+
+[class*="_heroSeal__"]>*{visibility:hidden!important}
