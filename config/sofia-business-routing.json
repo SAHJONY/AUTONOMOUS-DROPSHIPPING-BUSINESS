@@ -1,0 +1,63 @@
+{
+  "schema": "sahjony.sofia.business-routing.v1",
+  "version": "2026-09-08",
+  "identity": {
+    "name": "Sofia Smith",
+    "role": "Executive Manager",
+    "owner_command_center": true
+  },
+  "channels": {
+    "voice": {
+      "number": "+13465346545",
+      "provider": "Autocalls",
+      "production": true
+    },
+    "whatsapp": {
+      "number": "+12816628581",
+      "production": true
+    }
+  },
+  "routing_registry": [
+    {
+      "id": "global_trade",
+      "name": "SAHJONY Global Trade",
+      "isolation": "business"
+    },
+    {
+      "id": "wholesale_real_estate",
+      "name": "Wholesale Real Estate",
+      "isolation": "business"
+    },
+    {
+      "id": "ecommerce",
+      "name": "SAHJONY E-Commerce",
+      "isolation": "business"
+    },
+    {
+      "id": "marketing_agency",
+      "name": "SAHJONY Marketing Agency",
+      "isolation": "business"
+    },
+    {
+      "id": "frontdesk",
+      "name": "FrontDesk Agents",
+      "isolation": "business"
+    },
+    {
+      "id": "energy",
+      "name": "SAHJONY Energy",
+      "isolation": "business"
+    },
+    {
+      "id": "cima_real_estate",
+      "name": "CIMA Real Estate",
+      "isolation": "business"
+    }
+  ],
+  "governance": {
+    "cross_business_data_leakage": false,
+    "binding_actions_require_owner_approval": true,
+    "shared_identity_separate_business_contexts": true
+  },
+  "canonical_health": "https://www.sahjony.com/communications/sofia-unified/health"
+}
